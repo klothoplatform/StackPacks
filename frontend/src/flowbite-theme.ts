@@ -27,21 +27,6 @@ const flowbiteTheme: CustomFlowbiteTheme = {
       },
     },
   },
-  badge: {
-    root: {
-      color: {
-        info: "bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-800 group-hover:bg-blue-200 dark:group-hover:bg-blue-300",
-        primary:
-          "bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-800 group-hover:bg-blue-200 dark:group-hover:bg-blue-300",
-      },
-      size: {
-        xl: "px-3 py-2 text-base rounded-md",
-      },
-    },
-    icon: {
-      off: "rounded-full px-2 py-1",
-    },
-  },
   button: {
     base: "group flex items-stretch items-center justify-center p-0.5 text-center relative focus:outline-none",
     color: {

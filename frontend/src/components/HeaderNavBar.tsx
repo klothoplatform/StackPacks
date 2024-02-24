@@ -8,7 +8,7 @@ import {
 import LoginButton from "../auth/Login";
 import useApplicationStore from "../pages/store/ApplicationStore";
 import { Link } from "react-router-dom";
-import { useScreenSize } from "../shared/hooks/useScreenSize";
+import { useScreenSize } from "../hooks/useScreenSize";
 
 interface NavbarProps {}
 
@@ -24,7 +24,7 @@ export const HeaderNavBar: FC<PropsWithChildren<NavbarProps>> = function ({
               StackPacks
             </span>
           </Navbar.Brand>
-          <div className="mr-3 h-5 border-r-[1px] border-gray-300 py-4 shadow-black dark:border-gray-700"></div>
+          <div className="mr-3 h-5 py-4 shadow-black"></div>
           <div className="w-full items-start">{children}</div>
         </div>
       </div>

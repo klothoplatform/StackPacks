@@ -1,26 +1,9 @@
 import React, { type FC, useEffect } from "react";
-import { Route, Routes } from "react-router";
 import useApplicationStore from "./pages/store/ApplicationStore";
 import { useAuth0 } from "@auth0/auth0-react";
-
-import { AnalyticsBrowser } from "@segment/analytics-next";
-import { env } from "./shared/environment";
-import StacksPage from "./pages/StacksPage";
-import {CallbackPage} from "./pages/CallbackPage";
-
-export const analytics = AnalyticsBrowser.load(
-  {
-    writeKey: env.analytics.writeKey,
-    cdnURL: "https://analytics.infracopilot.io",
-  },
-  {
-    integrations: {
-      "Segment.io": {
-        apiHost: "api.analytics.infracopilot.io/v1",
-      },
-    },
-  },
-);
+import { Route, Routes } from "react-router-dom";
+import { CallbackPage } from "./pages/CallbackPage";
+import OnboardingPage from "./pages/onboarding/OnboardingPage";
 
 const App: FC = function () {
   const { updateAuthentication } = useApplicationStore();
@@ -32,7 +15,7 @@ const App: FC = function () {
 
   return (
     <Routes>
-      <Route path="/" element={<StacksPage />} />
+      <Route path="/" element={<OnboardingPage />} />
       <Route path="/callback" element={<CallbackPage />} />
     </Routes>
   );

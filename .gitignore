@@ -163,6 +163,7 @@ cython_debug/
 .idea/
 
 node_modules/
+.vite/
 
 /state/
 /failures/

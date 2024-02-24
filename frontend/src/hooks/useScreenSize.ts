@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { screenSizeIsAtMost } from "../../helpers/screen-size";
+import { screenSizeIsAtMost } from "../helpers/screen-size";
 
 interface ScreenSize {
   isSmallScreen: boolean;

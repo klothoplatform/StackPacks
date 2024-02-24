@@ -8,8 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     eslint({
-      cache: true,
-      fix: true,
+      fix: process.env.ESLINT_FIX?.toLowerCase() === "true",
     }),
   ],
   test: {
