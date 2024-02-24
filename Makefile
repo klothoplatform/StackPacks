@@ -9,7 +9,7 @@ run:
 
 test-backend:
 	PYTHONPATH=. pipenv run coverage run --source=src -m unittest discover
-	PYTHONPATH=. pipenv run coverage report -m --fail-under 68
+	PYTHONPATH=. pipenv run coverage report -m --fail-under 70
 
 black:
 	pipenv run black .
