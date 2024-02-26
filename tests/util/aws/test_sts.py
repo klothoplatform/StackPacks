@@ -10,7 +10,7 @@ from src.util.aws.sts import (
 
 class TestAssumeRole(aiounittest.AsyncTestCase):
     @mock_aws
-    async def test_assume_role(self):
+    def test_assume_role(self):
         # Mock the sts_client.assume_role method
         sts_client = boto3.client("sts")
         sts_client.assume_role = lambda RoleArn, RoleSessionName: {
