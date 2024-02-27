@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "*"
+uvicorn = "*"
+pyjwt = "*"
+aiounittest = "*"
+jsons = "*"
+pyyaml = "*"
+gunicorn = "*"
+black = "*"
+pulumi = "*"
+sse-starlette = "*"
+boto3 = "*"
+moto = "*"
+pynamodb = "*"
+
+[dev-packages]
+black = "*"
+pre-commit = "*"
+coverage = "*"
+moto = "*"
+
+[requires]
+python_version = "3.11"
