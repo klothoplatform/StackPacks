@@ -19,7 +19,6 @@ class UserPack(Model):
         host = os.environ.get("DYNAMODB_HOST", None)
 
     user_id: str = UnicodeAttribute(hash_key=True)
-    packages: list[str] = UnicodeSetAttribute()
     # Configuration is a dictionary where the keys are the oss package
     # and the value is another dictionary of the key value configurations for that oss package
     configuration: dict = JSONAttribute()
