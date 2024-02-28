@@ -13,13 +13,13 @@ else
   echo '│ Running CI checks. To skip them, export SKIP_IFCP_CI_CHECKS=1. │'
   echo '╰──────────────────────────────────────────────────────────────────╯'
 
-  echo 'Running tests...'
-  make test
+  echo 'Running frontend tests...'
+  make test-frontend
   echo '✅'
 
   echo '────────────────────────────────────────────────────────────────────'
-  echo 'Running coverage...'
-  make test-coverage
+  echo 'Running backend tests with coverage...'
+  make test-backend
   echo '✅'
 
   if hash black ; then
