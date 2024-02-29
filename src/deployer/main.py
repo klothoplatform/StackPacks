@@ -46,14 +46,14 @@ async def build_and_deploy(
         status_reason="Deployment in progress",
         initiated_by=user,
     )
-    for k, v in pulumi_config.items():
-        pulumi_stack.set_config(k, auto.ConfigValue(v, secret=True))
 
     pulumi_stack.save()
     deployment.save()
     with AppBuilder(create_sts_client()) as builder:
         stack = builder.prepare_stack(iac, pulumi_stack)
         builder.configure_aws(stack, assume_role_arn, region)
+        for k, v in pulumi_config.items():
+            stack.set_config(k, auto.ConfigValue(v, secret=True))
         deployer = AppDeployer(
             stack,
         )

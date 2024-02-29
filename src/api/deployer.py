@@ -39,9 +39,9 @@ async def install(
     body: DeploymentRequest,
 ):
     user_id = await get_user_id(request)
-    user_pack = UserPack.get(user_id)
+    user_pack = UserPack.get(user_id, user_id)
     store = get_iac_storage()
-    iac = store.get_iac(user_pack)
+    iac = store.get_iac(user_pack.id)
 
     sps = get_stack_packs()
 
@@ -70,9 +70,9 @@ async def tear_down(
     body: DeploymentRequest,
 ):
     user_id = await get_user_id(request)
-    user_pack = UserPack.get(user_id)
+    user_pack = UserPack.get(user_id, user_id)
     store = get_iac_storage()
-    iac = store.get_iac(user_pack)
+    iac = store.get_iac(user_pack.id)
 
     sps = get_stack_packs()
 
