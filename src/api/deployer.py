@@ -22,12 +22,6 @@ from src.dependencies.injection import get_iac_storage
 router = APIRouter()
 
 
-class DeploymentRequest(BaseModel):
-    region: str
-    assume_role_arn: str
-    packages: list[str]
-
-
 def read_zip_to_bytes(zip_file_path):
     with open(zip_file_path, "rb") as file:
         return file.read()
@@ -36,7 +30,6 @@ def read_zip_to_bytes(zip_file_path):
 @router.post("/api/install")
 async def install(
     request: Request,
-    body: DeploymentRequest,
 ):
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id, user_id)
@@ -56,7 +49,14 @@ async def install(
     deployments[deployment_id] = q
     p = Process(
         target=run_build_and_deploy,
-        args=(q, body.region, body.assume_role_arn, user_id, iac, pulumi_config),
+        args=(
+            q,
+            user_pack.region,
+            user_pack.assume_role_arn,
+            user_id,
+            iac,
+            pulumi_config,
+        ),
     )
     p.start()
     # Start the deployment in the background
@@ -67,7 +67,6 @@ async def install(
 @router.post("/api/tear_down")
 async def tear_down(
     request: Request,
-    body: DeploymentRequest,
 ):
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id, user_id)
@@ -89,7 +88,14 @@ async def tear_down(
     logger.info(f"Starting destroy for {deployment_id}")
     p = Process(
         target=run_destroy_loop,
-        args=(q, body.region, body.assume_role_arn, user_id, iac, pulumi_config),
+        args=(
+            q,
+            user_pack.region,
+            user_pack.assume_role_arn,
+            user_id,
+            iac,
+            pulumi_config,
+        ),
     )
     p.start()
     # start destroy in the background

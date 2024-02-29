@@ -12,7 +12,16 @@ Content-Type: application/json
 
 ###
 
+PATCH http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "region": 
+  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks"
+}
+
 GET http://localhost:3000/api/stack
 
 ###
 
+POST http://localhost:3000/api/install
