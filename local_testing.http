@@ -1,0 +1,18 @@
+# Create Stack
+POST http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "configuration": {
+    "mattermost": {
+      "DBPassword": "hunter2"
+    }
+  }
+}
+
+###
+
+GET http://localhost:3000/api/stack
+
+###
+

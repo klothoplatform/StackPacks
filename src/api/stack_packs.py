@@ -8,18 +8,20 @@ from src.auth.token import get_user_id
 
 from src.util.logging import logger
 
-from src.stack_pack import ConfigValues, get_stack_packs
 from src.stack_pack.models.user_pack import UserPack, UserStack
+from src.stack_pack import ConfigValues, get_stack_packs, StackConfig
 
 router = APIRouter()
 
 
 class StackRequest(BaseModel):
-    stacks: dict[str, ConfigValues]
+    configuration: dict[str, ConfigValues]
+
 
 class StackResponse(BaseModel):
     stack: UserStack
     policy: str
+
 
 @router.post("/api/stack")
 async def create_stack(
@@ -31,7 +33,7 @@ async def create_stack(
     user_pack = UserPack(
         id=user_id,
         owner=user_id,
-        configuration=body.stacks,
+        configuration=body.configuration,
         created_by=user_id,
     )
     stack_packs = get_stack_packs()
@@ -41,9 +43,10 @@ async def create_stack(
 
 
 class UpdateStackRequest(BaseModel):
-    stacks: dict[str, ConfigValues] = None
+    configuration: dict[str, ConfigValues] = None
     assume_role_arn: str = None
     region: str = None
+
 
 @router.patch("/api/stack")
 async def update_stack(
@@ -58,24 +61,50 @@ async def update_stack(
         actions.append(UserPack.assumed_role_arn.set(body.assume_role_arn))
     if body.region:
         actions.append(UserPack.region.set(body.region))
-    if body.stacks:
-        actions.append(UserPack.configuration.set(body.stacks))
+    if body.configuration:
+        actions.append(UserPack.configuration.set(body.configuration))
     if len(actions) > 0:
         user_pack.update(actions=actions)
-        
-    if body.stacks:
+
+    if body.configuration:
         stack_packs = get_stack_packs()
         policy = await user_pack.run_pack(stack_packs, get_iac_storage())
-        
+
     return {"stack": user_pack.to_user_stack(), "policy": policy}
 
 
 @router.get("/api/stack")
-async def my_stack():
-    pass
+async def my_stack(request: Request) -> UserStack:
+    user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id, user_id)
+    return user_pack.to_user_stack()
 
 
 @router.get("/api/stackpacks")
 async def list_stackpacks():
-    # TODO: gg
-    pass
+    sps = get_stack_packs()
+
+    def config_to_dict(cfg: StackConfig):
+        c = {
+            "name": cfg.name,
+            "description": cfg.description,
+            "type": cfg.type,
+        }
+        if cfg.default is not None:
+            c["default"] = cfg.default
+        if cfg.validation is not None:
+            c["validation"] = cfg.validation
+        if cfg.pulumi_key is not None:
+            c["pulumi_key"] = cfg.pulumi_key
+        return c
+
+    return {
+        spid: {
+            "name": sp.name,
+            "version": sp.version,
+            "configuration": {
+                k: config_to_dict(cfg) for k, cfg in sp.configuration.items()
+            },
+        }
+        for spid, sp in sps.items()
+    }

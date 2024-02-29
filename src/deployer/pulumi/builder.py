@@ -56,6 +56,6 @@ class AppBuilder:
     def install_npm_deps(self):
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
             ["npm", "install", "--prefix", self.output_dir],
-            stdout=open(os.devnull, "wb"),
+            stdout=subprocess.DEVNULL,
         )
         result.check_returncode()

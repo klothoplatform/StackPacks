@@ -1,5 +1,17 @@
 PHONY: run test-backend black
 
+engineCliPath := $(shell command -v engine)
+ifdef engineCliPath
+export ENGINE_PATH ?= $(engineCliPath)
+else
+endif
+
+iacCliPath := $(shell command -v iac)
+ifdef iacCliPath
+export IAC_PATH ?= $(iacCliPath)
+else
+endif
+
 run:
 	@echo "ENGINE_PATH: $(ENGINE_PATH)"
 	@echo "IAC_PATH: $(IAC_PATH)"
