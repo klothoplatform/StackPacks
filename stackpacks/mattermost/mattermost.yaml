@@ -67,25 +67,12 @@ configuration:
       min: 256
       max: 4096
 
-  DomainName:
-    name: Domain Name
-    description: The domain name to use for the Mattermost service
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Mattermost database
     type: string
-    default: mattermost.example.com
-    validation:
-      pattern: ^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$
-
-  EnableS3:
-    name: Enable using s3 for something
-    description: A sample configuration
-    type: boolean
-    default: false
-    values:
-      'true':
-        resources:
-          aws:s3_bucket:mattermost-s3:
-        edges:
-          aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:
+    default: mattermost
+    pulumi_key: klo:mattermost-db-username
 
   DBPassword:
     name: Database Password
@@ -93,3 +80,14 @@ configuration:
     type: string
     pulumi_key: klo:mattermost-db-password
 
+  EnableS3:
+    name: Enable S3
+    description: A sample configuration that adds an s3 bucket. NOT a real configuration
+    type: boolean
+    default: false
+    values:
+      true:
+        resources:
+          aws:s3_bucket:mattermost-s3:
+        edges:
+          aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:
