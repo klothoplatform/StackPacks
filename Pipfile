@@ -17,6 +17,7 @@ sse-starlette = "*"
 boto3 = "*"
 moto = "*"
 pynamodb = "*"
+pydantic-yaml = "*"
 
 [dev-packages]
 black = "*"
