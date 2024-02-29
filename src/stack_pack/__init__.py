@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class ConfigValues(dict[str, Any]):
-
+    
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source: Any, handler: GetCoreSchemaHandler
@@ -18,7 +18,7 @@ class ConfigValues(dict[str, Any]):
         sequence_t_schema = handler.generate_schema(dict[str, Any])
 
         non_instance_schema = core_schema.no_info_after_validator_function(
-            ConfigValues, sequence_t_schema
+            Edges, sequence_t_schema
         )
         return core_schema.union_schema([instance_schema, non_instance_schema])
 

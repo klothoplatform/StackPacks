@@ -68,6 +68,11 @@ class PulumiStack(Model):
 
     def composite_key(self):
         return f"{self.project_name}#{self.name}"
+    
+    @staticmethod
+    def split_composite_key(composite_key) -> tuple[str, str]:
+        split_key = composite_key.split("#")
+        return split_key[0], split_key[1]
 
     @staticmethod
     def sanitize_stack_name(stack_name):

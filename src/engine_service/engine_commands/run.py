@@ -19,19 +19,15 @@ KEEP_TMP = os.environ.get("KEEP_TMP", False)
 
 
 class RunEngineRequest(NamedTuple):
-    id: str
-    templates: List[str]
-    input_graph: str
     constraints: List[dict]
-    engine_version: float
-    overwrite: Optional[bool] = False
-
+    input_graph: str = None
 
 class RunEngineResult(NamedTuple):
     resources_yaml: str
     topology_yaml: str
     iac_topology: str
     config_errors: List[Dict] = []
+    policy: str = None
 
 
 @contextlib.contextmanager
@@ -99,6 +95,9 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
 
         with open(dir / "resources.yaml") as file:
             resources_yaml = file.read()
+            
+        with open(dir / "deployment_permissions_policy.json") as file:
+            policy = file.read()
 
         return RunEngineResult(
             resources_yaml=resources_yaml,
@@ -107,4 +106,5 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
             # NOTE: This assumes that all non-FailedRun errors are config errors
             # This is true for now, but keep an eye in the future
             config_errors=error_details,
+            policy=policy,
         )

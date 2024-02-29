@@ -1,6 +1,8 @@
 PHONY: run test-backend black
 
 run:
+	@echo "ENGINE_PATH: $(ENGINE_PATH)"
+	@echo "IAC_PATH: $(IAC_PATH)"
 	PYTHONPATH=. \
 	DYNAMODB_HOST=http://localhost:8000 \
 	AUTH0_DOMAIN="klotho-dev.us.auth0.com" \
