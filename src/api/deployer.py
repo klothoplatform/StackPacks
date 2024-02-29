@@ -34,6 +34,7 @@ async def install(
     request: Request,
     body: DeploymentRequest,
 ):
+    # TODO(gg): fetch iac (use stack_pack.storage.iac_storage)
     iac = read_zip_to_bytes(
         "/Users/jordansinger/workspace/StackPacks/untitled_architecture_default (2).zip"
     )

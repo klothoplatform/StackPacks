@@ -1,6 +1,10 @@
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing import Any, Optional, List
+from pydantic_yaml import parse_yaml_file_as
+from subprocess import run
+
+from pathlib import Path
 
 
 class ConfigValues(dict[str, Any]):
@@ -133,7 +137,7 @@ class Edges(dict[str, Any]):
 class StackParts(BaseModel):
     resources: Resources = Field(default_factory=Resources)
     edges: Edges = Field(default_factory=Edges)
-    files: dict[str, dict] = Field(default_factory=dict)
+    files: dict[str, Optional[dict]] = Field(default_factory=dict)
 
     def to_constraints(self, config: ConfigValues):
         return [
@@ -172,10 +176,42 @@ class StackPack(BaseModel):
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
 
-    def to_constraints(self, config: ConfigValues):
+    def final_config(self, user_config: ConfigValues):
         final_cfg = ConfigValues()
         for k, v in self.configuration.items():
             if v.default is not None:
                 final_cfg[k] = v.default
-        final_cfg.update(config)
-        return self.base.to_constraints(final_cfg)
+        final_cfg.update(user_config)
+        return final_cfg
+
+    def to_constraints(self, user_config: ConfigValues):
+        return self.base.to_constraints(self.final_config(user_config))
+
+    def copy_files(self, user_config: ConfigValues, out_dir: Path):
+        config = self.final_config(user_config)
+
+        root = Path("stackpacks") / self.name
+        for f, data in self.base.files.items():
+            # TODO execute template if `data` has template: true
+            (out_dir / f).write_bytes((root / f).read_bytes())
+        # TODO also read files from `configuration.X.values` based on config
+
+    def get_pulumi_configs(self, user_config: ConfigValues) -> dict[str, str]:
+        config = self.final_config(user_config)
+
+        result = {}
+        for k, v in self.configuration.items():
+            if v.pulumi_key:
+                result[v.pulumi_key] = config[k]
+
+        return result
+
+
+def get_stack_packs() -> dict[str, StackPack]:
+    root = Path("stackpacks")
+    sps = {}
+    for dir in root.iterdir():
+        f = dir / f"{dir.name}.yaml"
+        sp = parse_yaml_file_as(StackPack, f)
+        sps[dir.name] = sp
+    return sps

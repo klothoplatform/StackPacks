@@ -17,25 +17,30 @@ class StackRequest(BaseModel):
 
 
 @router.post("/api/stack")
-async def create_stack():
+async def create_stack(
+    request: Request,
+    body: StackRequest,
+):
+    # TODO(js): render constraints, call engine -> get policy
+    # call iac -> store in iac_storage
     pass
 
 
-@router.patch("/api/stack/{id}")
-async def update_stack():
+@router.patch("/api/stack")
+async def update_stack(
+    request: Request,
+    body: StackRequest,
+):
+    # TODO(js): basically same as create_stack
     pass
 
 
-@router.get("/api/stack/{id}?version={version}")
-async def get_stack():
+@router.get("/api/stack")
+async def my_stack():
     pass
 
 
-@router.get("/api/stacks")
-async def list_stacks():
-    pass
-
-
-@router.get("/api/applications")
-async def list_applications():
+@router.get("/api/stackpacks")
+async def list_stackpacks():
+    # TODO: gg
     pass

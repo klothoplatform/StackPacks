@@ -11,6 +11,7 @@
       "module": "src.stack_pack",
       "args": [
         "-c=CPU=512",
+        "-c=DBPassword=123456",
         "${file}"
       ]
     }
