@@ -9,6 +9,8 @@ domain = os.getenv("AUTH0_DOMAIN", "klotho.us.auth0.com")
 key_url = os.getenv("AUTH0_PEM_URL", f"https://{domain}/.well-known/jwks.json")
 audience = os.getenv("AUTH0_AUDIENCE", "AeIvquQVLg9jy2V6Jq5Bz48cKQOmIPDw")
 
+LOCAL_USER = os.getenv("LOCAL_USER", None)
+
 PUBLIC_USER = "public"
 
 jwks_client = PyJWKClient(key_url, cache_keys=True)
@@ -29,6 +31,10 @@ def is_public_user(request: Request) -> bool:
 
 
 async def get_user_id(request: Request) -> str:
+    if LOCAL_USER is not None:
+        logging.info("Skipping authentication for local dev user")
+        return LOCAL_USER
+
     try:
         if is_public_user(request):
             raise AuthError(
