@@ -1,7 +1,9 @@
 from io import BytesIO
 import os
+from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
+from typing import Optional
 from pydantic import BaseModel, Field
 import datetime
 from enum import Enum
@@ -95,18 +97,18 @@ class UserPack(Model):
             
             for stack_name, config in self.get_configurations().items():
                 stack_pack = stack_packs[stack_name]
-                stack_pack.copy_files(config, tmp_dir)
+                stack_pack.copy_files(config, Path(tmp_dir))
             iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
-            iac_storage.write_iac(self, iac_bytes)
+            iac_storage.write_iac(self.id, iac_bytes)
         return engine_result.policy
 
 class UserStack(BaseModel):
     id: str
     owner: str
-    region: str = None
-    assumed_role_arn: str = None
+    region: Optional[str] = None
+    assumed_role_arn: Optional[str] = None
     configuration: dict[str, ConfigValues] = Field(default_factory=dict)
-    status: str = None
-    status_reason: str = None
+    status: Optional[str] = None
+    status_reason: Optional[str] = None
     created_by: str
     created_at: datetime.datetime

@@ -17,12 +17,15 @@ router = APIRouter()
 class StackRequest(BaseModel):
     stacks: dict[str, ConfigValues]
 
+class StackResponse(BaseModel):
+    stack: UserStack
+    policy: str
 
 @router.post("/api/stack")
 async def create_stack(
     request: Request,
     body: StackRequest,
-) -> UserStack:
+) -> StackResponse:
     policy: str = None
     user_id = await get_user_id(request)
     user_pack = UserPack(
@@ -46,7 +49,7 @@ class UpdateStackRequest(BaseModel):
 async def update_stack(
     request: Request,
     body: UpdateStackRequest,
-) -> UserStack:
+) -> StackResponse:
     policy: str = None
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id, user_id)
