@@ -204,12 +204,9 @@ class StackPack(BaseModel):
         constraints = self.base.to_constraints(config)
 
         for k, v in config.items():
-            val_str = yaml.dump(v).strip()
             cfg = self.configuration[k]
-            if cfg.type and val_str in cfg.values:
-                constraints.extend(
-                    self.configuration[k].values[v].to_constraints(config)
-                )
+            if v in cfg.values:
+                constraints.extend(cfg.values[v].to_constraints(config))
         return constraints
 
     def copy_files(self, user_config: ConfigValues, out_dir: Path):
