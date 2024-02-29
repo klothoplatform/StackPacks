@@ -213,7 +213,7 @@ export const StepperNavigator: FC<StepperNavigatorProps> = ({
   const { mode } = useThemeMode();
 
   return (
-    <div className="flex gap-2">
+    <div className="flex size-fit gap-2">
       {currentStep > 0 && (
         <Button
           color={mode}

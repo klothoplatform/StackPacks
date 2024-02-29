@@ -100,7 +100,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
       shouldDirty: true,
       shouldValidate: true,
     });
-  }, [selectedApps, isValid]);
+  }, [selectedApps, isValid, methods]);
 
   const { goForwards } = useStepper();
 
@@ -118,14 +118,16 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
       value={{ apps, setApps, selectedApps, setSelectedApps }}
     >
       <FormProvider {...methods}>
-        <Card className={"min-h-[50vh] w-full p-4"}>
+        <Card className={"min-h-[50vh] w-full overflow-hidden p-4"}>
           <div className={"flex size-full flex-col dark:text-white"}>
             <div className={"flex size-full flex-col overflow-hidden pt-10"}>
               <h3 className={"mx-auto pb-1 text-3xl font-medium"}>
                 Pick your Software
               </h3>
               <div className="flex size-full w-full flex-col justify-between overflow-hidden pt-4">
-                <AppChooserComposite />
+                <div className={"size-full overflow-auto p-4"}>
+                  <AppChooserComposite />
+                </div>
                 <div className="mx-auto flex gap-4 py-1">
                   <Button
                     size={"xl"}
@@ -164,7 +166,7 @@ const AppChooserComposite: FC = () => {
           {/*</div>*/}
         </div>
       </div>
-      <div className="mx-auto w-full">
+      <div className="mx-auto h-fit max-h-full w-full overflow-y-auto">
         <AppChooser apps={filteredApps} layout={layout} />
       </div>
     </div>
@@ -190,7 +192,7 @@ const AppChooserLayoutSelector: FC<{
   return (
     <div className="w-fit p-2">
       <Tabs
-        // @eslint-ignore-react/style-prop-object
+        // eslint-disable-next-line react/style-prop-object
         style="pills"
         theme={tabTheme}
         ref={tabsRef}
@@ -221,21 +223,29 @@ const AppChooser: FC<{
   return (
     <div
       className={classNames(
-        "flex size-full overflow-y-auto content-start gap-2 justify-center",
+        "flex w-full max-h-full h-fit gap-2 justify-center",
         {
           "flex-wrap": layout === AppChooserLayout.Grid,
           "flex-col": layout === AppChooserLayout.List,
         },
       )}
     >
-      {apps.map((app) => (
-        <AppChooserItem
-          key={app.id}
-          app={app}
-          layout={layout}
-          onClick={onClick}
-          selected={!!selectedApps.some((a) => a.id === app.id)}
-        />
+      {apps.map((app, index) => (
+        <div
+          key={index}
+          className={classNames("h-32 mx-1 my-0.5", {
+            "w-1/3": layout === AppChooserLayout.Grid,
+            "w-full": layout === AppChooserLayout.List,
+          })}
+        >
+          <AppChooserItem
+            key={app.id}
+            app={app}
+            layout={layout}
+            onClick={onClick}
+            selected={!!selectedApps.some((a) => a.id === app.id)}
+          />
+        </div>
       ))}
     </div>
   );
@@ -258,7 +268,7 @@ const AppChooserItem: FC<{
 
   return (
     <SelectableCard
-      className="size-fit p-4"
+      className="size-full p-4"
       onSelect={onSelect}
       onDeselect={onDeselect}
       selected={selected}
