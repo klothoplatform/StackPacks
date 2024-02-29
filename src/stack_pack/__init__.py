@@ -2,13 +2,25 @@ from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing import Any, Optional, List
 from pydantic_yaml import parse_yaml_file_as
-from subprocess import run
+import yaml
 
 from pathlib import Path
 
 
 class ConfigValues(dict[str, Any]):
-    pass
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        instance_schema = core_schema.is_instance_schema(cls)
+
+        sequence_t_schema = handler.generate_schema(dict[str, Any])
+
+        non_instance_schema = core_schema.no_info_after_validator_function(
+            ConfigValues, sequence_t_schema
+        )
+        return core_schema.union_schema([instance_schema, non_instance_schema])
 
 
 class Properties(dict[str, Any]):
@@ -166,13 +178,16 @@ class StackConfig(BaseModel):
     type: str
     default: Any = Field(default=None)
     validation: Any = Field(default=None)
-    values: dict[str, Optional[StackParts]] = Field(default=None)
+    values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
 
 
 class StackPack(BaseModel):
+    id: str = Field(
+        default=None, exclude=True, validate_default=False
+    )  # Default is None because it is set outside of the model
     name: str
-    version: str
+    version: str = Field(default="0.0.1")
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
 
@@ -185,12 +200,22 @@ class StackPack(BaseModel):
         return final_cfg
 
     def to_constraints(self, user_config: ConfigValues):
-        return self.base.to_constraints(self.final_config(user_config))
+        config = self.final_config(user_config)
+        constraints = self.base.to_constraints(config)
+
+        for k, v in config.items():
+            val_str = yaml.dump(v).strip()
+            cfg = self.configuration[k]
+            if cfg.type and val_str in cfg.values:
+                constraints.extend(
+                    self.configuration[k].values[v].to_constraints(config)
+                )
+        return constraints
 
     def copy_files(self, user_config: ConfigValues, out_dir: Path):
         config = self.final_config(user_config)
 
-        root = Path("stackpacks") / self.name
+        root = Path("stackpacks") / self.id
         for f, data in self.base.files.items():
             # TODO execute template if `data` has template: true
             (out_dir / f).write_bytes((root / f).read_bytes())
@@ -213,5 +238,6 @@ def get_stack_packs() -> dict[str, StackPack]:
     for dir in root.iterdir():
         f = dir / f"{dir.name}.yaml"
         sp = parse_yaml_file_as(StackPack, f)
+        sp.id = dir.name
         sps[dir.name] = sp
     return sps

@@ -6,8 +6,6 @@ from enum import Enum
 from pynamodb.models import Model
 from pynamodb.attributes import (
     UnicodeAttribute,
-    UTCDateTimeAttribute,
-    UnicodeSetAttribute,
     JSONAttribute,
 )
 
