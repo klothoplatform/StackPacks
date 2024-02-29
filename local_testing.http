@@ -16,7 +16,7 @@ PATCH http://localhost:3000/api/stack
 Content-Type: application/json
 
 {
-  "region": 
+  "region": "us-east-1",
   "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks"
 }
 
