@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter
 from fastapi import Request
 
@@ -20,7 +21,7 @@ class StackRequest(BaseModel):
 
 class StackResponse(BaseModel):
     stack: UserStack
-    policy: str
+    policy: Optional[str] = None
 
 
 @router.post("/api/stack")
@@ -60,6 +61,7 @@ async def update_stack(
     if body.assume_role_arn:
         actions.append(UserPack.assumed_role_arn.set(body.assume_role_arn))
     if body.region:
+        # TODO: add check to see if they have already deployed a stack and its running, if so send back a 400 since we cant change region
         actions.append(UserPack.region.set(body.region))
     if body.configuration:
         actions.append(UserPack.configuration.set(body.configuration))
