@@ -19,24 +19,39 @@ async def read_streaming_response(response):
 class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.Process")
-    @patch("src.api.deployer.read_zip_to_bytes")
+    @patch("src.api.deployer.UserPack.get")
+    @patch("src.api.deployer.get_iac_storage")
+    @patch("src.api.deployer.get_stack_packs")
     async def test_install(
-        self, mock_read_zip_to_bytes, mock_process, mock_get_user_id
+        self,
+        mock_get_stack_packs,
+        mock_iac_storage,
+        mock_userpack_get,
+        mock_process,
+        mock_get_user_id,
     ):
         # Setup mock objects
-        mock_read_zip_to_bytes.return_value = b"iac"
         mock_get_user_id.return_value = "user_id"
+        mock_userpack = MagicMock()
+        mock_userpack.id = "user_id"
+        mock_userpack.configuration = {"a": "b"}
+        mock_userpack_get.return_value = mock_userpack
+        mock_storage = MagicMock()
+        mock_storage.get_iac.return_value = b"iac"
+        mock_iac_storage.return_value = mock_storage
         mock_process.return_value = MagicMock()
+        mock_config = MagicMock()
+        mock_config.get_pulumi_configs.return_value = {"x": "y"}
+        mock_get_stack_packs.return_value = {"a": mock_config}
 
         response = await install(
             MagicMock(),
         )
 
         # Assert calls
-        mock_read_zip_to_bytes.assert_called_once_with(
-            "/Users/jordansinger/workspace/StackPacks/untitled_architecture_default (2).zip"
-        )
         mock_get_user_id.assert_called_once()
+        mock_userpack_get.assert_called_once_with("user_id", "user_id")
+        mock_storage.get_iac.assert_called_once_with("user_id")
         mock_process.assert_called_once()
         mock_process.return_value.start.assert_called_once()
 
@@ -45,24 +60,39 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.Process")
-    @patch("src.api.deployer.read_zip_to_bytes")
+    @patch("src.api.deployer.UserPack.get")
+    @patch("src.api.deployer.get_iac_storage")
+    @patch("src.api.deployer.get_stack_packs")
     async def test_tear_down(
-        self, mock_read_zip_to_bytes, mock_process, mock_get_user_id
+        self,
+        mock_get_stack_packs,
+        mock_iac_storage,
+        mock_userpack_get,
+        mock_process,
+        mock_get_user_id,
     ):
         # Setup mock objects
-        mock_read_zip_to_bytes.return_value = b"iac"
         mock_get_user_id.return_value = "user_id"
+        mock_userpack = MagicMock()
+        mock_userpack.id = "user_id"
+        mock_userpack.configuration = {"a": "b"}
+        mock_userpack_get.return_value = mock_userpack
+        mock_storage = MagicMock()
+        mock_storage.get_iac.return_value = b"iac"
+        mock_iac_storage.return_value = mock_storage
         mock_process.return_value = MagicMock()
+        mock_config = MagicMock()
+        mock_config.get_pulumi_configs.return_value = {"x": "y"}
+        mock_get_stack_packs.return_value = {"a": mock_config}
 
         response = await tear_down(
             MagicMock(),
         )
 
         # Assert calls
-        mock_read_zip_to_bytes.assert_called_once_with(
-            "/Users/jordansinger/workspace/StackPacks/untitled_architecture_default (2).zip"
-        )
         mock_get_user_id.assert_called_once()
+        mock_userpack_get.assert_called_once_with("user_id", "user_id")
+        mock_storage.get_iac.assert_called_once_with("user_id")
         mock_process.assert_called_once()
         mock_process.return_value.start.assert_called_once()
 

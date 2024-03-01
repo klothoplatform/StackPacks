@@ -21,5 +21,8 @@ class TempDir:
         return self.dir
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()
+
+    def cleanup(self):
         if not KEEP_TMP:
             shutil.rmtree(self.dir)

@@ -1,7 +1,7 @@
 from pathlib import Path, PosixPath
 import aiounittest
-import tempfile
 from unittest import mock
+import tempfile
 
 from src.engine_service.engine_commands.run import (
     run_engine,
@@ -19,8 +19,9 @@ class TestRunEngine(aiounittest.AsyncTestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def run_engine_side_effect(self, tmp_dir: str):
-        dir = Path(tmp_dir)
+    def run_engine_side_effect(self):
+        dir = Path(self.temp_dir.name)
+        print(f"writing to {dir}")
         with open(dir / "dataflow-topology.yaml", "w") as file:
             file.write("topology_yaml")
 
@@ -40,19 +41,21 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("tempfile.TemporaryDirectory")
+    @mock.patch("src.engine_service.engine_commands.run.TempDir")
     async def test_run_engine(self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
             constraints=[],
             input_graph="test",
         )
+        mock_temp_dir.return_value = mock.MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
+        mock_temp_dir.return_value.__exit__.return_value = None
 
         mock_eng_cmd.return_value = (
             "",
             "",
         )
-        mock_eng_cmd.side_effect = self.run_engine_side_effect(self.temp_dir.name)
+        mock_eng_cmd.side_effect = self.run_engine_side_effect()
         result = await run_engine(request)
         mock_temp_dir.assert_called_once()
         mock_eng_cmd.assert_called_once_with(
@@ -82,7 +85,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("tempfile.TemporaryDirectory")
+    @mock.patch("src.engine_service.engine_commands.run.TempDir")
     async def test_run_engine_configerr(
         self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
     ):
@@ -90,7 +93,9 @@ class TestRunEngine(aiounittest.AsyncTestCase):
             constraints=[],
             input_graph="test",
         )
+        mock_temp_dir.return_value = mock.MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
+        mock_temp_dir.return_value.__exit__.return_value = None
 
         mock_eng_cmd.return_value = (
             "",
@@ -98,7 +103,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         )
 
         def run(*args, **kwargs):
-            self.run_engine_side_effect(self.temp_dir.name)
+            self.run_engine_side_effect()
             raise EngineException(
                 "Run",
                 2,
@@ -136,7 +141,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("tempfile.TemporaryDirectory")
+    @mock.patch("src.engine_service.engine_commands.run.TempDir")
     async def test_run_engine_failure(
         self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
     ):
@@ -144,7 +149,9 @@ class TestRunEngine(aiounittest.AsyncTestCase):
             constraints=[],
             input_graph="test",
         )
+        mock_temp_dir.return_value = mock.MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
+        mock_temp_dir.return_value.__exit__.return_value = None
 
         mock_eng_cmd.ra = (
             "",

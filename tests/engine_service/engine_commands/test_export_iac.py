@@ -28,7 +28,7 @@ class TestExportIac(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.export_iac.run_iac_command",
         new_callable=mock.AsyncMock,
     )
-    async def test_run_engine(self,mock_eng_cmd: mock.Mock):
+    async def test_run_engine(self, mock_eng_cmd: mock.Mock):
         request = ExportIacRequest(
             name="test",
             input_graph="test-graph",
