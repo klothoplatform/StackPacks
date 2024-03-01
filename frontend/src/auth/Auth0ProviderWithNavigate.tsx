@@ -14,7 +14,6 @@ export const Auth0ProviderWithNavigate = ({
 }: PropsWithChildren<Auth0ProviderWithNavigateProps>): React.JSX.Element | null => {
   const navigate = useNavigate();
 
-
   const domain = env.auth0.domain;
   const clientId = env.auth0.clientId;
   const redirectUri = env.auth0.callbackUrl;
@@ -53,6 +52,8 @@ export const Auth0ProviderWithNavigate = ({
     <Auth0Provider
       domain={domain}
       clientId={clientId}
+      useRefreshTokens
+      cacheLocation={"localstorage"}
       authorizationParams={{
         redirect_uri: redirectUri,
       }}
