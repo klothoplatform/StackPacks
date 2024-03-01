@@ -6,7 +6,6 @@ from src.api.deployer import (
     install,
     tear_down,
     stream_deployment_logs,
-    DeploymentRequest,
 )
 
 
@@ -31,11 +30,6 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
         response = await install(
             MagicMock(),
-            DeploymentRequest(
-                region="region",
-                assume_role_arn="arn",
-                packages=["package1", "package2"],
-            ),
         )
 
         # Assert calls
@@ -62,11 +56,6 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
         response = await tear_down(
             MagicMock(),
-            DeploymentRequest(
-                region="region",
-                assume_role_arn="arn",
-                packages=["package1", "package2"],
-            ),
         )
 
         # Assert calls
