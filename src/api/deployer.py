@@ -52,7 +52,7 @@ async def install(
         args=(
             q,
             user_pack.region,
-            user_pack.assume_role_arn,
+            user_pack.assumed_role_arn,
             user_id,
             iac,
             pulumi_config,
@@ -91,7 +91,7 @@ async def tear_down(
         args=(
             q,
             user_pack.region,
-            user_pack.assume_role_arn,
+            user_pack.assumed_role_arn,
             user_id,
             iac,
             pulumi_config,
