@@ -22,6 +22,7 @@ class RunEngineRequest(NamedTuple):
     constraints: List[dict]
     input_graph: str = None
 
+
 class RunEngineResult(NamedTuple):
     resources_yaml: str
     topology_yaml: str
@@ -95,7 +96,7 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
 
         with open(dir / "resources.yaml") as file:
             resources_yaml = file.read()
-            
+
         with open(dir / "deployment_permissions_policy.json") as file:
             policy = file.read()
 

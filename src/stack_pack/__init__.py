@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class ConfigValues(dict[str, Any]):
-    
+
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source: Any, handler: GetCoreSchemaHandler

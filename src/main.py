@@ -10,6 +10,7 @@ from src.deployer.models.deployment import Deployment, PulumiStack
 from src.stack_pack.models.user_pack import UserPack
 import os
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if os.environ.get("DYNAMODB_HOST", None) is not None:

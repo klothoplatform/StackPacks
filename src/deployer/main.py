@@ -114,7 +114,6 @@ async def run_destroy(
         initiated_by=user,
     )
 
-
     pulumi_stack.save()
     deployment.save()
     builder = AppBuilder(create_sts_client())
