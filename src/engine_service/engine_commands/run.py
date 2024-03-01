@@ -1,10 +1,9 @@
-import contextlib
 import json
 import logging
 import os
-import tempfile
 from pathlib import Path
 from typing import List, NamedTuple, Dict, Optional
+from src.util.tmp import TempDir
 
 import yaml
 
@@ -31,27 +30,9 @@ class RunEngineResult(NamedTuple):
     policy: str = None
 
 
-@contextlib.contextmanager
-def tempdir():
-    if KEEP_TMP:
-        if KEEP_TMP.lower() == "true":
-            yield tempfile.mkdtemp()
-        else:
-            tmp_root = Path(KEEP_TMP)
-            if tmp_root.exists():
-                tmpf = tempfile.mkdtemp(dir=tmp_root)
-                log.info(f"Using {tmpf} as temp dir")
-                yield tmpf
-            else:
-                yield tempfile.mkdtemp()
-    else:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            yield tmp_dir
-
-
 async def run_engine(request: RunEngineRequest) -> RunEngineResult:
     print(request.constraints)
-    with tempdir() as tmp_dir:
+    with TempDir() as tmp_dir:
         dir = Path(tmp_dir)
         args = []
 
