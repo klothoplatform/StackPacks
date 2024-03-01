@@ -8,35 +8,25 @@ import React, {
 } from "react";
 import type { StepperNavigatorProps } from "../../components/Stepper";
 import type { CustomFlowbiteTheme, TabsRef } from "flowbite-react";
-import { Card } from "flowbite-react";
-import { Button, Tabs, TextInput } from "flowbite-react";
+import { Button, Card, Tabs, TextInput } from "flowbite-react";
 import classNames from "classnames";
 import { HiSearch } from "react-icons/hi";
 import { MdGridView, MdTableRows } from "react-icons/md";
 import { SelectableCard } from "../../components/SelectableCard.tsx";
 import { PiStackFill } from "react-icons/pi";
-import { SiWebpack } from "react-icons/si";
 import { useStepper } from "../../hooks/useStepper.ts";
 import { FormProvider, useForm } from "react-hook-form";
+import useApplicationStore from "../store/ApplicationStore.ts";
+import type { StackPack } from "../../shared/models/StackPack.ts";
+import { SiWebpack } from "react-icons/si";
 
-interface App {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: React.JSXElementConstructor<any>;
-  enabled: boolean;
-  comingSoon: boolean;
-  category?: string;
-  paidAlternatives?: string[];
-}
-
-const mockApps: App[] = Array.from({ length: 10 }, (_, index) => ({
-  id: `app${index + 1}`,
+const mockApps: StackPack[] = Array.from({ length: 10 }, (_, index) => ({
   name: `App ${index + 1}`,
   description: `This is App ${index + 1}`,
-  icon: SiWebpack,
-  enabled: Math.random() > 0.5,
-  comingSoon: Math.random() < 0.5,
+  tags: [],
+  version: "1.0.0",
+  configuration: {},
+  alternatives: [],
 }));
 
 export enum AppChooserLayout {
@@ -70,12 +60,25 @@ const tabTheme: CustomFlowbiteTheme["tabs"] = {
 };
 
 export interface ChooseAppsFormState {
-  selectedApps: App[];
+  selectedApps: StackPack[];
 }
 
 export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
-  const [apps, setApps] = useState<App[]>(mockApps);
-  const [selectedApps, setSelectedApps] = useState<App[]>([]);
+  const {
+    onboardingWorkflowState,
+    updateOnboardingWorkflowState,
+    getStackPacks,
+  } = useApplicationStore();
+
+  const [apps, setApps] = useState<StackPack[]>(mockApps);
+  const [selectedApps, setSelectedApps] = useState<StackPack[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const stackPacks = await getStackPacks();
+      setApps([...stackPacks.values()]);
+    })();
+  }, [getStackPacks]);
 
   const methods = useForm<ChooseAppsFormState>({
     defaultValues: {
@@ -108,6 +111,9 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
 
   const onProgress = (state: ChooseAppsFormState) => {
     console.log(state);
+    updateOnboardingWorkflowState({
+      selectedStackPacks: state.selectedApps.map((a) => a.name),
+    });
     if (canProgress) {
       goForwards();
     }
@@ -154,7 +160,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
 const AppChooserComposite: FC = () => {
   const [layout, setLayout] = useState(AppChooserLayout.Grid);
   const { apps, selectedApps, setSelectedApps } = useAppChooser();
-  const [filteredApps, setFilteredApps] = useState<App[]>(apps);
+  const [filteredApps, setFilteredApps] = useState<StackPack[]>(apps);
 
   return (
     <div className="flex size-full flex-col gap-8 overflow-hidden">
@@ -206,17 +212,17 @@ const AppChooserLayoutSelector: FC<{
 };
 
 const AppChooser: FC<{
-  apps: App[];
+  apps: StackPack[];
   layout: AppChooserLayout;
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
 
-  const onClick = (app: App, selected: boolean) => {
-    const alreadySelected = selectedApps.some((a) => a.id === app.id);
+  const onClick = (app: StackPack, selected: boolean) => {
+    const alreadySelected = selectedApps.some((a) => a.name === app.name);
     if (selected && !alreadySelected) {
       setSelectedApps([...selectedApps, app]);
     } else if (!selected && alreadySelected) {
-      setSelectedApps(selectedApps.filter((a) => a.id !== app.id));
+      setSelectedApps(selectedApps.filter((a) => a.name !== app.name));
     }
   };
 
@@ -239,11 +245,10 @@ const AppChooser: FC<{
           })}
         >
           <AppChooserItem
-            key={app.id}
             app={app}
             layout={layout}
             onClick={onClick}
-            selected={!!selectedApps.some((a) => a.id === app.id)}
+            selected={!!selectedApps.some((a) => a.name === app.name)}
           />
         </div>
       ))}
@@ -252,9 +257,9 @@ const AppChooser: FC<{
 };
 
 const AppChooserItem: FC<{
-  app: App;
+  app: StackPack;
   layout: AppChooserLayout;
-  onClick?: (app: App, selected: boolean) => void;
+  onClick?: (app: StackPack, selected: boolean) => void;
   selected?: boolean;
 }> = ({ app, onClick, layout, selected }) => {
   const onSelect = () => {
@@ -264,7 +269,8 @@ const AppChooserItem: FC<{
     onClick?.(app, false);
   };
 
-  const Icon = app.icon;
+  // TODO: figure out where to pull this from
+  const Icon = SiWebpack;
 
   return (
     <SelectableCard
@@ -289,13 +295,13 @@ const AppChooserItem: FC<{
 };
 
 const AppSearch: FC<{
-  apps: App[];
-  onFilter: (apps: App[]) => void;
+  apps: StackPack[];
+  onFilter: (apps: StackPack[]) => void;
 }> = ({ apps, onFilter }) => {
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const filterValue = event.target.value;
     const filter = filterValue
-      ? (app: App) => {
+      ? (app: StackPack) => {
           return filterValue
             ? app.name
                 .toLowerCase()
@@ -322,10 +328,10 @@ const AppSearch: FC<{
 };
 
 type ChooseAppsContextProps = {
-  apps: App[];
-  setApps: (apps: App[]) => void;
-  selectedApps: App[];
-  setSelectedApps: (apps: App[]) => void;
+  apps: StackPack[];
+  setApps: (apps: StackPack[]) => void;
+  selectedApps: StackPack[];
+  setSelectedApps: (apps: StackPack[]) => void;
 };
 
 const ChooseAppsContext = createContext<ChooseAppsContextProps>({

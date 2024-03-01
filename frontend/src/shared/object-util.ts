@@ -49,6 +49,10 @@ export function qualifiedProperties(obj: any): string[] {
   return properties;
 }
 
+export function propertyDepth(property: string): number {
+  return property.split(/[.[]/).length - 1;
+}
+
 export function getModifiedFields(
   original: any,
   submitted: any,

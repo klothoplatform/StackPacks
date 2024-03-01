@@ -8,13 +8,16 @@ Instead, use env to keep it clean.
  */
 
 type typedMetaEnv = {
-    [key: string]: string;
-} & Pick<ImportMetaEnv, "BASE_URL" | "MODE" | "DEV" | "PROD" | "SSR">
+  [key: string]: string;
+} & Pick<ImportMetaEnv, "BASE_URL" | "MODE" | "DEV" | "PROD" | "SSR">;
 
 const viteEnv: typedMetaEnv = import.meta.env as typedMetaEnv;
 
 export const env: Environment = {
-  environment: viteEnv.VITE_ENVIRONMENT ?? import.meta.env.PROD ? "production" : "development",
+  environment:
+    viteEnv.VITE_ENVIRONMENT ?? import.meta.env.PROD
+      ? "production"
+      : "development",
   debug: new Set(
     (viteEnv.VITE_DEBUG ?? "")
       .split(",")
@@ -22,8 +25,7 @@ export const env: Environment = {
       .filter((s) => s.length > 0),
   ),
   sessionRewind: {
-    enabled:
-      viteEnv.VITE_SESSIONREWIND_ENABLED?.toLowerCase() === "true",
+    enabled: viteEnv.VITE_SESSIONREWIND_ENABLED?.toLowerCase() === "true",
     apiKey: "66s8iL8YHi3iOXBqda2YSA4zLJeNyCZ8TazdUBR9",
   },
   auth0: {
@@ -34,9 +36,9 @@ export const env: Environment = {
   },
   analytics: {
     writeKey: "GKCsKtwCdTQO75tRzBPKAw82xVPYPqEz",
-    trackErrors:
-      viteEnv.VITE_ANALYTICS_TRACK_ERRORS?.toLowerCase() !== "false",
+    trackErrors: viteEnv.VITE_ANALYTICS_TRACK_ERRORS?.toLowerCase() !== "false",
   },
+  awsAccountId: viteEnv.VITE_AWS_ACCOUNT_ID,
 };
 
 export interface Environment {
@@ -56,4 +58,5 @@ export interface Environment {
     trackErrors: boolean;
   };
   environment: string;
+  awsAccountId: string;
 }

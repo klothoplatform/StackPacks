@@ -48,7 +48,7 @@ const flowbiteTheme: CustomFlowbiteTheme = {
   },
   card: {
     root: {
-      children: "flex h-full flex-col justify-center gap-4",
+      children: "flex size-full flex-col justify-center gap-4",
     },
   },
   checkbox: {

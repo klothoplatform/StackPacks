@@ -19,7 +19,7 @@ import { StepperProvider } from "../../context/StepperProvider";
 import { ChooseAppsStep } from "./ChooseAppsStep";
 import { ConnectAccountStep } from "./ConnectAccountStep";
 import { DeploymentStep } from "./DeploymentStep";
-import { SummaryStep } from "./SummaryStep";
+import { ConfigureAppsStep } from "./ConfigureAppsStep.tsx";
 
 const workflowSteps: Array<Step & { component: React.FC<any> }> = [
   {
@@ -33,14 +33,14 @@ const workflowSteps: Array<Step & { component: React.FC<any> }> = [
     component: ConnectAccountStep,
   },
   {
+    id: "configure-stack",
+    title: "Configure",
+    component: ConfigureAppsStep,
+  },
+  {
     id: "deploy",
     title: "Deploy",
     component: DeploymentStep,
-  },
-  {
-    id: "summary",
-    title: "Summary",
-    component: SummaryStep,
   },
 ];
 
@@ -58,7 +58,7 @@ function OnboardingPage() {
   return (
     <div
       className={
-        "min-w-screen max-w-screen absolute flex h-screen max-h-screen min-h-screen w-screen flex-col overflow-hidden bg-white dark:bg-gray-900"
+        "min-w-screen max-w-screen absolute flex h-screen min-h-screen w-screen flex-col overflow-hidden bg-white dark:bg-gray-900"
       }
     >
       <ErrorBoundary

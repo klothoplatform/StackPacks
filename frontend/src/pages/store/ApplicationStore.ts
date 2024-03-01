@@ -6,6 +6,8 @@ import { authStore } from "./AuthStore";
 import { devtools, persist } from "zustand/middleware";
 import type { ErrorStore } from "./ErrorStore";
 import { errorStore } from "./ErrorStore";
+import type { OnboardingWorkflowStore } from "./OnboardingWorkflowStore.ts";
+import { onboardingWorkflowStore } from "./OnboardingWorkflowStore.ts";
 
 type WithSelectors<S> = S extends {
   getState: () => infer T;
@@ -27,7 +29,7 @@ const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
   return store;
 };
 
-type ApplicationStore = ErrorStore & AuthStore;
+type ApplicationStore = ErrorStore & AuthStore & OnboardingWorkflowStore;
 
 const useApplicationStoreBase = createWithEqualityFn<ApplicationStore>()(
   devtools(
@@ -35,6 +37,7 @@ const useApplicationStoreBase = createWithEqualityFn<ApplicationStore>()(
       (...all) => ({
         ...errorStore(...all),
         ...authStore(...all),
+        ...onboardingWorkflowStore(...all),
       }),
       {
         name: "application-store", // name of the item in the storage (must be unique)

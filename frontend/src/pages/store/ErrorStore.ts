@@ -1,5 +1,4 @@
-import type { StateCreator } from "zustand/esm";
-import { v4 as uuidv4 } from "uuid";
+import type { StateCreator } from "zustand";
 import type { ApplicationError } from "../../shared/errors";
 import { ErrorType } from "../../shared/errors";
 import { env } from "../../shared/environment";
@@ -70,7 +69,7 @@ function fillError(error: Partial<ApplicationError>): void {
   }
 
   if (!error.id) {
-    error.id = uuidv4().toString();
+    error.id = crypto.randomUUID().toString();
   }
   if (!error.name || error.name === "Error") {
     error.name = ErrorType.UNKNOWN;
