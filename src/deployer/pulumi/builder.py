@@ -1,25 +1,26 @@
 import subprocess
 import os
 from pulumi import automation as auto
-import shutil
-import tempfile
 import io
 import zipfile
+
 from src.deployer.models.deployment import PulumiStack
 from src.util.aws.sts import assume_role
 from src.util.logging import logger as log
+from src.util.tmp import TempDir
 
 
 class AppBuilder:
     def __init__(self, sts_client):
         self.sts_client = sts_client
-        self.output_dir = tempfile.mkdtemp()
+        self.tmpdir = TempDir()
 
     def __enter__(self):
+        self.output_dir = self.tmpdir.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        shutil.rmtree(self.output_dir)
+        self.tmpdir.__exit__(exc_type, exc_val, exc_tb)
 
     def prepare_stack(self, iac: bytes, pulumi_stack: PulumiStack) -> auto.Stack:
         self.create_output_dir(iac)
@@ -56,6 +57,6 @@ class AppBuilder:
     def install_npm_deps(self):
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
             ["npm", "install", "--prefix", self.output_dir],
-            stdout=open(os.devnull, "wb"),
+            stdout=subprocess.DEVNULL,
         )
         result.check_returncode()

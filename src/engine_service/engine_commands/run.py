@@ -1,10 +1,9 @@
-import contextlib
 import json
 import logging
 import os
-import tempfile
 from pathlib import Path
 from typing import List, NamedTuple, Dict, Optional
+from src.util.tmp import TempDir
 
 import yaml
 
@@ -19,12 +18,8 @@ KEEP_TMP = os.environ.get("KEEP_TMP", False)
 
 
 class RunEngineRequest(NamedTuple):
-    id: str
-    templates: List[str]
-    input_graph: str
     constraints: List[dict]
-    engine_version: float
-    overwrite: Optional[bool] = False
+    input_graph: str = None
 
 
 class RunEngineResult(NamedTuple):
@@ -32,29 +27,12 @@ class RunEngineResult(NamedTuple):
     topology_yaml: str
     iac_topology: str
     config_errors: List[Dict] = []
-
-
-@contextlib.contextmanager
-def tempdir():
-    if KEEP_TMP:
-        if KEEP_TMP.lower() == "true":
-            yield tempfile.mkdtemp()
-        else:
-            tmp_root = Path(KEEP_TMP)
-            if tmp_root.exists():
-                tmpf = tempfile.mkdtemp(dir=tmp_root)
-                log.info(f"Using {tmpf} as temp dir")
-                yield tmpf
-            else:
-                yield tempfile.mkdtemp()
-    else:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            yield tmp_dir
+    policy: str = None
 
 
 async def run_engine(request: RunEngineRequest) -> RunEngineResult:
     print(request.constraints)
-    with tempdir() as tmp_dir:
+    with TempDir() as tmp_dir:
         dir = Path(tmp_dir)
         args = []
 
@@ -100,6 +78,9 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
         with open(dir / "resources.yaml") as file:
             resources_yaml = file.read()
 
+        with open(dir / "deployment_permissions_policy.json") as file:
+            policy = file.read()
+
         return RunEngineResult(
             resources_yaml=resources_yaml,
             topology_yaml=topology_yaml,
@@ -107,4 +88,5 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
             # NOTE: This assumes that all non-FailedRun errors are config errors
             # This is true for now, but keep an eye in the future
             config_errors=error_details,
+            policy=policy,
         )

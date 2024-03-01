@@ -1,0 +1,95 @@
+name: Mattermost
+version: '1.0.0'
+
+base:
+  resources:
+    aws:ecr_image:mattermost:
+      BaseImage: mattermost/mattermost-team-edition:8.1
+      Dockerfile: Dockerfile
+    aws:ecs_service:mattermost-service:
+      LoadBalancers[0].ContainerPort: 8065
+      TaskDefinition: aws:ecs_task_definition:mattermost-task
+    aws:ecs_task_definition:mattermost-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:mattermost
+        PortMappings[0]:
+          ContainerPort: 8065
+          HostPort: 8065
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: MATTERMOST_CONFIG_PATH
+          Value: /mnt/efs/mattermost/config
+        - Name: MATTERMOST_DATA_PATH
+          Value: /mnt/efs/mattermost/data
+        - Name: MATTERMOST_LOGS_PATH
+          Value: /mnt/efs/mattermost/logs
+        - Name: MATTERMOST_PLUGINS_PATH
+          Value: /mnt/efs/mattermost/plugins
+        - Name: MATTERMOST_CLIENT_PLUGINS_PATH
+          Value: /mnt/efs/mattermost/client/plugins
+        - Name: MM_SQLSETTINGS_DRIVERNAME
+          Value: postgres
+        - Name: MM_DB_NAME
+          Value: aws:rds_instance:mattermost-db#DatabaseName
+    aws:load_balancer:mattermost-lb:
+      Scheme: internet-facing
+    aws:rds_instance:mattermost-db:
+    aws:efs_file_system:mattermost-efs:
+    aws:cloudfront_distribution:mattermost-cf:
+  edges:
+    aws:cloudfront_distribution:mattermost-cf -> aws:load_balancer:mattermost-lb:
+    aws:load_balancer:mattermost-lb -> aws:ecs_service:mattermost-service:
+    aws:ecs_service:mattermost-service -> aws:rds_instance:mattermost-db:
+    aws:ecs_service:mattermost-service -> aws:efs_file_system:mattermost-efs:
+  files:
+    Dockerfile:
+    container_start.sh:
+    .env:
+      template: true
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the Mattermost service
+    type: number
+    default: 512
+    validation:
+      min: 256
+      max: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the Mattermost service
+    type: number
+    default: 2048
+    validation:
+      min: 256
+      max: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Mattermost database
+    type: string
+    default: mattermost
+    pulumi_key: klo:mattermost-db-username
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Mattermost database
+    type: string
+    pulumi_key: klo:mattermost-db-password
+
+  EnableS3:
+    name: Enable S3
+    description: A sample configuration that adds an s3 bucket. NOT a real configuration
+    type: boolean
+    default: false
+    values:
+      true:
+        resources:
+          aws:s3_bucket:mattermost-s3:
+        edges:
+          aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:

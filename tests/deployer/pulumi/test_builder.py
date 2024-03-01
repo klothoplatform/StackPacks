@@ -5,6 +5,7 @@ from src.deployer.pulumi.builder import (
     AppBuilder,
 )  # replace with your actual module name
 from pulumi import automation as auto
+import subprocess
 
 
 class TestAppBuilder(aiounittest.AsyncTestCase):
@@ -21,10 +22,8 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
     @patch("src.deployer.pulumi.builder.subprocess.run")
     @patch("src.deployer.pulumi.builder.zipfile.ZipFile")
     @patch("src.deployer.pulumi.builder.io.BytesIO")
-    @patch("src.deployer.pulumi.builder.tempfile.mkdtemp")
     def test_prepare_stack(
         self,
-        mock_mkdtemp,
         mock_bytes_io,
         mock_zip_file,
         mock_run,
@@ -32,9 +31,9 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack,
     ):
         # Setup mock objects
-        mock_mkdtemp.return_value = "/tmp/tempdir"
         builder = AppBuilder(self.mock_sts_client)
         builder.create_output_dir = MagicMock()
+
         builder.install_npm_deps = MagicMock()
         mock_return_stack = MagicMock()
         builder.create_pulumi_stack = MagicMock(return_value=mock_return_stack)
@@ -43,7 +42,6 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         stack = builder.prepare_stack(b"iac", MagicMock())
 
         # Assert calls
-        mock_mkdtemp.assert_called_once()
         builder.create_output_dir.assert_called_once_with(b"iac")
         builder.install_npm_deps.assert_called_once()
         builder.create_pulumi_stack.assert_called_once()
@@ -51,14 +49,14 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Assert return value
         self.assertEqual(stack, mock_return_stack)
 
-    @patch("src.deployer.pulumi.builder.shutil.rmtree")
-    def test_exit(self, mock_rmtree):
+    def test_exit(self):
         # Call the method
         builder = AppBuilder(MagicMock())
+        builder.tmpdir = MagicMock()
         builder.__exit__(None, None, None)
 
         # Assert call
-        mock_rmtree.assert_called_once_with(builder.output_dir)
+        builder.tmpdir.__exit__.assert_called_once()
 
     @patch("src.deployer.pulumi.builder.assume_role")
     @patch("src.deployer.pulumi.builder.auto.ConfigValue")
@@ -95,8 +93,8 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack.return_value = mock_stack
 
         # Call the method
-        builder = AppBuilder(self.mock_sts_client)
-        stack = builder.create_pulumi_stack(MagicMock())
+        with AppBuilder(self.mock_sts_client) as builder:
+            stack = builder.create_pulumi_stack(MagicMock())
 
         # Assert call
         mock_create_or_select_stack.assert_called_once()
@@ -105,18 +103,16 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         self.assertEqual(stack, mock_stack)
 
     @patch("src.deployer.pulumi.builder.subprocess.run")
-    @patch("builtins.open", new_callable=mock_open)
-    def test_install_npm_deps(self, mock_open, mock_run):
+    def test_install_npm_deps(self, mock_run):
         mock_result = MagicMock()
         mock_run.return_value = mock_result
         # Call the method
-        builder = AppBuilder(MagicMock())
-        builder.install_npm_deps()
+        with AppBuilder(MagicMock()) as builder:
+            builder.install_npm_deps()
 
         # Assert call
         mock_run.assert_called_once_with(
             ["npm", "install", "--prefix", builder.output_dir],
-            stdout=mock_open.return_value,
+            stdout=subprocess.DEVNULL,
         )
-        mock_open.assert_called_once_with(os.devnull, "wb")
         mock_result.check_returncode.assert_called_once()

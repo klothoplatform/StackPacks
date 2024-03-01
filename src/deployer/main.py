@@ -1,10 +1,7 @@
 import asyncio
-from contextlib import asynccontextmanager
 from typing import Dict
-from typing import List
 import uuid
 from fastapi import Request
-from pydantic import BaseModel
 from src.dependencies.injection import create_sts_client
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deployer import AppDeployer
@@ -14,6 +11,7 @@ from src.deployer.models.deployment import (
     DeploymentAction,
     PulumiStack,
 )
+from pulumi import automation as auto
 from src.util.logging import logger
 from multiprocessing import Queue
 from queue import Empty
@@ -30,6 +28,7 @@ async def build_and_deploy(
     assume_role_arn: str,
     user: str,
     iac: bytes,
+    pulumi_config: dict[str, str],
 ):
     deployment_id = str(uuid.uuid4())
     pulumi_stack = PulumiStack(
@@ -47,28 +46,31 @@ async def build_and_deploy(
         status_reason="Deployment in progress",
         initiated_by=user,
     )
+
     pulumi_stack.save()
     deployment.save()
-    builder = AppBuilder(create_sts_client())
-    stack = builder.prepare_stack(iac, pulumi_stack)
-    builder.configure_aws(stack, assume_role_arn, region)
-    deployer = AppDeployer(
-        stack,
-    )
-    result_status, reason = await deployer.deploy(q)
-    await q.put("Done")
-    pulumi_stack.update(
-        actions=[
-            PulumiStack.status.set(result_status.value),
-            PulumiStack.status_reason.set(reason),
-        ]
-    )
-    deployment.update(
-        actions=[
-            Deployment.status.set(result_status.value),
-            Deployment.status_reason.set(reason),
-        ]
-    )
+    with AppBuilder(create_sts_client()) as builder:
+        stack = builder.prepare_stack(iac, pulumi_stack)
+        builder.configure_aws(stack, assume_role_arn, region)
+        for k, v in pulumi_config.items():
+            stack.set_config(k, auto.ConfigValue(v, secret=True))
+        deployer = AppDeployer(
+            stack,
+        )
+        result_status, reason = await deployer.deploy(q)
+        await q.put("Done")
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(result_status.value),
+                PulumiStack.status_reason.set(reason),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(result_status.value),
+                Deployment.status_reason.set(reason),
+            ]
+        )
 
 
 def run_build_and_deploy(
@@ -77,10 +79,13 @@ def run_build_and_deploy(
     assume_role_arn: str,
     user: str,
     iac: bytes,
+    pulumi_config: dict[str, str],
 ):
     new_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(new_loop)
-    new_loop.run_until_complete(build_and_deploy(q, region, assume_role_arn, user, iac))
+    new_loop.run_until_complete(
+        build_and_deploy(q, region, assume_role_arn, user, iac, pulumi_config)
+    )
     new_loop.close()
 
 
@@ -90,6 +95,7 @@ async def run_destroy(
     assume_role_arn: str,
     user: str,
     iac: bytes,
+    pulumi_config: dict[str, str],
 ):
     deployment_id = str(uuid.uuid4())
     pulumi_stack = PulumiStack(
@@ -107,28 +113,31 @@ async def run_destroy(
         status_reason="Destroy in progress",
         initiated_by=user,
     )
+
     pulumi_stack.save()
     deployment.save()
-    builder = AppBuilder(create_sts_client())
-    stack = builder.prepare_stack(iac, pulumi_stack)
-    builder.configure_aws(stack, assume_role_arn, region)
-    deployer = AppDeployer(
-        stack,
-    )
-    result_status, reason = await deployer.destroy_and_remove_stack(q)
-    await q.put("Done")
-    pulumi_stack.update(
-        actions=[
-            PulumiStack.status.set(result_status.value),
-            PulumiStack.status_reason.set(reason),
-        ]
-    )
-    deployment.update(
-        actions=[
-            Deployment.status.set(result_status.value),
-            Deployment.status_reason.set(reason),
-        ]
-    )
+    with AppBuilder(create_sts_client()) as builder:
+        stack = builder.prepare_stack(iac, pulumi_stack)
+        for k, v in pulumi_config.items():
+            stack.set_config(k, auto.ConfigValue(v, secret=True))
+        builder.configure_aws(stack, assume_role_arn, region)
+        deployer = AppDeployer(
+            stack,
+        )
+        result_status, reason = await deployer.destroy_and_remove_stack(q)
+        await q.put("Done")
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(result_status.value),
+                PulumiStack.status_reason.set(reason),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(result_status.value),
+                Deployment.status_reason.set(reason),
+            ]
+        )
 
 
 def run_destroy_loop(
@@ -137,10 +146,13 @@ def run_destroy_loop(
     assume_role_arn: str,
     user: str,
     iac: bytes,
+    pulumi_config: dict[str, str],
 ):
     new_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(new_loop)
-    new_loop.run_until_complete(run_destroy(q, region, assume_role_arn, user, iac))
+    new_loop.run_until_complete(
+        run_destroy(q, region, assume_role_arn, user, iac, pulumi_config)
+    )
     new_loop.close()
 
 

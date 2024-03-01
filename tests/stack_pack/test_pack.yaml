@@ -1,0 +1,53 @@
+name: Test Pack
+version: '1.0.0'
+
+base:
+  resources:
+    test:basic:test1:
+      Prop1: value
+    test:array_index:test2:
+      LoadBalancers[0].ContainerPort: 8065
+    test:config_value:test3:
+      Cpu: ${CPU}
+    test:array_value:test4:
+      Environment:
+      - Name: KEY1
+        Value: v1
+      - Name: KEY2
+        Value: v2
+  edges:
+    test:basic:test1 -> test:array_index:test2:
+    test:array_index:test2 -> test:config_value:test3:
+  files:
+    plain_file:
+    file_with_template:
+      template: true
+
+configuration:
+  CPU:
+    name: CPU
+    description: The amount of CPU
+    type: number
+    default: 512
+    validation:
+      min: 256
+      max: 4096
+
+  AddResource:
+    name: Add Resource
+    description: Adds a resource
+    type: boolean
+    default: false
+    values:
+      true:
+        resources:
+          test:added_type:test5:
+        edges:
+          test:config_value:test3 -> test:added_type:test5:
+
+  PulumiConfig:
+    name: Pulumi Config
+    description: The Pulumi configuration
+    type: string
+    default: "a value"
+    pulumi_key: klo:pulumi-config

@@ -8,7 +8,6 @@ from unittest import mock
 from src.engine_service.engine_commands.export_iac import (
     export_iac,
     ExportIacRequest,
-    ExportIacResult,
 )
 
 
@@ -29,21 +28,19 @@ class TestExportIac(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.export_iac.run_iac_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("tempfile.TemporaryDirectory")
-    async def test_run_engine(self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock):
+    async def test_run_engine(self, mock_eng_cmd: mock.Mock):
         request = ExportIacRequest(
             name="test",
             input_graph="test-graph",
+            tmp_dir=self.temp_dir.name,
         )
-        mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 
         mock_eng_cmd.return_value = (
             "",
             "",
         )
         mock_eng_cmd.side_effect = self.run_iac_side_effect(self.temp_dir.name)
-        result = await export_iac(request)
-        mock_temp_dir.assert_called_once()
+        await export_iac(request)
         mock_eng_cmd.assert_called_once_with(
             "Generate",
             "--input-graph",
@@ -56,4 +53,4 @@ class TestExportIac(aiounittest.AsyncTestCase):
             "test",
             cwd=PosixPath(self.temp_dir.name),
         )
-        self.assertIsNotNone(result.iac_bytes)
+        self.assertTrue(os.path.exists(f"{self.temp_dir.name}/index.ts"))

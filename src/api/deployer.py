@@ -14,14 +14,12 @@ from src.deployer.main import (
     run_destroy_loop,
     stream_deployment_events,
 )
+from src.stack_pack import get_stack_packs
+from src.stack_pack.storage.iac_storage import IacStorage
+from src.stack_pack.models.user_pack import UserPack
+from src.dependencies.injection import get_iac_storage
 
 router = APIRouter()
-
-
-class DeploymentRequest(BaseModel):
-    region: str
-    assume_role_arn: str
-    packages: list[str]
 
 
 def read_zip_to_bytes(zip_file_path):
@@ -32,20 +30,33 @@ def read_zip_to_bytes(zip_file_path):
 @router.post("/api/install")
 async def install(
     request: Request,
-    body: DeploymentRequest,
 ):
-    iac = read_zip_to_bytes(
-        "/Users/jordansinger/workspace/StackPacks/untitled_architecture_default (2).zip"
-    )
-
     user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id, user_id)
+    store = get_iac_storage()
+    iac = store.get_iac(user_pack.id)
+
+    sps = get_stack_packs()
+
+    pulumi_config = {}
+    for name, config in user_pack.configuration.items():
+        sp = sps[name]
+        pulumi_config.update(sp.get_pulumi_configs(config))
+
     # Create a new queue for this deployment
     deployment_id = f"{user_id}"
     q = Queue()
     deployments[deployment_id] = q
     p = Process(
         target=run_build_and_deploy,
-        args=(q, body.region, body.assume_role_arn, user_id, iac),
+        args=(
+            q,
+            user_pack.region,
+            user_pack.assumed_role_arn,
+            user_id,
+            iac,
+            pulumi_config,
+        ),
     )
     p.start()
     # Start the deployment in the background
@@ -56,12 +67,18 @@ async def install(
 @router.post("/api/tear_down")
 async def tear_down(
     request: Request,
-    body: DeploymentRequest,
 ):
-    iac = read_zip_to_bytes(
-        "/Users/jordansinger/workspace/StackPacks/untitled_architecture_default (2).zip"
-    )
     user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id, user_id)
+    store = get_iac_storage()
+    iac = store.get_iac(user_pack.id)
+
+    sps = get_stack_packs()
+
+    pulumi_config = {}
+    for name, config in user_pack.configuration.items():
+        sp = sps[name]
+        pulumi_config.update(sp.get_pulumi_configs(config))
 
     # Create a new queue for this deployment
     deployment_id = f"{user_id}"
@@ -71,7 +88,14 @@ async def tear_down(
     logger.info(f"Starting destroy for {deployment_id}")
     p = Process(
         target=run_destroy_loop,
-        args=(q, body.region, body.assume_role_arn, user_id, iac),
+        args=(
+            q,
+            user_pack.region,
+            user_pack.assumed_role_arn,
+            user_id,
+            iac,
+            pulumi_config,
+        ),
     )
     p.start()
     # start destroy in the background

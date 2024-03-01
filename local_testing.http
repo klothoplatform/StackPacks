@@ -1,0 +1,37 @@
+# Create Stack
+POST http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "configuration": {
+    "mattermost": {
+      "DBPassword": "hunter2456"
+    }
+  }
+}
+
+###
+
+PATCH http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "region": "us-east-1",
+  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks"
+}
+
+###
+
+GET http://localhost:3000/api/stack
+
+###
+
+POST http://localhost:3000/api/install
+
+###
+
+POST http://localhost:3000/api/tear_down
+
+###
+
+GET http://localhost:3000/api/stackpacks

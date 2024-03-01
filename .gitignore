@@ -172,3 +172,5 @@ node_modules/
 
 # Ignore requirements since we're using pipenv for dep management
 requirements.txt
+
+/tmp
