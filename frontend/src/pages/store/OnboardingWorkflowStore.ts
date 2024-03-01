@@ -31,7 +31,9 @@ export interface OnboardingWorkflowStoreBase
   getStackPacks: () => Promise<Map<string, StackPack>>;
   installStack: () => Promise<void>;
   tearDownStack: () => Promise<void>;
-  resetOnboardingWorkflowState: () => void;
+  resetOnboardingWorkflowState: (
+    initialState?: Partial<OnboardingWorkflowState>,
+  ) => void;
   updateOnboardingWorkflowState: (
     state: Partial<OnboardingWorkflowState>,
   ) => void;
@@ -42,6 +44,7 @@ const initialState: () => OnboardingWorkflowStoreState = () => ({
     externalId: crypto.randomUUID().toString(),
     selectedStackPacks: [],
     region: "",
+    iamRoleArn: "arn:aws:iam::123456789012:role/role-remove-this-at-some-point",
   },
   stackPacks: new Map(),
 });
@@ -57,8 +60,12 @@ export const onboardingWorkflowStore: StateCreator<
   OnboardingWorkflowStoreBase
 > = (set: (state: object, replace?: boolean, id?: string) => any, get) => ({
   ...initialState(),
-  resetOnboardingWorkflowState: () =>
-    set(initialState(), false, "resetOnboardingWorkflowState"),
+  resetOnboardingWorkflowState: (_initialState) =>
+    set(
+      { ...initialState(), ..._initialState },
+      false,
+      "resetOnboardingWorkflowState",
+    ),
   getStack: async () => {
     const idToken = await get().getIdToken();
     return await getStack(idToken);

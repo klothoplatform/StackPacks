@@ -20,6 +20,9 @@ import { ChooseAppsStep } from "./ChooseAppsStep";
 import { ConnectAccountStep } from "./ConnectAccountStep";
 import { DeploymentStep } from "./DeploymentStep";
 import { ConfigureAppsStep } from "./ConfigureAppsStep.tsx";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
+import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 
 const workflowSteps: Array<Step & { component: React.FC<any> }> = [
   {
@@ -34,7 +37,7 @@ const workflowSteps: Array<Step & { component: React.FC<any> }> = [
   },
   {
     id: "configure-stack",
-    title: "Configure",
+    title: "Configure Stack",
     component: ConfigureAppsStep,
   },
   {
@@ -47,13 +50,32 @@ const workflowSteps: Array<Step & { component: React.FC<any> }> = [
 function OnboardingPage() {
   const { isAuthenticated, user, addError } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    updateOnboardingWorkflowState,
+    onboardingWorkflowState: { selectedStackPacks },
+  } = useApplicationStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
       return;
     }
     setIsLoaded(true);
-  }, [isAuthenticated, isLoaded, addError]);
+  }, [isAuthenticated, isLoaded]);
+
+  useEffectOnMount(() => {
+    if (selectedStackPacks.length > 0) {
+      setSearchParams({ selectedApps: selectedStackPacks.join(",") });
+    } else {
+      const queryApps = searchParams.get("selectedApps")?.split(",");
+      if (queryApps?.length > 0) {
+        updateOnboardingWorkflowState({
+          selectedStackPacks: queryApps,
+        });
+      }
+    }
+  });
 
   return (
     <div
@@ -86,7 +108,26 @@ function OnboardingPage() {
         </HeaderNavBar>
         <div className="flex size-full flex-row justify-center overflow-hidden">
           <div className="flex size-full max-w-[1000px] grow flex-col gap-6 p-6">
-            <StepperProvider>
+            <StepperProvider
+              onGoBack={(step) =>
+                navigate(
+                  {
+                    pathname: `../${step.id}`,
+                    search: searchParams.toString(),
+                  },
+                  { relative: "path" },
+                )
+              }
+              onGoForwards={(step) =>
+                navigate(
+                  {
+                    pathname: `../${step.id}`,
+                    search: searchParams.toString(),
+                  },
+                  { relative: "path" },
+                )
+              }
+            >
               <OnboardingWorkflow />
             </StepperProvider>
           </div>
@@ -100,12 +141,33 @@ function OnboardingPage() {
 
 const OnboardingWorkflow: React.FC = () => {
   const mainStepperContext = useStepper();
-  const { currentStep, setCurrentStep, setSteps, steps, goBack, goForwards } =
-    mainStepperContext;
+  const { currentStep, setCurrentStep, setSteps, steps } = mainStepperContext;
+  const { step: stepParam } = useParams();
+  const navigate = useNavigate();
+  const { resetOnboardingWorkflowState } = useApplicationStore();
+
+  const stepTitle = steps.find((s) => s.id === stepParam)?.title;
+  useDocumentTitle("Onboarding" + (stepTitle ? ` - ${stepTitle}` : ""));
 
   useEffect(() => {
     setSteps(workflowSteps);
   }, [setSteps]);
+
+  useEffect(() => {
+    const resolvedStep = steps.findIndex((s) => s.id === stepParam);
+    if (resolvedStep > -1) {
+      setCurrentStep(resolvedStep);
+      if (resolvedStep < currentStep) {
+        // if the user navigated back using history, navigate forward to the same step to ensure
+        // the only path forward is by progressing in the app
+        navigate(`/onboarding/${steps[resolvedStep].id}`);
+      }
+    } else if (steps.length) {
+      navigate(`/onboarding/${steps[0].id}`);
+      // navigating to /onboarding without a step indicates a fresh session
+      resetOnboardingWorkflowState();
+    }
+  }, [stepParam, steps]);
 
   const CurrentStepComponent = workflowSteps[currentStep]?.component;
 

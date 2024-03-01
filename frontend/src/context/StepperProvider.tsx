@@ -3,14 +3,27 @@ import React from "react";
 import type { Step } from "./StepperContext";
 import { StepperContext } from "./StepperContext";
 
-export const StepperProvider: FC<PropsWithChildren> = ({ children }) => {
-  const [currentStep, setCurrentStep] = React.useState(0);
+export const StepperProvider: FC<
+  PropsWithChildren<{
+    onGoBack?: (step: Step) => void;
+    onGoForwards?: (step: Step) => void;
+    activeStep?: number;
+  }>
+> = ({ children, onGoBack, onGoForwards, activeStep }) => {
+  const [currentStep, setCurrentStep] = React.useState(activeStep || 0);
   const [steps, setSteps] = React.useState<Step[]>([]);
-  const goForwards = () =>
-    setCurrentStep((prev) =>
-      prev + 1 >= steps.length ? steps.length - 1 : prev + 1,
-    );
-  const goBack = () => setCurrentStep((prev) => (prev - 1 < 0 ? 0 : prev - 1));
+  const goForwards = () => {
+    const nextStep =
+      currentStep + 1 >= steps.length ? steps.length - 1 : currentStep + 1;
+    setCurrentStep(nextStep);
+    onGoForwards?.(steps[nextStep]);
+  };
+
+  const goBack = () => {
+    const previousStep = currentStep - 1 < 0 ? 0 : currentStep - 1;
+    setCurrentStep(previousStep);
+    onGoBack?.(steps[previousStep]);
+  };
   const goToStep = (step: number | string) => {
     if (typeof step === "string") {
       step = steps.findIndex((s) => s.id === step);

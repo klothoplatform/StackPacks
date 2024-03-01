@@ -109,7 +109,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   Create role <RiExternalLinkLine />
                 </span>
               </Button>
-
+              <br />
               <p>
                 The following information will be prefilled for you. Please do
                 not make any modifications to these fields.
