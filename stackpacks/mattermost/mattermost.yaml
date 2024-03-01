@@ -38,7 +38,9 @@ base:
       Scheme: internet-facing
     aws:rds_instance:mattermost-db:
     aws:efs_file_system:mattermost-efs:
+    aws:cloudfront_distribution:mattermost-cf:
   edges:
+    aws:cloudfront_distribution:mattermost-cf -> aws:load_balancer:mattermost-lb:
     aws:load_balancer:mattermost-lb -> aws:ecs_service:mattermost-service:
     aws:ecs_service:mattermost-service -> aws:rds_instance:mattermost-db:
     aws:ecs_service:mattermost-service -> aws:efs_file_system:mattermost-efs:

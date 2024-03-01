@@ -33,6 +33,9 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         with open(dir / "config_errors.json", "w") as file:
             file.write("[]")
 
+        with open(dir / "deployment_permissions_policy.json", "w") as file:
+            file.write("{}")
+
     @mock.patch(
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
@@ -40,11 +43,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
     @mock.patch("tempfile.TemporaryDirectory")
     async def test_run_engine(self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
-            id="test",
-            templates=[],
             constraints=[],
             input_graph="test",
-            engine_version=0.0,
         )
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 
@@ -74,6 +74,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
                 topology_yaml="topology_yaml",
                 iac_topology="iac_topology",
                 config_errors=[],
+                policy="{}",
             ),
         )
 
@@ -86,11 +87,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
     ):
         request = RunEngineRequest(
-            id="test",
-            templates=[],
             constraints=[],
             input_graph="test",
-            engine_version=0.0,
         )
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 
@@ -130,6 +128,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
                 topology_yaml="topology_yaml",
                 iac_topology="iac_topology",
                 config_errors=[{"error_code": "error"}],
+                policy="{}",
             ),
         )
 
@@ -142,11 +141,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
     ):
         request = RunEngineRequest(
-            id="test",
-            templates=[],
             constraints=[],
             input_graph="test",
-            engine_version=0.0,
         )
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 

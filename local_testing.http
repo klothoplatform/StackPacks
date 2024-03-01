@@ -31,3 +31,7 @@ POST http://localhost:3000/api/install
 ###
 
 POST http://localhost:3000/api/tear_down
+
+###
+
+GET http://localhost:3000/api/stackpacks

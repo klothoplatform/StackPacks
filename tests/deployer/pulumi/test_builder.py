@@ -5,6 +5,7 @@ from src.deployer.pulumi.builder import (
     AppBuilder,
 )  # replace with your actual module name
 from pulumi import automation as auto
+import subprocess
 
 
 class TestAppBuilder(aiounittest.AsyncTestCase):
@@ -105,8 +106,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         self.assertEqual(stack, mock_stack)
 
     @patch("src.deployer.pulumi.builder.subprocess.run")
-    @patch("builtins.open", new_callable=mock_open)
-    def test_install_npm_deps(self, mock_open, mock_run):
+    def test_install_npm_deps(self, mock_run):
         mock_result = MagicMock()
         mock_run.return_value = mock_result
         # Call the method
@@ -116,7 +116,6 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Assert call
         mock_run.assert_called_once_with(
             ["npm", "install", "--prefix", builder.output_dir],
-            stdout=mock_open.return_value,
+            stdout=subprocess.DEVNULL,
         )
-        mock_open.assert_called_once_with(os.devnull, "wb")
         mock_result.check_returncode.assert_called_once()

@@ -26,6 +26,7 @@ configuration:
     type: # The type of the configuration value (string, int, float, boolean, enum)
     default: # The default value of the configuration, required if used in the `base` section
     validation: # Validation rules based on the type
+    initial_only: # Whether the value can only be set on initial configuration
 
   XYZ:
     type: boolean
