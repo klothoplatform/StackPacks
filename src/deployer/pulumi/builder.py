@@ -5,7 +5,6 @@ import io
 import zipfile
 
 from src.deployer.models.deployment import PulumiStack
-from src.util.aws.sts import assume_role
 from src.util.logging import logger as log
 from src.util.tmp import TempDir
 
@@ -48,11 +47,10 @@ class AppBuilder:
         return stack
 
     def configure_aws(self, stack: auto.Stack, role_arn: str, region: str):
-        creds, user = assume_role(self.sts_client, role_arn)
-        stack.set_config("aws:accessKey", auto.ConfigValue(creds.AccessKeyId))
-        stack.set_config("aws:secretKey", auto.ConfigValue(creds.SecretAccessKey))
-        stack.set_config("aws:token", auto.ConfigValue(creds.SessionToken))
         stack.set_config("aws:region", auto.ConfigValue(region))
+        stack.set_config(
+            "roleArn", auto.ConfigValue(role_arn), path="aws:assumeRole.roleArn"
+        )
 
     def install_npm_deps(self):
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
