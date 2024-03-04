@@ -80,11 +80,6 @@ base:
     aws:target_group:gitea-ssh:
       Port: 22
       Protocol: TCP
-      HealthCheck:
-        Port: 3000 # health check on the web port
-        Protocol: HTTP
-        Path: /api/healthz
-        Matcher: 200
     aws:efs_file_system:gitea-efs:
     aws:efs_access_point:gitea-efs:gitea-data:
       FileSystem: aws:efs_file_system:gitea-efs
