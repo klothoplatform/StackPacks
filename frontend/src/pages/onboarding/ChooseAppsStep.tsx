@@ -70,6 +70,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
   useEffectOnMount(() => {
     (async () => {
       const stackPacks = await getStackPacks();
+      console.log(stackPacks);
       setApps([...stackPacks.values()]);
     })();
   });
@@ -212,15 +213,15 @@ const AppChooser: FC<{
   layout: AppChooserLayout;
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [_, setSearchParams] = useSearchParams();
 
   const onClick = (app: StackPack, selected: boolean) => {
-    const alreadySelected = selectedApps.some((a) => a === app.name);
+    const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
     if (selected && !alreadySelected) {
-      updatedSelection.push(app.name);
+      updatedSelection.push(app.id);
     } else if (!selected && alreadySelected) {
-      updatedSelection = updatedSelection.filter((a) => a !== app.name);
+      updatedSelection = updatedSelection.filter((a) => a !== app.id);
     }
     setSearchParams({ selectedApps: updatedSelection.join(",") });
     console.log(updatedSelection);
@@ -249,7 +250,7 @@ const AppChooser: FC<{
             app={app}
             layout={layout}
             onClick={onClick}
-            selected={!!selectedApps.some((a) => a === app.name)}
+            selected={!!selectedApps.some((a) => a === app.id)}
           />
         </div>
       ))}

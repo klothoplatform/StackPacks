@@ -18,6 +18,7 @@ export interface Property {
   important?: boolean;
   omitIfConditions?: OmissionPredicate[];
   uniqueValue?: boolean;
+  pulumiKey?: string;
 }
 
 export type OmissionPredicate = (resource: any) => boolean;
@@ -102,7 +103,7 @@ export function isCollection(value: string): value is CollectionTypes {
   return Object.values<string>(CollectionTypes).includes(value);
 }
 
-type RawProperty = {
+export type RawProperty = {
   name: string;
   type: string;
   description?: string;
@@ -174,17 +175,19 @@ export function parseProperty(
     properties: children,
     required,
     defaultValue,
-    validation: {
-      allowedValues,
-      minValue,
-      maxValue,
-      important,
-      minLength,
-      maxLength,
-      uniqueItems,
-      uniqueKeys,
-    },
+    validation,
   }: RawProperty = rawProperty as any;
+
+  const {
+    allowedValues,
+    minValue,
+    maxValue,
+    important,
+    minLength,
+    maxLength,
+    uniqueItems,
+    uniqueKeys,
+  } = validation || {};
 
   if (!name) {
     console.warn("Property missing name", rawProperty);

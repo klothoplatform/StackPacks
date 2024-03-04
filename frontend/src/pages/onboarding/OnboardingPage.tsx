@@ -52,23 +52,46 @@ function OnboardingPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const {
+    loadUserStack,
     updateOnboardingWorkflowState,
     onboardingWorkflowState: { selectedStackPacks },
   } = useApplicationStore();
   const navigate = useNavigate();
+  const [canOnboard, setCanOnboard] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
       return;
     }
-    setIsLoaded(true);
-  }, [isAuthenticated, isLoaded]);
+    (async () => {
+      try {
+        const userStack = await loadUserStack();
+        if (!userStack) {
+          setCanOnboard(true);
+        } else {
+          navigate("/user/dashboard", { replace: true });
+        }
+      } catch (e: any) {
+        addError(
+          new UIError({
+            message: "An error occurred. Please try again later",
+            cause: e,
+          }),
+        );
+      } finally {
+        setIsLoaded(true);
+      }
+    })();
+  }, [isAuthenticated, isLoaded, loadUserStack, navigate, addError]);
 
   useEffectOnMount(() => {
     if (selectedStackPacks.length > 0) {
       setSearchParams({ selectedApps: selectedStackPacks.join(",") });
     } else {
-      const queryApps = searchParams.get("selectedApps")?.split(",");
+      const queryApps = searchParams
+        .get("selectedApps")
+        ?.split(",")
+        ?.filter((qa) => qa);
       if (queryApps?.length > 0) {
         updateOnboardingWorkflowState({
           selectedStackPacks: queryApps,
@@ -106,32 +129,35 @@ function OnboardingPage() {
             />
           </div>
         </HeaderNavBar>
-        <div className="flex size-full flex-row justify-center overflow-hidden">
-          <div className="flex size-full max-w-[1000px] grow flex-col gap-6 p-6">
-            <StepperProvider
-              onGoBack={(step) =>
-                navigate(
-                  {
-                    pathname: `../${step.id}`,
-                    search: searchParams.toString(),
-                  },
-                  { relative: "path" },
-                )
-              }
-              onGoForwards={(step) =>
-                navigate(
-                  {
-                    pathname: `../${step.id}`,
-                    search: searchParams.toString(),
-                  },
-                  { relative: "path" },
-                )
-              }
-            >
-              <OnboardingWorkflow />
-            </StepperProvider>
+        {canOnboard && (
+          <div className="flex size-full flex-row justify-center overflow-hidden">
+            <div className="flex size-full max-w-[1000px] grow flex-col gap-6 p-6">
+              <StepperProvider
+                onGoBack={(step) =>
+                  navigate(
+                    {
+                      pathname: `../${step.id}`,
+                      search: searchParams.toString(),
+                    },
+                    { relative: "path" },
+                  )
+                }
+                onGoForwards={(step) =>
+                  navigate(
+                    {
+                      pathname: `../${step.id}`,
+                      search: searchParams.toString(),
+                    },
+                    { relative: "path" },
+                  )
+                }
+              >
+                <OnboardingWorkflow />
+              </StepperProvider>
+            </div>
           </div>
-        </div>
+        )}
+
         <ErrorOverlay />
         <WorkingOverlay show={false} message={"Loading architectures..."} />
       </ErrorBoundary>
@@ -147,7 +173,9 @@ const OnboardingWorkflow: React.FC = () => {
   const { resetOnboardingWorkflowState } = useApplicationStore();
 
   const stepTitle = steps.find((s) => s.id === stepParam)?.title;
-  useDocumentTitle("Onboarding" + (stepTitle ? ` - ${stepTitle}` : ""));
+  useDocumentTitle(
+    "StackPacks - Onboarding" + (stepTitle ? ` - ${stepTitle}` : ""),
+  );
 
   useEffect(() => {
     setSteps(workflowSteps);
@@ -167,7 +195,14 @@ const OnboardingWorkflow: React.FC = () => {
       // navigating to /onboarding without a step indicates a fresh session
       resetOnboardingWorkflowState();
     }
-  }, [stepParam, steps]);
+  }, [
+    stepParam,
+    steps,
+    setCurrentStep,
+    currentStep,
+    navigate,
+    resetOnboardingWorkflowState,
+  ]);
 
   const CurrentStepComponent = workflowSteps[currentStep]?.component;
 

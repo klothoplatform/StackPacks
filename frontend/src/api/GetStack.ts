@@ -14,11 +14,18 @@ export async function getStack(idToken: string): Promise<Stack> {
       },
     });
   } catch (e: any) {
+    if (e.response?.status === 404) {
+      analytics.track("GetStack", {
+        status: e.response.status,
+      });
+      return undefined;
+    }
+
     const error = new ApiError({
       errorId: "GetStack",
       message: "An error occurred while getting your stack.",
-      status: e.status,
-      statusText: e.message,
+      status: e.response?.status,
+      statusText: e.response?.message || e.message,
       url: e.request?.url,
       cause: e,
     });

@@ -1,6 +1,29 @@
 # StackPacks
 
+<!-- TOC -->
+* [StackPacks](#stackpacks)
+  * [Development](#development)
+    * [WSL2](#wsl2)
+  * [Format](#format)
+<!-- TOC -->
+
+
+## Development
+
+### WSL2
+When developing on WSL2, use the [wsl-compose.yml](./wsl-compose.yml) file to start the backend's dependencies.
+
+This file overrides incompatible settings like volume for dynamodb-local.
+
+Example:
+
+```shell
+docker compose -f wsl-compose.yml up -D
+```
+
+
 ## Format
+
 ```yaml
 name: # The human-readable name of the stack pack
 version: # Semver version of the stack pack, not used for now, but will be used in the future

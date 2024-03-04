@@ -1,9 +1,11 @@
 from typing import Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request
 
 from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
+from pynamodb.exceptions import GetError, DoesNotExist
+
 from src.dependencies.injection import get_iac_storage
 from src.auth.token import get_user_id
 
@@ -18,6 +20,8 @@ router = APIRouter()
 
 class StackRequest(BaseModel):
     configuration: dict[str, ConfigValues]
+    assumed_role_arn: str = None
+    region: str = None
 
 
 class StackResponse(BaseModel):
@@ -37,17 +41,19 @@ async def create_stack(
         owner=user_id,
         configuration=body.configuration,
         created_by=user_id,
+        region=body.region,
+        assumed_role_arn=body.assumed_role_arn,
     )
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
         policy, _ = await user_pack.run_pack(stack_packs, get_iac_storage(), tmp_dir)
     user_pack.save()
-    return {"stack": user_pack.to_user_stack(), "policy": policy}
+    return StackResponse(stack=user_pack.to_user_stack(), policy=policy)
 
 
 class UpdateStackRequest(BaseModel):
     configuration: dict[str, ConfigValues] = None
-    assume_role_arn: str = None
+    assumed_role_arn: str = None
     region: str = None
 
 
@@ -60,8 +66,8 @@ async def update_stack(
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id, user_id)
     actions = []
-    if body.assume_role_arn:
-        actions.append(UserPack.assumed_role_arn.set(body.assume_role_arn))
+    if body.assumed_role_arn:
+        actions.append(UserPack.assumed_role_arn.set(body.assumed_role_arn))
     if body.region:
         # TODO: add check to see if they have already deployed a stack and its running, if so send back a 400 since we cant change region
         actions.append(UserPack.region.set(body.region))
@@ -83,6 +89,10 @@ async def update_stack(
 @router.get("/api/stack")
 async def my_stack(request: Request) -> UserStack:
     user_id = await get_user_id(request)
+    try:
+        user_pack = UserPack.get(user_id, user_id)
+    except DoesNotExist:
+        raise HTTPException(status_code=404, detail="Stack not found")
     user_pack = UserPack.get(user_id, user_id)
     return user_pack.to_user_stack()
 
@@ -107,6 +117,7 @@ async def list_stackpacks():
 
     return {
         spid: {
+            "id": spid,
             "name": sp.name,
             "version": sp.version,
             "configuration": {

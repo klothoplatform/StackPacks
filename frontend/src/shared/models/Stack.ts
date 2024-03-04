@@ -13,19 +13,16 @@
  */
 
 export interface Stack {
-  id: string;
-  configurationErrors: ConfigurationError[];
+  assumedRoleArn: string;
+  assumedRoleExternalId: string;
+  createdAt: number;
   createdBy: string;
-  awsConfig: {
-    iamRoleArn: string;
-    externalId: string;
-    iamPolicy: string;
-  };
-  deploymentStatus: "not-started" | "running" | "succeeded" | "failed";
-  deploymentStatusReason: string;
+  status: "not-started" | "running" | "succeeded" | "failed";
+  statusReason: string;
+  id: string;
   name: string;
   owner: string;
-  stackPacks: Configuration;
+  configuration: Configuration;
   region: string;
 }
 
@@ -35,14 +32,4 @@ export interface Configuration {
     // config key (e.g. CPU)
     [key: string]: any;
   };
-}
-
-export interface ConfigurationError {
-  property: string;
-  value?: any;
-  error: {
-    chain: string[];
-  };
-  errorCode: string;
-  validationError: string;
 }

@@ -6,6 +6,7 @@ import { FaRegCircleDot } from "react-icons/fa6";
 import { useStepper } from "../hooks/useStepper";
 import type { Step } from "../context/StepperContext";
 import { Button, useThemeMode } from "flowbite-react";
+import { AiOutlineLoading } from "react-icons/ai";
 
 interface StepperProps {
   steps: Step[];
@@ -211,6 +212,16 @@ export const StepperNavigator: FC<StepperNavigatorProps> = ({
   steps,
 }) => {
   const { mode } = useThemeMode();
+  const [isGoingForwards, setIsGoingForwards] = React.useState(false);
+
+  const handleGoForwards = async () => {
+    setIsGoingForwards(true);
+    try {
+      await goForwards();
+    } finally {
+      setIsGoingForwards(false);
+    }
+  };
 
   return (
     <div className="flex size-fit gap-2">
@@ -218,7 +229,7 @@ export const StepperNavigator: FC<StepperNavigatorProps> = ({
         <Button
           color={mode}
           onClick={goBack}
-          disabled={backDisabled || currentStep === 0}
+          disabled={isGoingForwards || backDisabled || currentStep === 0}
         >
           Back
         </Button>
@@ -226,7 +237,9 @@ export const StepperNavigator: FC<StepperNavigatorProps> = ({
       {currentStep < steps.length - 1 && (
         <Button
           color={"purple"}
-          onClick={goForwards}
+          onClick={handleGoForwards}
+          isProcessing={isGoingForwards}
+          processingSpinner={<AiOutlineLoading className="animate-spin" />}
           disabled={nextDisabled || currentStep === steps.length - 1}
         >
           Next
