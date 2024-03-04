@@ -1,9 +1,9 @@
+from pathlib import Path
+from typing import Any, List, Optional
+
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
-from typing import Any, Optional, List
 from pydantic_yaml import parse_yaml_file_as
-
-from pathlib import Path
 
 
 class ConfigValues(dict[str, Any]):
@@ -233,7 +233,10 @@ def get_stack_packs() -> dict[str, StackPack]:
     sps = {}
     for dir in root.iterdir():
         f = dir / f"{dir.name}.yaml"
-        sp = parse_yaml_file_as(StackPack, f)
+        try:
+            sp = parse_yaml_file_as(StackPack, f)
+        except Exception as e:
+            raise ValueError(f"Failed to parse {dir.name}") from e
         sp.id = dir.name
         sps[dir.name] = sp
     return sps

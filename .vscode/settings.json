@@ -1,4 +1,13 @@
 {
+  "[python]": {
+    "editor.formatOnType": true,
+    "editor.tabSize": 4,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit",
+      "source.unusedImports": "explicit",
+    },
+    "editor.formatOnSave": true
+  },
   "python.testing.unittestEnabled": true,
   "python.testing.pytestEnabled": false
 }
