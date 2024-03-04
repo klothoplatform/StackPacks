@@ -17,7 +17,12 @@ Content-Type: application/json
 
 {
   "region": "us-east-1",
-  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks"
+  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks",
+  "configuration": {
+    "mattermost": {
+      "DBPassword": "hunter2456"
+    }
+  }
 }
 
 ###

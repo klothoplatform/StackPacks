@@ -73,7 +73,7 @@ configuration:
     name: Database Username
     description: The username to use for the Mattermost database
     type: string
-    default: mattermost
+    default: mattermostuser
     pulumi_key: klo:mattermost-db-username
 
   DBPassword:
