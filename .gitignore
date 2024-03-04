@@ -174,3 +174,4 @@ node_modules/
 requirements.txt
 
 /tmp
+/stackpack_input.yaml

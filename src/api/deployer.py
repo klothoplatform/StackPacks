@@ -15,9 +15,9 @@ from src.deployer.main import (
     stream_deployment_events,
 )
 from src.stack_pack import get_stack_packs
-from src.stack_pack.storage.iac_storage import IacStorage
 from src.stack_pack.models.user_pack import UserPack
 from src.dependencies.injection import get_iac_storage
+from src.util.tmp import TempDir
 
 router = APIRouter()
 
@@ -30,11 +30,19 @@ def read_zip_to_bytes(zip_file_path):
 @router.post("/api/install")
 async def install(
     request: Request,
+    regen: bool = False,
 ):
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id, user_id)
     store = get_iac_storage()
-    iac = store.get_iac(user_pack.id)
+
+    tmp_dir = TempDir()
+    if regen:
+        logger.info("Regenerating iac for %s", user_pack.id)
+        stack_packs = get_stack_packs()
+        _, iac = await user_pack.run_pack(stack_packs, store, tmp_dir.dir)
+    else:
+        iac = store.get_iac(user_pack.id)
 
     sps = get_stack_packs()
 
@@ -56,6 +64,7 @@ async def install(
             user_id,
             iac,
             pulumi_config,
+            tmp_dir,
         ),
     )
     p.start()
@@ -95,6 +104,7 @@ async def tear_down(
             user_id,
             iac,
             pulumi_config,
+            TempDir(),
         ),
     )
     p.start()

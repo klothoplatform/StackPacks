@@ -34,8 +34,11 @@ if args.config:
 
 print(f"User config: {values}")
 
+print("constraints:")
 c = sp.to_constraints(values)
 print(yaml.dump(c))
+with open("stackpack_input.yaml", "w") as f:
+    yaml.dump({"constraints": c}, f)
 
 pulumi = sp.get_pulumi_configs(values)
 print("Pulumi Configs:")

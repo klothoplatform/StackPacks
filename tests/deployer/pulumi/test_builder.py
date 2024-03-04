@@ -3,9 +3,10 @@ import aiounittest
 from unittest.mock import call, patch, MagicMock, mock_open, ANY
 from src.deployer.pulumi.builder import (
     AppBuilder,
-)  # replace with your actual module name
+)
 from pulumi import automation as auto
 import subprocess
+from src.util.tmp import TempDir
 
 
 class TestAppBuilder(aiounittest.AsyncTestCase):
@@ -47,15 +48,6 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Assert return value
         self.assertEqual(stack, mock_return_stack)
 
-    def test_exit(self):
-        # Call the method
-        builder = AppBuilder(MagicMock())
-        builder.tmpdir = MagicMock()
-        builder.__exit__(None, None, None)
-
-        # Assert call
-        builder.tmpdir.__exit__.assert_called_once()
-
     @patch("src.deployer.pulumi.builder.auto.ConfigValue")
     def test_configure_aws(self, mock_config_value):
         # Setup mock objects
@@ -81,7 +73,8 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack.return_value = mock_stack
 
         # Call the method
-        with AppBuilder(self.mock_sts_client) as builder:
+        with TempDir() as tmp_dir:
+            builder = AppBuilder(tmp_dir)
             stack = builder.create_pulumi_stack(MagicMock())
 
         # Assert call
@@ -95,7 +88,8 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_result = MagicMock()
         mock_run.return_value = mock_result
         # Call the method
-        with AppBuilder(MagicMock()) as builder:
+        with TempDir() as tmp_dir:
+            builder = AppBuilder(tmp_dir)
             builder.install_npm_deps()
 
         # Assert call

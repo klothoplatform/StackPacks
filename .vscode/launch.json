@@ -10,9 +10,9 @@
       "request": "launch",
       "module": "src.stack_pack",
       "args": [
-        "-c=CPU=512",
-        "-c=DBPassword=123456",
-        "-c=EnableS3=True",
+        // "-c=CPU=512",
+        "-c=DBPassword=hunter23456",
+        // "-c=EnableS3=True",
         "${file}"
       ]
     }

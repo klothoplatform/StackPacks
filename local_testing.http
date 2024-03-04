@@ -4,8 +4,7 @@ Content-Type: application/json
 
 {
   "configuration": {
-    "mattermost": {
-      "DBPassword": "hunter2456"
+    "gitea": {
     }
   }
 }
@@ -19,8 +18,8 @@ Content-Type: application/json
   "region": "us-east-1",
   "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks",
   "configuration": {
-    "mattermost": {
-      "DBPassword": "hunter2456"
+    "gitea": {
+      "DBPassword": "hunter2345"
     }
   }
 }
@@ -31,7 +30,7 @@ GET http://localhost:3000/api/stack
 
 ###
 
-POST http://localhost:3000/api/install
+POST http://localhost:3000/api/install?regen=true
 
 ###
 

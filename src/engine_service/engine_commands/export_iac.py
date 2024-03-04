@@ -15,21 +15,21 @@ class ExportIacRequest(NamedTuple):
 
 async def export_iac(request: ExportIacRequest):
     tmp_dir = request.tmp_dir
-    dir = Path(tmp_dir)
+    dir = Path(tmp_dir).absolute()
 
     args = []
 
     with open(dir / "graph.yaml", "w") as file:
         file.write(request.input_graph)
     args.append("--input-graph")
-    args.append(f"{tmp_dir}/graph.yaml")
+    args.append(f"{dir}/graph.yaml")
 
     args.extend(
         [
             "--provider",
             "pulumi",
             "--output-dir",
-            tmp_dir,
+            str(dir),
             "--app-name",
             request.name,
         ]

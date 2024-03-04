@@ -10,16 +10,8 @@ from src.util.tmp import TempDir
 
 
 class AppBuilder:
-    def __init__(self, sts_client):
-        self.sts_client = sts_client
-        self.tmpdir = TempDir()
-
-    def __enter__(self):
-        self.output_dir = self.tmpdir.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.tmpdir.__exit__(exc_type, exc_val, exc_tb)
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
 
     def prepare_stack(self, iac: bytes, pulumi_stack: PulumiStack) -> auto.Stack:
         self.create_output_dir(iac)
