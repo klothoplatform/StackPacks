@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing import Any, Optional, List
 from pydantic_yaml import parse_yaml_file_as
-import yaml
 
 from pathlib import Path
 

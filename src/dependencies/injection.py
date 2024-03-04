@@ -4,10 +4,6 @@ import os
 from src.stack_pack.storage.iac_storage import IacStorage
 
 
-def create_sts_client():
-    return boto3.client("sts")
-
-
 if os.getenv("IAC_BUCKET", None) is None:
     s3_resource = boto3.resource(
         "s3",

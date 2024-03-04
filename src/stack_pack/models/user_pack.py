@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
-from typing import Optional
+from typing import Optional, Tuple
 from pydantic import BaseModel, Field
 import datetime
 from enum import Enum
@@ -24,6 +24,7 @@ from src.stack_pack import StackConfig, StackPack, ConfigValues
 from src.deployer.models.deployment import PulumiStack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.compress import zip_directory_recurse
+from src.util.tmp import TempDir
 
 
 class UserPack(Model):
@@ -71,8 +72,11 @@ class UserPack(Model):
         )
 
     async def run_pack(
-        self, stack_packs: dict[str, StackPack], iac_storage: IacStorage
-    ) -> str:
+        self,
+        stack_packs: dict[str, StackPack],
+        iac_storage: IacStorage,
+        tmp_dir: str,
+    ) -> Tuple[str, bytes]:
         constraints = []
         invalid_stacks = []
         for stack_name, config in self.get_configurations().items():
@@ -88,23 +92,24 @@ class UserPack(Model):
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(
                 constraints=constraints,
+                tmp_dir=tmp_dir,
+            ),
+        )
+        await export_iac(
+            ExportIacRequest(
+                input_graph=engine_result.resources_yaml,
+                name="stack",
+                tmp_dir=tmp_dir,
             )
         )
-        with TemporaryDirectory() as tmp_dir:
-            await export_iac(
-                ExportIacRequest(
-                    input_graph=engine_result.resources_yaml,
-                    name="stack",
-                    tmp_dir=tmp_dir,
-                )
-            )
 
-            for stack_name, config in self.get_configurations().items():
-                stack_pack = stack_packs[stack_name]
-                stack_pack.copy_files(config, Path(tmp_dir))
-            iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
-            iac_storage.write_iac(self.id, iac_bytes)
-        return engine_result.policy
+        for stack_name, config in self.get_configurations().items():
+            stack_pack = stack_packs[stack_name]
+            stack_pack.copy_files(config, Path(tmp_dir))
+        iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
+        iac_storage.write_iac(self.id, iac_bytes)
+
+        return engine_result.policy, iac_bytes
 
 
 class UserStack(BaseModel):

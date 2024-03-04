@@ -1,0 +1,167 @@
+name: Gitea
+version: '1.0.0'
+
+base:
+  resources:
+    aws:ecr_image:gitea:
+      BaseImage: gitea/gitea:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:gitea-service:
+      LoadBalancers[0]:
+        ContainerPort: 3000
+        TargetGroup: aws:target_group:gitea-web
+        ContainerName: gitea-task
+      LoadBalancers[1]:
+        ContainerPort: 2222
+        TargetGroup: aws:target_group:gitea-ssh
+        ContainerName: gitea-task
+      TaskDefinition: aws:ecs_task_definition:gitea-task
+      EnableExecuteCommand: true # REMOVEME testing
+    aws:ecs_task_definition:gitea-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:gitea
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        PortMappings:
+        - ContainerPort: 2222
+          HostPort: 2222
+          Protocol: TCP
+        MountPoints[0]:
+          ContainerPath: /data
+          SourceVolume: gitea-data
+        MountPoints[1]:
+          ContainerPath: /data/ssh
+          SourceVolume: gitea-ssh
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: USER_UID
+          Value: 1000
+        - Name: USER_GID
+          Value: 1000
+        - Name: GITEA__database__DB_TYPE
+          Value: postgres
+        - Name: GITEA__database__HOST
+          Value: aws:rds_instance:gitea-db#Endpoint
+        - Name: GITEA__database__NAME
+          Value: aws:rds_instance:gitea-db#DatabaseName
+        - Name: GITEA__database__USER
+          Value: aws:rds_instance:gitea-db#Username
+        - Name: GITEA__database__PASSWD
+          Value: aws:rds_instance:gitea-db#Password
+        - Name: SSH_PORT
+          Value: "2222" # ECS reserves port 22 for internal ssh
+    aws:load_balancer:gitea-lb:
+      Scheme: internet-facing
+    aws:load_balancer_listener:gitea-lb:gitea-web:
+      LoadBalancer: aws:load_balancer:gitea-lb
+      Port: 80
+      Protocol: TCP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:gitea-web
+    aws:target_group:gitea-web:
+      Port: 3000
+      Protocol: TCP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /api/healthz
+        Matcher: 200
+    aws:load_balancer_listener:gitea-lb:gitea-ssh:
+      LoadBalancer: aws:load_balancer:gitea-lb
+      Port: 22
+      Protocol: TCP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:gitea-ssh
+    aws:target_group:gitea-ssh:
+      Port: 22
+      Protocol: TCP
+      HealthCheck:
+        Port: 3000 # health check on the web port
+        Protocol: HTTP
+        Path: /api/healthz
+        Matcher: 200
+    aws:efs_file_system:gitea-efs:
+    aws:efs_access_point:gitea-efs:gitea-data:
+      FileSystem: aws:efs_file_system:gitea-efs
+      PosixUser:
+          Gid: 1000
+          Uid: 1000
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 1000
+              OwnerUid: 1000
+              Permissions: "777"
+          Path: /mnt/data
+    aws:efs_access_point:gitea-efs:gitea-ssh:
+      FileSystem: aws:efs_file_system:gitea-efs
+      PosixUser:
+          Gid: 0
+          Uid: 0
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 0
+              OwnerUid: 0
+              Permissions: "0700"
+          Path: /mnt/ssh
+    aws:rds_instance:gitea-db:
+  edges:
+    aws:load_balancer:gitea-lb -> aws:load_balancer_listener:gitea-lb:gitea-web:
+    aws:load_balancer_listener:gitea-lb:gitea-web -> aws:target_group:gitea-web:
+    aws:target_group:gitea-web -> aws:ecs_service:gitea-service:
+
+    aws:load_balancer:gitea-lb -> aws:load_balancer_listener:gitea-lb:gitea-ssh:
+    aws:load_balancer_listener:gitea-lb:gitea-ssh -> aws:target_group:gitea-ssh:
+    aws:target_group:gitea-ssh -> aws:ecs_service:gitea-service:
+    
+    # Make sure the SG rule is added to allow the LB in public subnets
+    # to talk to the ECS service in private subnets
+    aws:load_balancer:gitea-lb -> aws:ecs_service:gitea-service:
+
+    aws:ecs_task_definition:gitea-task -> aws:efs_access_point:gitea-efs:gitea-data:
+    aws:efs_access_point:gitea-efs:gitea-data -> aws:efs_file_system:gitea-efs:
+
+    aws:ecs_task_definition:gitea-task -> aws:efs_access_point:gitea-efs:gitea-ssh:
+    aws:efs_access_point:gitea-efs:gitea-ssh -> aws:efs_file_system:gitea-efs:
+
+    # Service to FS edge sets up the mount_target
+    aws:ecs_service:gitea-service -> aws:efs_file_system:gitea-efs:
+
+    aws:ecs_service:gitea-service -> aws:rds_instance:gitea-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the gitea service
+    type: number
+    default: 512
+    validation:
+      min: 256
+      max: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the gitea service
+    type: number
+    default: 2048
+    validation:
+      min: 256
+      max: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Gitea database
+    type: string
+    default: giteauser
+    pulumi_key: klo:gitea-db-username
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Gitea database
+    type: string
+    pulumi_key: klo:gitea-db-password

@@ -11,6 +11,7 @@ from src.util.logging import logger
 
 from src.stack_pack.models.user_pack import UserPack, UserStack
 from src.stack_pack import ConfigValues, get_stack_packs, StackConfig
+from src.util.tmp import TempDir
 
 router = APIRouter()
 
@@ -38,7 +39,8 @@ async def create_stack(
         created_by=user_id,
     )
     stack_packs = get_stack_packs()
-    policy = await user_pack.run_pack(stack_packs, get_iac_storage())
+    with TempDir() as tmp_dir:
+        policy, _ = await user_pack.run_pack(stack_packs, get_iac_storage(), tmp_dir)
     user_pack.save()
     return {"stack": user_pack.to_user_stack(), "policy": policy}
 
@@ -70,7 +72,10 @@ async def update_stack(
 
     if body.configuration:
         stack_packs = get_stack_packs()
-        policy = await user_pack.run_pack(stack_packs, get_iac_storage())
+        with TempDir() as tmp_dir:
+            policy, _ = await user_pack.run_pack(
+                stack_packs, get_iac_storage(), tmp_dir
+            )
 
     return {"stack": user_pack.to_user_stack(), "policy": policy}
 

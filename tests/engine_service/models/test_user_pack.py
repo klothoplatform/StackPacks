@@ -104,7 +104,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 
         # Act
-        result = await self.user_pack.run_pack(stack_packs, iac_storage)
+        result, iac = await self.user_pack.run_pack(stack_packs, iac_storage)
 
         # Assert
         stack1.to_constraints.assert_called_once_with(
