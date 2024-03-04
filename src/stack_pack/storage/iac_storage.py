@@ -48,6 +48,7 @@ class IacStorage:
                 raise TypeError(f"content must be of type bytes, not {type(content)}")
             obj = self._bucket.Object(key)
             put_object(obj, content)
+            logger.info("Wrote %s (size: %d)", id, len(content))
             return key
         except Exception as e:
             raise WriteIacError(
