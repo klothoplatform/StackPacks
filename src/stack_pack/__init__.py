@@ -23,7 +23,7 @@ class ConfigValues(dict[str, Any]):
         sequence_t_schema = handler.generate_schema(dict[str, Any])
 
         non_instance_schema = core_schema.no_info_after_validator_function(
-            Edges, sequence_t_schema
+            ConfigValues, sequence_t_schema
         )
         return core_schema.union_schema([instance_schema, non_instance_schema])
 

@@ -48,19 +48,21 @@ async def create_stack(
     stack_packs = get_stack_packs()
     policy: Policy = None
     common_policy: Policy = None
+    iac_storage = get_iac_storage()
     with TempDir() as tmp_dir:
         stack_packs = get_stack_packs()
         common_policy = await user_pack.run_base(
             [sp for k, sp in stack_packs.items()],
             body.configuration.get("base", {}),
             tmp_dir,
-            get_iac_storage(),
+            iac_storage,
         )
-        policy, _ = await user_pack.run_pack(
-            stack_packs, body.configuration, tmp_dir
+        policy = await user_pack.run_pack(
+            stack_packs, body.configuration, tmp_dir, iac_storage
         )
     user_pack.save()
-    return StackResponse(user_pack.to_user_stack(), policy.combine(common_policy).__str__())
+    policy.combine(common_policy)
+    return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
 
 
 class UpdateStackRequest(BaseModel):
@@ -92,11 +94,11 @@ async def update_stack(
     if body.configuration:
         stack_packs = get_stack_packs()
         with TempDir() as tmp_dir:
-            policy, _ = await user_pack.run_pack(
+            policy = await user_pack.run_pack(
                 stack_packs, get_iac_storage(), tmp_dir
             )
 
-    return {"stack": user_pack.to_user_stack(), "policy": policy}
+    return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
 
 
 @router.get("/api/stack")

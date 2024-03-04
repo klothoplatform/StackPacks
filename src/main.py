@@ -8,6 +8,7 @@ from src.api.deployer import router as deployer_router
 from src.api.stack_packs import router as stack_packs_router
 from src.deployer.models.deployment import Deployment, PulumiStack
 from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.user_app import UserApp
 import os
 
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
         Deployment.create_table(wait=True)
         PulumiStack.create_table(wait=True)
         UserPack.create_table(wait=True)
+        UserApp.create_table(wait=True)
     yield
 
 

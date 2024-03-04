@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import List
-from pydantic import BaseModel, Field
+from typing import Any, List
+from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_yaml import parse_yaml_file_as
-
+from pydantic import BaseModel, Field, GetCoreSchemaHandler
+from pydantic_core import core_schema
 from src.stack_pack import (
     StackConfig,
     StackPack,
@@ -21,15 +22,13 @@ class CommonPart(BaseModel):
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
 
 
-class CommonPack(BaseModel):
-    base: dict[BaseRequirements, CommonPart] = Field(default_factory=dict)
-
+class CommonPack(dict[BaseRequirements, CommonPart]):
     def get_resources_from_requirements(
         self, requirements: List[BaseRequirements]
     ) -> Resources:
         resources = Resources()
         for requirement in requirements:
-            resources.update(self.base[requirement].resources)
+            resources.update(self[requirement].resources)
         return resources
 
     def get_edges_from_requirements(
@@ -37,7 +36,7 @@ class CommonPack(BaseModel):
     ) -> Edges:
         edges = Edges()
         for requirement in requirements:
-            edges.update(self.base[requirement].edges)
+            edges.update(self[requirement].edges)
         return edges
 
     def get_configuration_from_requirements(
@@ -45,16 +44,28 @@ class CommonPack(BaseModel):
     ) -> dict[str, StackConfig]:
         configuration = {}
         for requirement in requirements:
-            configuration.update(self.base[requirement].configuration)
+            configuration.update(self[requirement].configuration)
         return configuration
 
 
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        instance_schema = core_schema.is_instance_schema(cls)
+
+        sequence_t_schema = handler.generate_schema(dict[BaseRequirements, CommonPart])
+
+        non_instance_schema = core_schema.no_info_after_validator_function(
+            CommonPack, sequence_t_schema
+        )
+        return core_schema.union_schema([instance_schema, non_instance_schema])
+
+
 def get_stack_pack_base() -> CommonPack:
-    root = Path("stackpacks_base")
-    f = root / "base.yaml"
-    print(f)
+    root = Path("stackpacks_common")
+    f = root / "common.yaml"
     base = parse_yaml_file_as(CommonPack, f)
-    print(base)
     return base
 
 
@@ -62,7 +73,6 @@ class CommonStack(StackPack):
 
     def __init__(self, stack_packs: List[StackPack]):
 
-        print("getting base")
         base = get_stack_pack_base()
         # Initialize an empty StackParts object
         resources = Resources()
@@ -73,21 +83,19 @@ class CommonStack(StackPack):
         # find all required base parts
         for stack_pack in stack_packs:
             for requirement in stack_pack.requires:
-                requirements.add(requirement.value)
+                requirements.add(requirement)
 
         dependencies = set()
 
-        print(base.base)
         for requirement in requirements:
-            print(requirement, base.base.keys())
-            base_part = base.base[requirement]
+            base_part = base[requirement]
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             configuration.update(base_part.configuration)
             dependencies.update(base_part.depends_on)
 
         for requirement in dependencies:
-            base_part = base.base[requirement]
+            base_part = base[requirement]
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             configuration.update(base_part.configuration)
@@ -101,11 +109,3 @@ class CommonStack(StackPack):
             base=stack_base,
             configuration=configuration,
         )
-
-    def to_constraints(self, user_config: ConfigValues) -> List[dict]:
-        constraints = super().to_constraints(user_config)
-
-        for c in constraints:
-            if c["scope"] == "application" and c["operator"] == "must_exist":
-                c["operator"] = "import"
-        return constraints

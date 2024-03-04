@@ -28,7 +28,6 @@ from src.stack_pack import StackConfig, StackPack, ConfigValues
 from src.deployer.models.deployment import PulumiStack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.compress import zip_directory_recurse
-from stack_pack.common_stack import BaseStack
 from src.util.aws.iam import Policy
 
 
@@ -57,17 +56,14 @@ class UserApp(Model):
                 self.iac_stack_composite_key
             )
             pulumi_stack = PulumiStack.get(hash_key=hash_key, range_key=range_key)
+        latest_deployed_version = UserApp.get_latest_version_with_status(self.app_id)
         return AppModel(
             app_id=self.app_id,
             version=self.version,
             created_by=self.created_by,
             created_at=self.created_at,
             configuration=ConfigValues(self.configuration.items()),
-            last_deployed_version=(
-                UserApp.get_latest_version_with_status(self.app_id).version
-                if self.status is None
-                else self.version
-            ),
+            last_deployed_version=latest_deployed_version.version if latest_deployed_version else None,
             status=pulumi_stack.status if pulumi_stack else None,
             status_reason=pulumi_stack.status_reason if pulumi_stack else None,
         )
@@ -111,11 +107,11 @@ class UserApp(Model):
                 )
             )
             stack_pack.copy_files(
-                self.get_configurations()[stack_pack.id], Path(tmp_dir)
+                self.get_configurations(), Path(tmp_dir)
             )
             iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
             iac_storage.write_iac(
-                self.get_pack_id(), self.get_app_name(), iac_bytes
+                self.get_pack_id(), self.get_app_name(), self.version, iac_bytes
             )
         return Policy(engine_result.policy)
 
@@ -134,9 +130,7 @@ class UserApp(Model):
     def get_latest_version_with_status(cls, app_id: str):
         results = cls.query(
             app_id,
-            filter_condition=Exists(
-                "status"
-            ),  # Only include items where status is not null
+            filter_condition=UserApp.status.exists(),  # Only include items where status is not null
             scan_index_forward=False,  # Sort in descending order
             limit=1,  # Only retrieve the first item
         )
