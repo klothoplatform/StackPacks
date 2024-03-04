@@ -1,16 +1,16 @@
 import type { FC } from "react";
 import React from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import type { MapProperty } from "../../shared/resources/ResourceTypes";
-import {
-  CollectionTypes,
-  PrimitiveTypes,
-} from "../../shared/resources/ResourceTypes";
 import { Textarea } from "flowbite-react";
 import type { ConfigFieldProps } from "./ConfigField";
 import { ConfigSection } from "./ConfigSection";
 import { ConfigGroup } from "./ConfigGroup";
 import { PrimitiveTable } from "./PrimitiveTable";
+import type { MapProperty } from "../../shared/configuration-properties.ts";
+import {
+  CollectionTypes,
+  PrimitiveTypes,
+} from "../../shared/configuration-properties.ts";
 
 type MapProps = ConfigFieldProps & {
   field: MapProperty;

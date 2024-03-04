@@ -1,67 +1,47 @@
+import type { FC, ReactNode } from "react";
+import { ConfigField } from "./ConfigField";
 import type {
   MapProperty,
   Property,
-} from "../../shared/resources/ResourceTypes";
-import { CollectionTypes } from "../../shared/resources/ResourceTypes";
-import type { FC, ReactNode } from "react";
-import { ConfigField } from "./ConfigField";
-import type { NodeId } from "../../shared/architecture/TopologyNode";
-import useApplicationStore from "../../pages/store/ApplicationStore";
-import { canModifyConfiguration } from "../../shared/EditorViewSettings";
+} from "../../shared/configuration-properties.ts";
+import { CollectionTypes } from "../../shared/configuration-properties.ts";
 
 type ConfigGroupProps = {
-  configResource?: NodeId;
+  stackPackId?: string;
   qualifiedFieldName?: string;
   valueSelector?: string;
   fields?: Property[];
   hidePrefix?: boolean;
-  filter?: (field: Property, resourceId?: NodeId) => boolean;
 };
 
 export const ConfigGroup: FC<ConfigGroupProps> = ({
-  configResource,
+  stackPackId,
   qualifiedFieldName,
   valueSelector,
   fields,
   hidePrefix,
-  filter,
 }) => {
-  const { environmentVersion } = useApplicationStore();
-
-  const { viewSettings } = useApplicationStore();
-
   const rows: ReactNode[] = [];
   let resourceMetadata: any;
-  if (configResource) {
-    resourceMetadata = environmentVersion?.resources?.get(
-      configResource.toString(),
-    );
-  }
 
   const parentLength = qualifiedFieldName?.split(".").length;
   // Make sure that all field names are fully qualified with the configResource prefix
   const prefix =
-    qualifiedFieldName?.startsWith(`${configResource}#`) ||
-    configResource === undefined
+    qualifiedFieldName?.startsWith(`${stackPackId}#`) ||
+    stackPackId === undefined
       ? ""
-      : `${configResource}#`;
-  const addRow = (property: Property, resourceId?: NodeId) => {
-    if (filter) {
-      if (filter(property, resourceId)) {
+      : `${stackPackId}#`;
+  const addRow = (property: Property) => {
+    if (resourceMetadata?.imported) {
+      if (property.hidden === true) {
         return;
       }
-    } else {
-      if (resourceMetadata?.imported) {
-        if (property.hidden === true) {
-          return;
-        }
-      } else if (
-        property.deployTime ||
-        property.configurationDisabled ||
-        property.hidden
-      ) {
-        return;
-      }
+    } else if (
+      property.deployTime ||
+      property.configurationDisabled ||
+      property.hidden
+    ) {
+      return;
     }
 
     rows.push(
@@ -88,8 +68,7 @@ export const ConfigGroup: FC<ConfigGroupProps> = ({
               resourceMetadata?.imported)
           }
           disabled={
-            (property.configurationDisabled && !resourceMetadata?.imported) ||
-            !canModifyConfiguration(viewSettings)
+            property.configurationDisabled && !resourceMetadata?.imported
           }
         />
       </div>,
@@ -108,7 +87,7 @@ export const ConfigGroup: FC<ConfigGroupProps> = ({
     )
     .flat()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach((property: Property) => addRow(property, configResource));
+    .forEach((property: Property) => addRow(property));
 
   return <>{rows}</>;
 };

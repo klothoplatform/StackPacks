@@ -8,6 +8,7 @@
     "@segment/analytics-next": "^1.64.0",
     "autoprefixer": "^10.4.17",
     "axios": "^1.6.7",
+    "axios-case-converter": "^1.1.1",
     "brace": "^0.11.1",
     "classnames": "^2.5.1",
     "date-fns": "^3.3.1",
@@ -167,6 +168,17 @@
     ]
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.9.6"
+    "@rollup/rollup-linux-x64-gnu": "^4.9.6",
+    "@swc/core": "^1.4.2",
+    "@swc/core-darwin-arm64": "^1.4.2",
+    "@swc/core-darwin-x64": "^1.4.2",
+    "@swc/core-linux-arm-gnueabihf": "^1.4.2",
+    "@swc/core-linux-arm64-gnu": "^1.4.2",
+    "@swc/core-linux-arm64-musl": "^1.4.2",
+    "@swc/core-linux-x64-gnu": "^1.4.2",
+    "@swc/core-linux-x64-musl": "^1.4.2",
+    "@swc/core-win32-arm64-msvc": "^1.4.2",
+    "@swc/core-win32-ia32-msvc": "^1.4.2",
+    "@swc/core-win32-x64-msvc": "^1.4.2"
   }
 }

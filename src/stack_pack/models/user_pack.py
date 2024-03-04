@@ -75,11 +75,11 @@ class UserPack(Model):
     ) -> str:
         constraints = []
         invalid_stacks = []
-        for stack_name, config in self.get_configurations().items():
-            if stack_name not in stack_packs:
-                invalid_stacks.append(stack_name)
+        for stack_id, config in self.get_configurations().items():
+            if stack_id not in stack_packs:
+                invalid_stacks.append(stack_id)
                 continue
-            stack_pack = stack_packs[stack_name]
+            stack_pack = stack_packs[stack_id]
             constraints.extend(stack_pack.to_constraints(config))
 
         if len(invalid_stacks) > 0:
@@ -99,8 +99,8 @@ class UserPack(Model):
                 )
             )
 
-            for stack_name, config in self.get_configurations().items():
-                stack_pack = stack_packs[stack_name]
+            for stack_id, config in self.get_configurations().items():
+                stack_pack = stack_packs[stack_id]
                 stack_pack.copy_files(config, Path(tmp_dir))
             iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
             iac_storage.write_iac(self.id, iac_bytes)

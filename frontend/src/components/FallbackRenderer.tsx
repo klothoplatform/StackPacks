@@ -7,14 +7,16 @@ import { PiSmileyXEyes } from "react-icons/pi";
 export const FallbackRenderer: FC<{
   error: any;
   resetErrorBoundary: CallableFunction;
-}> = ({ resetErrorBoundary }) => {
+  message?: string;
+}> = ({ resetErrorBoundary, message }) => {
+  message = message || "Something went wrong!";
   return (
     <div
       role="alert"
       className="flex size-full flex-col items-center justify-center px-2 py-4 dark:text-white"
     >
       <div className="flex w-fit flex-col items-center justify-center gap-2">
-        <p className={"text-md mb-1 font-medium"}>Something went wrong!</p>
+        <p className={"text-md mb-1 font-medium"}>{message}</p>
         <PiSmileyXEyes size={"3rem"} />
         <Button
           className="mt-4 w-32"

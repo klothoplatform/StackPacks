@@ -6,6 +6,10 @@ import { Card, Dropdown } from "flowbite-react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { useForm } from "react-hook-form";
 import { awsRegions } from "../../shared/aws-regions.ts";
+import type { ConfigFormSection } from "../../components/config/ConfigForm.tsx";
+import { ConfigForm } from "../../components/config/ConfigForm.tsx";
+import { resolveStackPacks } from "../../shared/models/StackPack.ts";
+import type { Property } from "../../shared/configuration-properties.ts";
 
 export interface ConfigureStackFormState {
   region: string;
@@ -19,8 +23,13 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({
   goForwards,
   ...props
 }) => {
-  const { onboardingWorkflowState, updateOnboardingWorkflowState } =
-    useApplicationStore();
+  const {
+    onboardingWorkflowState,
+    updateOnboardingWorkflowState,
+    createStack,
+    userStack,
+    stackPacks,
+  } = useApplicationStore();
 
   const methods = useForm<ConfigureStackFormState>({ defaultValues });
   const watchRegion = methods.watch("region");
@@ -39,13 +48,34 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({
     };
   }, []);
 
-  const completeStep = (data: ConfigureStackFormState) => {
+  const completeStep = async (data: ConfigureStackFormState) => {
     console.log(data);
     updateOnboardingWorkflowState({
       region: data.region,
     });
+    await createStack({
+      region: data.region,
+      assumedRoleArn: onboardingWorkflowState.iamRoleArn,
+      assumedRoleExternalId: onboardingWorkflowState.externalId,
+      configuration: Object.fromEntries(
+        onboardingWorkflowState.selectedStackPacks.map((a) => [
+          a.toLowerCase(),
+          {},
+        ]),
+      ),
+    });
     goForwards();
   };
+
+  const sections: ConfigFormSection[] = resolveStackPacks(
+    onboardingWorkflowState.selectedStackPacks,
+    stackPacks,
+  ).map((sp) => ({
+    title: sp.name,
+    propertyMap: new Map<string, Property[]>([
+      [sp.id, Object.values(sp.configuration)],
+    ]),
+  }));
 
   return (
     <Card className={"min-h-[50vh] w-full p-4"}>
@@ -77,6 +107,7 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({
                 );
               })}
             </Dropdown>
+            <ConfigForm sections={sections} />
             <div className="ml-auto flex gap-4 justify-self-end">
               <StepperNavigator
                 {...props}

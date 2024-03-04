@@ -2,10 +2,8 @@ import React, { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.scss";
 import App from "./App";
-import { Auth0ProviderWithNavigate } from "./auth/Auth0ProviderWithNavigate";
-import { BrowserRouter } from "react-router-dom";
 import { env } from "./shared/environment";
-import FlowbiteWrapper from "./components/flowbite-wrapper";
+import FlowbiteWrapper from "./components/FlowbiteWrapper.tsx";
 
 const container = document.getElementById("root");
 
@@ -35,13 +33,9 @@ if (env.sessionRewind.enabled) {
 
 const root = createRoot(container);
 root.render(
-  <BrowserRouter>
-    <StrictMode>
-      <FlowbiteWrapper>
-        <Auth0ProviderWithNavigate>
-          <App />
-        </Auth0ProviderWithNavigate>
-      </FlowbiteWrapper>
-    </StrictMode>
-  </BrowserRouter>,
+  <StrictMode>
+    <FlowbiteWrapper>
+      <App />
+    </FlowbiteWrapper>
+  </StrictMode>,
 );

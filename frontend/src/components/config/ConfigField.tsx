@@ -1,44 +1,34 @@
 import type { CheckboxProps, TextInputProps } from "flowbite-react";
-import {
-  Button,
-  Checkbox,
-  Dropdown,
-  Label,
-  TextInput,
-  Tooltip,
-} from "flowbite-react";
+import { Checkbox, Dropdown, Label, TextInput, Tooltip } from "flowbite-react";
 import type { FC, PropsWithChildren } from "react";
-import React, { Fragment, useCallback, useEffect, useState } from "react";
+import React, { Fragment, useEffect } from "react";
 
 import { type RegisterOptions, useFormContext } from "react-hook-form";
 
-import useApplicationStore from "../../pages/store/ApplicationStore";
-import { NodeId } from "../../shared/architecture/TopologyNode";
 import { ListField } from "./ListField";
 import { MapField } from "./MapField";
+
+import classNames from "classnames";
+import { BiChevronRight, BiSolidHand, BiSolidPencil } from "react-icons/bi";
+import { env } from "../../shared/environment";
+import { IoInformationCircleOutline } from "react-icons/io5";
 import type {
   EnumProperty,
   ListProperty,
   MapProperty,
   NumberProperty,
   Property,
-  ResourceProperty,
   StringProperty,
-} from "../../shared/resources/ResourceTypes";
+} from "../../shared/configuration-properties.ts";
 import {
   CollectionTypes,
   PrimitiveTypes,
-} from "../../shared/resources/ResourceTypes";
-import classNames from "classnames";
-import { BiChevronRight, BiSolidHand, BiSolidPencil } from "react-icons/bi";
-import { env } from "../../shared/environment";
-import { HiMiniArrowUpRight } from "react-icons/hi2";
-import { IoInformationCircleOutline } from "react-icons/io5";
+} from "../../shared/configuration-properties.ts";
 
 export interface ConfigFieldProps {
-  configResource?: NodeId;
-  // qualifiedFieldName is the qualified name of the field, including the resource id prefix
-  // in the format `${resourceId}#${fieldName}`.
+  stackPackId?: string;
+  // qualifiedFieldName is the qualified name of the field, including the stackpack id prefix
+  // in the format `${stackPackId}#${fieldName}`.
   qualifiedFieldName: string;
   field: Property;
   title?: string;
@@ -174,19 +164,6 @@ export const ConfigField: FC<ConfigFieldProps> = ({
         <MapField
           qualifiedFieldName={qualifiedFieldName}
           field={field as MapProperty}
-          {...props}
-        />
-      );
-      break;
-    case PrimitiveTypes.Resource:
-      element = (
-        <ResourceField
-          qualifiedFieldName={qualifiedFieldName ?? "UNKNOWN-RESOURCE"}
-          disabled={configurationDisabled}
-          resourceTypes={(field as ResourceProperty).resourceTypes}
-          valueSelector={valueSelector}
-          required={required}
-          error={error}
           {...props}
         />
       );
@@ -437,115 +414,6 @@ export const BooleanField: FC<BooleanProps> = ({
           required && `${qualifiedFieldName.split(".").pop()} is required.`,
       })}
     />
-  );
-};
-
-export const ResourceField: FC<ResourceProps> = ({
-  qualifiedFieldName,
-  disabled,
-  resourceTypes,
-  required,
-  valueSelector,
-}) => {
-  const { register, unregister, setValue, watch, formState } = useFormContext();
-  const { errors } = formState;
-  const error = findChildProperty(
-    errors,
-    qualifiedFieldName + (valueSelector ?? ""),
-  );
-  const { environmentVersion, selectResource } = useApplicationStore();
-  const onClick = (value: string) => {
-    setValue(id, value, {
-      shouldTouch: true,
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-  };
-
-  const id = qualifiedFieldName + (valueSelector ?? "");
-  const [items, setItems] = useState<string[]>([]);
-
-  const watchValue = watch(id);
-
-  const refreshItems = useCallback(() => {
-    const emptyFilter = resourceTypes?.length === 1 && !resourceTypes[0];
-    return emptyFilter
-      ? [...environmentVersion.resources.keys()]
-      : [...environmentVersion.resources.keys()].filter(
-          (resourceId: string) => {
-            const providerType = resourceId.split(":").slice(0, 2).join(":");
-            return (
-              !resourceTypes?.length || resourceTypes?.includes(providerType)
-            );
-          },
-        );
-  }, [environmentVersion, resourceTypes]);
-
-  useEffect(() => {
-    setItems(refreshItems());
-  }, [refreshItems]);
-
-  useEffect(() => {
-    register(id, {
-      required:
-        required && `${qualifiedFieldName.split(".").pop()} is required.`,
-    });
-    return () => {
-      unregister(id, { keepDefaultValue: true });
-    };
-  }, [id, qualifiedFieldName, unregister, register, required]);
-
-  return (
-    <div className="flex gap-1">
-      <ErrorHelper error={error}>
-        <Dropdown
-          size={"xs"}
-          className="max-h-[50vh] overflow-y-auto"
-          id={id}
-          color={"purple"}
-          disabled={disabled}
-          label={
-            watchValue?.length
-              ? NodeId.parse(watchValue).name
-              : "Select a resource"
-          }
-        >
-          {items.map((resourceId: string) => {
-            return (
-              <Dropdown.Item
-                key={resourceId}
-                onClick={() => onClick(resourceId)}
-              >
-                {resourceId}
-              </Dropdown.Item>
-            );
-          })}
-          {!items.length && (
-            <Dropdown.Item disabled={true}>
-              No resources{" "}
-              {resourceTypes
-                ? "of type " +
-                  (resourceTypes.length > 1 ? "s" : "") +
-                  resourceTypes.join(", ")
-                : ""}{" "}
-              available
-            </Dropdown.Item>
-          )}
-        </Dropdown>
-      </ErrorHelper>
-      {!!watchValue?.length && (
-        <Button
-          title={"Show this resource"}
-          className={"size-[16px] rounded-md"}
-          color={"light"}
-          onClick={() => {
-            selectResource(NodeId.parse(watchValue));
-          }}
-        >
-          <HiMiniArrowUpRight size={12} />
-        </Button>
-      )}
-    </div>
   );
 };
 

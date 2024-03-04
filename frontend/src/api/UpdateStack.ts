@@ -34,7 +34,7 @@ export async function updateStack(request: UpdateStackRequest): Promise<Stack> {
   analytics.track("UpdateStack", {
     status: response.status,
     data: {
-      stackPacks: Object.keys(request.stack.stackPacks),
+      stackPacks: Object.keys(request.stack.configuration),
     },
   });
   return parseStack(response.data);

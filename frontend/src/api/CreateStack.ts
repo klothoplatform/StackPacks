@@ -7,7 +7,7 @@ import { analytics } from "../shared/analytics.ts";
 
 export interface CreateStackRequest {
   idToken: string;
-  stack: Stack;
+  stack: Partial<Stack>;
 }
 
 export async function createStack(request: CreateStackRequest): Promise<Stack> {
@@ -34,7 +34,7 @@ export async function createStack(request: CreateStackRequest): Promise<Stack> {
   analytics.track("CreateStack", {
     status: response.status,
     data: {
-      stackPacks: Object.keys(request.stack.stackPacks),
+      stackPacks: Object.keys(request.stack.configuration),
     },
   });
   return parseStack(response.data);

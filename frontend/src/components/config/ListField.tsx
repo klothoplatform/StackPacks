@@ -1,54 +1,38 @@
 import type { FC } from "react";
 import React, { Fragment, useEffect, useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import type {
-  EnumProperty,
-  ListProperty,
-  Property,
-  ResourceProperty,
-} from "../../shared/resources/ResourceTypes";
-import { getNewValue } from "../../shared/resources/ResourceTypes";
-import {
-  CollectionTypes,
-  isCollection,
-  isPrimitive,
-  PrimitiveTypes,
-} from "../../shared/resources/ResourceTypes";
+
 import { Button, Checkbox, Textarea, TextInput } from "flowbite-react";
 import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
 import type { ConfigFieldProps } from "./ConfigField";
 import {
-  InputHelperText,
   EnumField,
   ErrorHelper,
   findChildProperty,
-  ResourceField,
+  InputHelperText,
 } from "./ConfigField";
 import { ConfigSection } from "./ConfigSection";
 import { ConfigGroup } from "./ConfigGroup";
 import classNames from "classnames";
-import { PrimitiveTable } from "./PrimitiveTable";
-import { NodeId } from "../../shared/architecture/TopologyNode";
-
-const tableViewFieldMappings: {
-  [key: string]: {
-    [key: string]: string[];
-  };
-} = {
-  "kubernetes:pod": {
-    "Object.spec.containers.env": ["name", "value"],
-  },
-  "aws:ecs_task_definition": {
-    "ContainerDefinitions.Environment": ["Name", "Value"],
-  },
-};
+import type {
+  EnumProperty,
+  ListProperty,
+  Property,
+} from "../../shared/configuration-properties.ts";
+import {
+  CollectionTypes,
+  getNewValue,
+  isCollection,
+  isPrimitive,
+  PrimitiveTypes,
+} from "../../shared/configuration-properties.ts";
 
 type ListProps = ConfigFieldProps & {
   field: ListProperty;
 };
 
 export const ListField: FC<ListProps> = ({
-  configResource,
+  stackPackId,
   qualifiedFieldName,
   field,
   disabled,
@@ -112,7 +96,6 @@ export const ListField: FC<ListProps> = ({
                 qualifiedFieldName={`${qualifiedFieldName}[${index}]`}
                 type={itemType}
                 required={field.required}
-                resourceTypes={(field as ResourceProperty).resourceTypes}
                 allowedValues={(field as EnumProperty).allowedValues}
                 disabled={disabled}
                 remove={remove}
@@ -137,24 +120,6 @@ export const ListField: FC<ListProps> = ({
   }
 
   if (isCollection(itemType)) {
-    const resourceType =
-      configResource?.qualifiedType ||
-      (qualifiedFieldName.includes("#")
-        ? NodeId.parse(qualifiedFieldName.split("#")[0]).qualifiedType
-        : null);
-
-    const tableViewFields =
-      resourceType &&
-      tableViewFieldMappings[resourceType]?.[field.qualifiedName];
-    if (tableViewFields) {
-      return (
-        <PrimitiveTable
-          id={qualifiedFieldName}
-          disabled={disabled}
-          properties={tableViewFields}
-        />
-      );
-    }
     return (
       <ErrorHelper error={error}>
         <div className="flex flex-col gap-1">
@@ -202,7 +167,6 @@ const PrimitiveListItem: FC<{
   qualifiedFieldName: string;
   type: PrimitiveTypes;
   allowedValues?: string[];
-  resourceTypes?: string[];
   disabled?: boolean;
   required?: boolean;
   remove: (index: number) => void;
@@ -211,7 +175,6 @@ const PrimitiveListItem: FC<{
   qualifiedFieldName,
   type,
   allowedValues,
-  resourceTypes,
   required,
   disabled,
   remove,
@@ -272,18 +235,6 @@ const PrimitiveListItem: FC<{
             })}
           />
         </ErrorHelper>
-      );
-      break;
-    case PrimitiveTypes.Resource:
-      item = (
-        <ResourceField
-          qualifiedFieldName={qualifiedFieldName}
-          valueSelector={".value"}
-          disabled={disabled}
-          required={required}
-          resourceTypes={resourceTypes}
-          error={error}
-        />
       );
       break;
     case PrimitiveTypes.Enum:
