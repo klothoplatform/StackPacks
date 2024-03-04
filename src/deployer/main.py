@@ -1,6 +1,7 @@
 import asyncio
 from typing import Dict
 import uuid
+import concurrent.futures
 from fastapi import Request
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deployer import AppDeployer
@@ -12,7 +13,7 @@ from src.deployer.models.deployment import (
 )
 from pulumi import automation as auto
 from src.util.logging import logger
-from multiprocessing import Queue
+from multiprocessing import Process, Queue
 from queue import Empty
 from src.util.tmp import TempDir
 
@@ -162,6 +163,44 @@ def run_destroy_loop(
     )
     new_loop.close()
     tmp_dir.cleanup()
+
+
+class StackDeploymentRequest:
+    stack_name: str
+    iac: bytes
+    pulumi_config: dict[str, str]
+
+
+async def run_concurrent_deployments(
+    q: Queue,
+    region: str,
+    assume_role_arn: str,
+    stacks: list[StackDeploymentRequest],
+    user: str,
+):
+    async def run_blocking_task_in_process(executor, task, *args):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(executor, task, *args)
+
+    executor = concurrent.futures.ProcessPoolExecutor()
+
+    # Start all tasks and get Future objects
+    futures = [
+        run_blocking_task_in_process(
+            executor,
+            run_build_and_deploy,
+            q,
+            region,
+            assume_role_arn,
+            user,
+            stack.iac,
+            stack.pulumi_config,
+        )
+        for stack in stacks
+    ]
+
+    # Return immediately without waiting for the tasks to complete
+    return "Started tasks"
 
 
 async def stream_deployment_events(request: Request, id: str):

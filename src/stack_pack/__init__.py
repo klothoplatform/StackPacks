@@ -1,9 +1,15 @@
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
+
+
+class BaseRequirements(Enum):
+    NETWORK = "network"
+    ECS = "ecs"
 
 
 class ConfigValues(dict[str, Any]):
@@ -187,6 +193,7 @@ class StackPack(BaseModel):
     )  # Default is None because it is set outside of the model
     name: str
     version: str = Field(default="0.0.1")
+    requires: list[BaseRequirements] = Field(default_factory=list)
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
 

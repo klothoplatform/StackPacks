@@ -3,6 +3,7 @@ import jsons
 from pulumi import automation as auto
 from src.deployer.models.deployment import DeploymentStatus
 from src.util.logging import logger
+from src.stack_pack import Resources
 
 
 class AppDeployer:
@@ -41,3 +42,6 @@ class AppDeployer:
             logger.info(f"Refreshing stack {self.stack.name}")
             self.stack.refresh()
             return DeploymentStatus.FAILED, None
+
+    async def read_deployed_state(self) -> Resources:
+        resources = self.stack.outputs()["resources"]

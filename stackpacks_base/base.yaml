@@ -1,0 +1,12 @@
+network:
+  resources:
+    aws:vpc:stackpacks-vpc:
+    aws:subnet:stackpacks-private-subnet-1:
+    aws:subnet:stackpacks-private-subnet-2:
+    aws:subnet:stackpacks-public-subnet-1:
+    aws:subnet:stackpacks-public-subnet-2:
+ecs:
+  depends_on:
+    - network
+  resources:
+    aws:ecs_cluster:stackpacks-ecs-cluster:

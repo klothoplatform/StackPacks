@@ -33,7 +33,7 @@ async def install(
     regen: bool = False,
 ):
     user_id = await get_user_id(request)
-    user_pack = UserPack.get(user_id, user_id)
+    user_pack = UserPack.get(user_id)
     store = get_iac_storage()
 
     tmp_dir = TempDir()
@@ -78,7 +78,7 @@ async def tear_down(
     request: Request,
 ):
     user_id = await get_user_id(request)
-    user_pack = UserPack.get(user_id, user_id)
+    user_pack = UserPack.get(user_id)
     store = get_iac_storage()
     iac = store.get_iac(user_pack.id)
 
