@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  minio:
+    extends:
+      service: minio
+      file: docker-compose.yml
+  dynamodb-local:
+   extends:
+     service: dynamodb-local
+     file: docker-compose.yml
+   volumes:
+     - "ddb_data:/home/dynamodblocal/data"
+
+volumes:
+  ddb_data:
+  minio_data:
