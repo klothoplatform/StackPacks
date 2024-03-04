@@ -16,7 +16,7 @@ class TempDir:
         else:
             self.dir = tempfile.mkdtemp()
 
-        logger.debug(f"Created temp dir {self.dir}", stack_info=True)
+        logger.debug(f"Created temp dir {self.dir}")
 
     def __enter__(self):
         logger.info(f"Using {self.dir} as temp dir")
@@ -27,5 +27,5 @@ class TempDir:
 
     def cleanup(self):
         if not KEEP_TMP:
-            logger.debug(f"Cleaning up {self.dir}", stack_info=True)
+            logger.debug(f"Cleaning up {self.dir}")
             shutil.rmtree(self.dir)

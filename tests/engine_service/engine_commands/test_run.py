@@ -41,15 +41,12 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("src.engine_service.engine_commands.run.TempDir")
-    async def test_run_engine(self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock):
+    async def test_run_engine(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
             constraints=[],
             input_graph="test",
+            tmp_dir=self.temp_dir.name,
         )
-        mock_temp_dir.return_value = mock.MagicMock()
-        mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
-        mock_temp_dir.return_value.__exit__.return_value = None
 
         mock_eng_cmd.return_value = (
             "",
@@ -57,7 +54,6 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         )
         mock_eng_cmd.side_effect = self.run_engine_side_effect()
         result = await run_engine(request)
-        mock_temp_dir.assert_called_once()
         mock_eng_cmd.assert_called_once_with(
             "Run",
             "--input-graph",
@@ -85,18 +81,12 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("src.engine_service.engine_commands.run.TempDir")
-    async def test_run_engine_configerr(
-        self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
-    ):
+    async def test_run_engine_configerr(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
             constraints=[],
             input_graph="test",
+            tmp_dir=self.temp_dir.name,
         )
-        mock_temp_dir.return_value = mock.MagicMock()
-        mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
-        mock_temp_dir.return_value.__exit__.return_value = None
-
         mock_eng_cmd.return_value = (
             "",
             "",
@@ -113,7 +103,6 @@ class TestRunEngine(aiounittest.AsyncTestCase):
 
         mock_eng_cmd.side_effect = run
         result = await run_engine(request)
-        mock_temp_dir.assert_called_once()
         mock_eng_cmd.assert_called_once_with(
             "Run",
             "--input-graph",
@@ -141,17 +130,12 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         "src.engine_service.engine_commands.run.run_engine_command",
         new_callable=mock.AsyncMock,
     )
-    @mock.patch("src.engine_service.engine_commands.run.TempDir")
-    async def test_run_engine_failure(
-        self, mock_temp_dir: mock.Mock, mock_eng_cmd: mock.Mock
-    ):
+    async def test_run_engine_failure(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
             constraints=[],
             input_graph="test",
+            tmp_dir=self.temp_dir.name,
         )
-        mock_temp_dir.return_value = mock.MagicMock()
-        mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
-        mock_temp_dir.return_value.__exit__.return_value = None
 
         mock_eng_cmd.ra = (
             "",
@@ -170,7 +154,6 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         self.assertEqual(fre.exception.stdout, "out_logs")
         self.assertEqual(fre.exception.stderr, "err_logs")
 
-        mock_temp_dir.assert_called_once()
         mock_eng_cmd.assert_called_once_with(
             "Run",
             "--input-graph",

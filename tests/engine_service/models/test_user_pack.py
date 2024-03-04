@@ -78,10 +78,8 @@ class TestUserPack(aiounittest.AsyncTestCase):
     @patch("src.stack_pack.models.user_pack.run_engine")
     @patch("src.stack_pack.models.user_pack.export_iac")
     @patch("src.stack_pack.models.user_pack.zip_directory_recurse")
-    @patch("src.stack_pack.models.user_pack.TemporaryDirectory")
     async def test_run_pack(
         self,
-        mock_temp_dir,
         mock_zip_directory_recurse,
         mock_export_iac,
         mock_run_engine,
@@ -101,10 +99,11 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_zip_directory_recurse.return_value = MagicMock()
         stack_packs = {"stack1": stack1, "stack2": stack2}
         iac_storage = MagicMock()
-        mock_temp_dir.return_value.__enter__.return_value = self.temp_dir.name
 
         # Act
-        result, iac = await self.user_pack.run_pack(stack_packs, iac_storage)
+        result, iac = await self.user_pack.run_pack(
+            stack_packs, iac_storage, self.temp_dir.name
+        )
 
         # Assert
         stack1.to_constraints.assert_called_once_with(
@@ -122,6 +121,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_run_engine.assert_called_once_with(
             RunEngineRequest(
                 constraints=["constraint1", "constraint2"],
+                tmp_dir=self.temp_dir.name,
             )
         )
         mock_export_iac.assert_called_once_with(
@@ -135,4 +135,3 @@ class TestUserPack(aiounittest.AsyncTestCase):
         iac_storage.write_iac.assert_called_once_with(
             self.user_pack.id, mock_zip_directory_recurse.return_value
         )
-        mock_temp_dir.assert_called_once()
