@@ -1,12 +1,12 @@
-import subprocess
-import os
-from pulumi import automation as auto
 import io
+import os
+import subprocess
 import zipfile
+
+from pulumi import automation as auto
 
 from src.deployer.models.deployment import PulumiStack
 from src.util.logging import logger as log
-from src.util.tmp import TempDir
 
 
 class AppBuilder:
@@ -41,7 +41,7 @@ class AppBuilder:
     def configure_aws(self, stack: auto.Stack, role_arn: str, region: str):
         stack.set_config("aws:region", auto.ConfigValue(region))
         stack.set_config(
-            "roleArn", auto.ConfigValue(role_arn), path="aws:assumeRole.roleArn"
+            "aws:assumeRole.roleArn", auto.ConfigValue(role_arn), path="aws:assumeRole"
         )
 
     def install_npm_deps(self):
