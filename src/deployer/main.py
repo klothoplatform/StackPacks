@@ -4,8 +4,6 @@ from typing import Dict
 from fastapi import Request
 from pydantic import BaseModel
 from src.deployer.pulumi.manager import AppManager
-from src.deployer.models.deployment import (
-    DeploymentStatus,
     PulumiStack,
 )
 from src.util.logging import logger

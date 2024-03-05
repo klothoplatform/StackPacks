@@ -150,4 +150,5 @@ async def list_stackpacks():
             },
         }
         for spid, sp in sps.items()
+        if not spid.startswith("test_")
     }

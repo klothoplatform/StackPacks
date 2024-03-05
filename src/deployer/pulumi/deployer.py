@@ -1,13 +1,16 @@
 from typing import Tuple
-import jsons
+
 from pulumi import automation as auto
+
 from src.deployer.models.deployment import DeploymentStatus
+from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.util.logging import logger
 
 
 class AppDeployer:
-    def __init__(self, stack: auto.Stack):
+    def __init__(self, stack: auto.Stack, deploy_dir: DeploymentDir):
         self.stack = stack
+        self.deploy_dir = deploy_dir
 
     async def deploy(self) -> Tuple[DeploymentStatus, str]:
         try:
@@ -30,7 +33,8 @@ class AppDeployer:
 
     async def destroy_and_remove_stack(self) -> Tuple[DeploymentStatus, str]:
         try:
-            self.stack.destroy(on_output=print)
+            with deploy_log.on_output() as on_output:
+                self.stack.destroy(on_output=on_output)
             logger.info(f"Removing stack {self.stack.name}")
             self.stack.workspace.remove_stack(self.stack.name)
             return DeploymentStatus.SUCCEEDED, "Stack removed successfully."

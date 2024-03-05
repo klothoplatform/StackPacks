@@ -18,9 +18,37 @@ Content-Type: application/json
   "region": "us-east-1",
   "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks",
   "configuration": {
+    "mattermost": {
+      "DBPassword": "hunter2345"
+    }
+  }
+}
+
+###
+
+PATCH http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "region": "us-east-1",
+  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks",
+  "configuration": {
     "gitea": {
       "DBPassword": "hunter2345"
     }
+  }
+}
+
+###
+
+PATCH http://localhost:3000/api/stack
+Content-Type: application/json
+
+{
+  "region": "us-east-1",
+  "assume_role_arn": "arn:aws:iam::064389020595:role/TestDeployerStackPacks",
+  "configuration": {
+    "test_small": {}
   }
 }
 
@@ -30,7 +58,7 @@ GET http://localhost:3000/api/stack
 
 ###
 
-POST http://localhost:3000/api/install?regen=true
+POST http://localhost:3000/api/install?regen=true&deployment_id=test
 
 ###
 
@@ -39,3 +67,7 @@ POST http://localhost:3000/api/tear_down
 ###
 
 GET http://localhost:3000/api/stackpacks
+
+###
+
+GET http://localhost:3000/api/install/test/logs
