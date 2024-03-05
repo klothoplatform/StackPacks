@@ -29,23 +29,10 @@ async def install(
     worker = Worker(target=deploy_pack, args=(user_id, stack_packs))
     worker.start()
 
-    deploy_dir = DeploymentDir(user_id)
-    log = deploy_dir.get_log("stack", "up", deployment_id)
-
-    try:
-        tail = await asyncio.wait_for(log.tail_wait_created(), timeout=60)
-    except asyncio.TimeoutError:
-        logger.warning("Log file not created after 60 seconds")
-        return JSONResponse(
-            content={"message": "Deployment created"},
-            status_code=201,
-            headers={"Location": f"/api/install/{deployment_id}/logs"},
-        )
-
-    return StreamingResponse(
-        tail,
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-buffer"},
+    return Response(
+        status_code=201,
+        content="Deployment started",
+        headers={"Location": f"/api/install/{deployment_id}/logs"},
     )
 
 
