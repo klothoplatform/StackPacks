@@ -1,11 +1,9 @@
-import os
-import aiounittest
-from unittest.mock import call, patch, MagicMock, mock_open, ANY
-from src.deployer.pulumi.builder import (
-    AppBuilder,
-)
-from pulumi import automation as auto
 import subprocess
+from unittest.mock import MagicMock, patch
+
+import aiounittest
+
+from src.deployer.pulumi.builder import AppBuilder
 from src.util.tmp import TempDir
 
 
@@ -63,7 +61,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         self.assertEqual(mock_stack.set_config.call_count, 2)
         mock_stack.set_config.assert_any_call("aws:region", "region")
         mock_stack.set_config.assert_any_call(
-            "roleArn", "arn", path="aws:assumeRole.roleArn"
+            "aws:assumeRole.roleArn", "arn", path="aws:assumeRole"
         )
 
     @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")
