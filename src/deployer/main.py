@@ -1,10 +1,14 @@
 import asyncio
-from typing import Dict
+from dataclasses import dataclass
+from typing import Dict, Tuple
 import uuid
-import concurrent.futures
+from aiomultiprocess import Pool
 from fastapi import Request
+from pydantic import BaseModel
+from src.dependencies.injection import get_iac_storage
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deployer import AppDeployer
+from src.deployer.pulumi.manager import LiveState, AppManager
 from src.deployer.models.deployment import (
     DeploymentStatus,
     Deployment,
@@ -16,26 +20,35 @@ from src.util.logging import logger
 from multiprocessing import Process, Queue
 from queue import Empty
 from src.util.tmp import TempDir
-
+from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.user_app import UserApp
+from src.stack_pack import ConfigValues, StackPack
+from src.stack_pack.common_stack import CommonStack
 
 # This would be a dictionary, database, or some other form of storage in a real application
 deployments: Dict[str, Queue] = {}
 PROJECT_NAME = "StackPack"
 
+@dataclass
+class DeploymentResult:
+    manager: AppManager | None
+    status: DeploymentStatus
+    reason: str
+    stack: PulumiStack
 
 async def build_and_deploy(
-    q: Queue,
     region: str,
     assume_role_arn: str,
+    app: str,
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
-    tmp_dir: str,
-):
+    tmp_dir: TempDir,
+) -> DeploymentResult:
     deployment_id = str(uuid.uuid4())
     pulumi_stack = PulumiStack(
         project_name=PROJECT_NAME,
-        name=PulumiStack.sanitize_stack_name(user),
+        name=PulumiStack.sanitize_stack_name(app),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Deployment in progress",
         created_by=user,
@@ -51,7 +64,7 @@ async def build_and_deploy(
 
     pulumi_stack.save()
     deployment.save()
-    builder = AppBuilder(tmp_dir)
+    builder = AppBuilder(tmp_dir.dir)
     stack = builder.prepare_stack(iac, pulumi_stack)
     builder.configure_aws(stack, assume_role_arn, region)
     for k, v in pulumi_config.items():
@@ -59,8 +72,7 @@ async def build_and_deploy(
     deployer = AppDeployer(
         stack,
     )
-    result_status, reason = await deployer.deploy(q)
-    await q.put("Done")
+    result_status, reason = await deployer.deploy()
     pulumi_stack.update(
         actions=[
             PulumiStack.status.set(result_status.value),
@@ -73,41 +85,23 @@ async def build_and_deploy(
             Deployment.status_reason.set(reason),
         ]
     )
+    return DeploymentResult(manager=AppManager(stack), status=result_status, reason=reason, stack=pulumi_stack)
 
 
-def run_build_and_deploy(
-    q: Queue,
+
+async def run_destroy(
     region: str,
     assume_role_arn: str,
+    app: str,
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
     tmp_dir: TempDir,
-):
-    new_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(new_loop)
-    new_loop.run_until_complete(
-        build_and_deploy(
-            q, region, assume_role_arn, user, iac, pulumi_config, tmp_dir.dir
-        )
-    )
-    new_loop.close()
-    tmp_dir.cleanup()
-
-
-async def run_destroy(
-    q: Queue,
-    region: str,
-    assume_role_arn: str,
-    user: str,
-    iac: bytes,
-    pulumi_config: dict[str, str],
-    tmp_dir: str,
-):
+) -> DeploymentResult:
     deployment_id = str(uuid.uuid4())
     pulumi_stack = PulumiStack(
         project_name=PROJECT_NAME,
-        name=PulumiStack.sanitize_stack_name(user),
+        name=PulumiStack.sanitize_stack_name(app),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Destroy in progress",
         created_by=user,
@@ -123,7 +117,7 @@ async def run_destroy(
 
     pulumi_stack.save()
     deployment.save()
-    builder = AppBuilder(tmp_dir)
+    builder = AppBuilder(tmp_dir.dir)
     stack = builder.prepare_stack(iac, pulumi_stack)
     for k, v in pulumi_config.items():
         stack.set_config(k, auto.ConfigValue(v, secret=True))
@@ -131,8 +125,7 @@ async def run_destroy(
     deployer = AppDeployer(
         stack,
     )
-    result_status, reason = await deployer.destroy_and_remove_stack(q)
-    await q.put("Done")
+    result_status, reason = await deployer.destroy_and_remove_stack()
     pulumi_stack.update(
         actions=[
             PulumiStack.status.set(result_status.value),
@@ -145,62 +138,158 @@ async def run_destroy(
             Deployment.status_reason.set(reason),
         ]
     )
+    return DeploymentResult(manager=None, status=result_status, reason=reason, stack=pulumi_stack)
 
 
-def run_destroy_loop(
-    q: Queue,
-    region: str,
-    assume_role_arn: str,
-    user: str,
-    iac: bytes,
-    pulumi_config: dict[str, str],
-    tmp_dir: TempDir,
-):
-    new_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(new_loop)
-    new_loop.run_until_complete(
-        run_destroy(q, region, assume_role_arn, user, iac, pulumi_config, tmp_dir.dir)
-    )
-    new_loop.close()
-    tmp_dir.cleanup()
-
-
-class StackDeploymentRequest:
+class StackDeploymentRequest(BaseModel):
     stack_name: str
     iac: bytes
     pulumi_config: dict[str, str]
 
-
 async def run_concurrent_deployments(
-    q: Queue,
     region: str,
     assume_role_arn: str,
     stacks: list[StackDeploymentRequest],
     user: str,
+) -> Tuple[list[str], list[DeploymentResult]]:
+    # This version of the function creates an empty list tasks, then iterates over the stacks list. 
+    # For each stack, it applies the build_and_deploy function using the pool, awaits the result, and appends it to the tasks list. 
+    # This way, each task is awaited individually in an async context.
+
+    logger.info(f"Running {len(stacks)} deployments")
+
+    async with Pool() as pool:
+        tasks = []
+        app_order = []
+        for stack in stacks:
+            task = pool.apply(
+                build_and_deploy, 
+                args=(region, assume_role_arn, stack.stack_name, user, stack.iac, stack.pulumi_config, TempDir())
+            )
+            app_order.append(stack.stack_name)
+            tasks.append(task)
+            
+        gathered = await asyncio.gather(*tasks)
+        logger.info(f"Tasks: {tasks}")
+        return app_order, gathered
+
+async def run_concurrent_destroys(
+    region: str,
+    assume_role_arn: str,
+    stacks: list[StackDeploymentRequest],
+    user: str,
+) -> Tuple[list[str], list[DeploymentResult]]:
+    
+
+    logger.info(f"Running {len(stacks)} destroys")
+
+    async with Pool() as pool:
+        tasks = []
+        app_order = []
+        for stack in stacks:
+            task = pool.apply(
+                run_destroy, 
+                args=(region, assume_role_arn, stack.stack_name, user, stack.iac, stack.pulumi_config, TempDir())
+            )
+            app_order.append(stack.stack_name)
+            tasks.append(task)
+            
+        gathered = await asyncio.gather(*tasks)
+        logger.info(f"Tasks: {tasks}")
+        return app_order, gathered
+
+async def deploy_pack(
+    pack_id: str,
+    sps: dict[str, StackPack],
 ):
-    async def run_blocking_task_in_process(executor, task, *args):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(executor, task, *args)
+    logger.info(f"Deploying pack {pack_id}")
+    iac_storage = get_iac_storage()
+    user_pack = UserPack.get(pack_id)
+        
+    common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
+    if common_version == 0:
+        raise ValueError("Common stack not found")
+    
+    logger.info(f"Deploying common stack {common_version}")
+    common_pack = UserApp.get(UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME), common_version)
+    iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
+    
+    common_stack = CommonStack([sp for sp in sps.values()])
+    pulumi_config = common_stack.get_pulumi_configs(common_pack.configuration.items())
+    order, results = await run_concurrent_deployments(user_pack.region, user_pack.assumed_role_arn, [StackDeploymentRequest(stack_name=common_pack.app_id, iac=iac, pulumi_config=pulumi_config)], user_pack.id)
+    common_pack.update(actions=[UserApp.status.set(results[0].status.value), UserApp.status_reason.set(results[0].reason)])
+    manager = results[0].manager
+    live_state = await manager.read_deployed_state()
 
-    executor = concurrent.futures.ProcessPoolExecutor()
+    
+    logger.info(f"Deploying app stacks")
+    configuration: dict[str, ConfigValues] = {}
+    for name, version in user_pack.apps.items():
+        if name == UserPack.COMMON_APP_NAME:
+            continue
+        app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
+        configuration[name] = app.get_configurations()
+    
+    await user_pack.run_pack(sps, configuration, iac_storage, increment_versions=False, imports=live_state.to_constraints(common_stack, common_pack.configuration))
+    
+    deployment_stacks: list[StackDeploymentRequest] = []
+    apps: dict[str, UserApp] = {}
+    for name, version in user_pack.apps.items():
+        if name == UserPack.COMMON_APP_NAME:
+            continue
+        app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
+        apps[app.app_id] = app
+        iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
+        sp = sps[app.get_app_name()]
+        pulumi_config = sp.get_pulumi_configs(app.get_configurations())
+        deployment_stacks.append(StackDeploymentRequest(stack_name=app.app_id, iac=iac, pulumi_config=pulumi_config))
 
-    # Start all tasks and get Future objects
-    futures = [
-        run_blocking_task_in_process(
-            executor,
-            run_build_and_deploy,
-            q,
-            region,
-            assume_role_arn,
-            user,
-            stack.iac,
-            stack.pulumi_config,
-        )
-        for stack in stacks
-    ]
+    order, results = await run_concurrent_deployments(user_pack.region, user_pack.assumed_role_arn,  deployment_stacks, user_pack.id)
+    for i, name in enumerate(order):
+        app = apps[name]
+        result = results[i]
+        app.update(actions=[UserApp.status.set(result.status.value), UserApp.status_reason.set(result.reason)])
+    return
 
-    # Return immediately without waiting for the tasks to complete
-    return "Started tasks"
+async def tear_down_pack(
+    pack_id: str,
+):
+    logger.info(f"Tearing down pack {pack_id}")
+    iac_storage = get_iac_storage()
+    user_pack = UserPack.get(pack_id)
+    
+    
+    logger.info(f"Destroying app stacks")
+    deployment_stacks: list[StackDeploymentRequest] = []
+    apps: dict[str, UserApp] = {}
+    for name, version in user_pack.apps.items():
+        if name == UserPack.COMMON_APP_NAME:
+            continue
+        app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
+        apps[app.app_id] = app
+        iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
+        deployment_stacks.append(StackDeploymentRequest(stack_name=app.app_id, iac=iac, pulumi_config={}))
+
+    order, results = await run_concurrent_destroys(user_pack.region, user_pack.assumed_role_arn,  deployment_stacks, user_pack.id)
+    for i, name in enumerate(order):
+        app = apps[name]
+        result = results[i]
+        app.update(actions=[UserApp.status.set(result.status.value), UserApp.status_reason.set(result.reason)])
+        
+    common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
+    if common_version == 0:
+        raise ValueError("Common stack not found")
+    
+    logger.info(f"Destroying common stack {common_version}")
+    common_pack = UserApp.get(UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME), common_version)
+    iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
+    
+    order, results = await run_concurrent_destroys(user_pack.region, user_pack.assumed_role_arn, [StackDeploymentRequest(stack_name=common_pack.app_id, iac=iac, pulumi_config={})], user_pack.id)
+    common_pack.update(actions=[UserApp.status.set(results[0].status.value), UserApp.status_reason.set(results[0].reason)])
+
+    return
+
+        
 
 
 async def stream_deployment_events(request: Request, id: str):

@@ -47,7 +47,6 @@ class CommonPack(dict[BaseRequirements, CommonPart]):
             configuration.update(self[requirement].configuration)
         return configuration
 
-
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source: Any, handler: GetCoreSchemaHandler

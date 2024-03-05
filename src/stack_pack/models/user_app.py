@@ -15,6 +15,7 @@ from pynamodb.attributes import (
     JSONAttribute,
     UTCDateTimeAttribute,
     UnicodeSetAttribute,
+    NumberAttribute
 )
 from pynamodb.expressions.condition import Not, Exists
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
@@ -29,6 +30,8 @@ from src.deployer.models.deployment import PulumiStack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.compress import zip_directory_recurse
 from src.util.aws.iam import Policy
+from src.util.logging import logger
+from src.util.tmp import TempDir
 
 
 class UserApp(Model):
@@ -39,7 +42,7 @@ class UserApp(Model):
 
     # app_id is a composite key around the id of the user pack and the name of the app
     app_id: str = UnicodeAttribute(hash_key=True)
-    version = UnicodeAttribute(range_key=True)
+    version: int = NumberAttribute(range_key=True)
     iac_stack_composite_key: str = UnicodeAttribute(null=True)
     created_by: str = UnicodeAttribute()
     created_at: datetime.datetime = UTCDateTimeAttribute(
@@ -63,7 +66,9 @@ class UserApp(Model):
             created_by=self.created_by,
             created_at=self.created_at,
             configuration=ConfigValues(self.configuration.items()),
-            last_deployed_version=latest_deployed_version.version if latest_deployed_version else None,
+            last_deployed_version=(
+                latest_deployed_version.version if latest_deployed_version else None
+            ),
             status=pulumi_stack.status if pulumi_stack else None,
             status_reason=pulumi_stack.status_reason if pulumi_stack else None,
         )
@@ -83,19 +88,17 @@ class UserApp(Model):
     async def run_app(
         self,
         stack_pack: StackPack,
-        tmp_dir: str,
+        tmp_dir: TempDir,
         iac_storage: IacStorage | None,
         imports: list[any] = [],
     ) -> Policy:
-        UserApp.get_latest_version
-        constraints = stack_pack.to_constraints(
-            self.get_configurations()
-        )
+        dir = tmp_dir.dir
+        constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(
                 constraints=constraints,
-                tmp_dir=tmp_dir,
+                tmp_dir=dir,
             )
         )
         if iac_storage:
@@ -103,13 +106,12 @@ class UserApp(Model):
                 ExportIacRequest(
                     input_graph=engine_result.resources_yaml,
                     name="stack",
-                    tmp_dir=tmp_dir,
+                    tmp_dir=dir,
                 )
             )
-            stack_pack.copy_files(
-                self.get_configurations(), Path(tmp_dir)
-            )
-            iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
+            stack_pack.copy_files(self.get_configurations(), Path(dir))
+            iac_bytes = zip_directory_recurse(BytesIO(), dir)
+            logger.info(f"Writing IAC for {self.app_id} version {self.version}")
             iac_storage.write_iac(
                 self.get_pack_id(), self.get_app_name(), self.version, iac_bytes
             )
@@ -145,11 +147,11 @@ class UserApp(Model):
 
 class AppModel(BaseModel):
     app_id: str
-    version: str
+    version: int
     iac_stack_composite_key: Optional[str] = None
     created_by: str
     created_at: datetime.datetime
     configuration: ConfigValues = Field(default_factory=dict)
-    last_deployed_version: Optional[str] = None
+    last_deployed_version: Optional[int] = None
     status: Optional[str] = None
     status_reason: Optional[str] = None

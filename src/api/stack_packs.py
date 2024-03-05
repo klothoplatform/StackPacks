@@ -37,6 +37,16 @@ async def create_stack(
 ) -> StackResponse:
     policy: Policy = None
     user_id = await get_user_id(request)
+    try:
+        pack = UserPack.get(user_id)
+        if pack is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Stack already exists for this user, use PATCH to update",
+            )
+    except DoesNotExist as e:
+        logger.debug(f"UserPack not found for user {user_id}")
+        
     user_pack = UserPack(
         id=user_id,
         owner=user_id,
@@ -49,17 +59,15 @@ async def create_stack(
     policy: Policy = None
     common_policy: Policy = None
     iac_storage = get_iac_storage()
-    with TempDir() as tmp_dir:
-        stack_packs = get_stack_packs()
-        common_policy = await user_pack.run_base(
-            [sp for k, sp in stack_packs.items()],
-            body.configuration.get("base", {}),
-            tmp_dir,
-            iac_storage,
-        )
-        policy = await user_pack.run_pack(
-            stack_packs, body.configuration, tmp_dir, iac_storage
-        )
+    stack_packs = get_stack_packs()
+    common_policy = await user_pack.run_base(
+        [sp for k, sp in stack_packs.items()],
+        body.configuration.get("base", {}),
+        iac_storage,
+    )
+    policy = await user_pack.run_pack(
+        stack_packs, body.configuration
+    )
     user_pack.save()
     policy.combine(common_policy)
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
@@ -93,10 +101,14 @@ async def update_stack(
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
     if body.configuration:
         stack_packs = get_stack_packs()
-        with TempDir() as tmp_dir:
-            policy = await user_pack.run_pack(
-                stack_packs, get_iac_storage(), tmp_dir
-            )
+        common_policy = await user_pack.run_base(
+            [sp for k, sp in stack_packs.items()],
+            body.configuration.get("base", {}),
+            get_iac_storage(),
+        )
+        policy = await user_pack.run_pack(stack_packs,body.configuration)
+        policy.combine(common_policy)
+        user_pack.update(actions=[UserPack.apps.set(user_pack.apps)])
 
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
 
@@ -105,10 +117,9 @@ async def update_stack(
 async def my_stack(request: Request) -> UserStack:
     user_id = await get_user_id(request)
     try:
-        user_pack = UserPack.get(user_id, user_id)
+        user_pack = UserPack.get(user_id)
     except DoesNotExist:
         raise HTTPException(status_code=404, detail="Stack not found")
-    user_pack = UserPack.get(user_id, user_id)
     return user_pack.to_user_stack()
 
 

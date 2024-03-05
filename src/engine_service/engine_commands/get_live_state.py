@@ -8,22 +8,24 @@ import jsons
 from src.engine_service.engine_commands.util import run_iac_command
 
 
-class ExportIacRequest(NamedTuple):
-    input_graph: str
+class GetLiveStateRequest(NamedTuple):
     state: dict
     tmp_dir: str
+    input_graph: str = None
 
 
-async def get_import_constraints(request: ExportIacRequest):
+
+async def get_live_state(request: GetLiveStateRequest):
     tmp_dir = request.tmp_dir
     dir = Path(tmp_dir)
 
     args = []
 
-    with open(dir / "graph.yaml", "w") as file:
-        file.write(request.input_graph)
-        args.append("--input-graph")
-        args.append(f"{tmp_dir}/graph.yaml")
+    if request.input_graph is not None:
+        with open(dir / "graph.yaml", "w") as file:
+            file.write(request.input_graph)
+            args.append("--input-graph")
+            args.append(f"{tmp_dir}/graph.yaml")
 
     with open(dir / "state.json", "w") as file:
         file.write(jsons.dumps(request.state))
@@ -38,10 +40,9 @@ async def get_import_constraints(request: ExportIacRequest):
     )
 
     stdout, stderr = await run_iac_command(
-        "GetImportConstraints",
+        "GetLiveState",
         *args,
         cwd=dir,
     )
-
-    constraints = yaml.load(stdout)
-    return constraints
+    # returns a resources yaml in stdout
+    return stdout

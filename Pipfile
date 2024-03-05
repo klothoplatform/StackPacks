@@ -18,6 +18,8 @@ boto3 = "*"
 moto = "*"
 pynamodb = "*"
 pydantic-yaml = "*"
+prettytable = "*"
+aiomultiprocess = "*"
 
 [dev-packages]
 black = "*"

@@ -24,6 +24,7 @@ from src.util.aws.iam import Policy
 from src.stack_pack.models.user_app import AppModel, UserApp
 from src.util.logging import logger
 
+
 class UserPack(Model):
 
     COMMON_APP_NAME = "common"
@@ -49,19 +50,26 @@ class UserPack(Model):
         self,
         stack_packs: List[StackPack],
         config: ConfigValues,
-        tmp_dir: str,
         iac_storage: IacStorage,
-        dry_run: bool = True,
+        dry_run: bool = False,
     ) -> Policy:
         base_stack = CommonStack(stack_packs)
         base_version = self.apps.get(UserPack.COMMON_APP_NAME, None)
         app: UserApp = None
         if base_version is not None:
             try:
-                app = UserApp.get(UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME), base_version)
-                app.version += 1
+                app = UserApp.get(
+                    UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME),
+                    base_version,
+                )
+                # Only increment version if there has been an attempted deploy on the current version
+                latest_version = UserApp.get_latest_version_with_status(app.app_id)
+                if latest_version is not None and latest_version.version == app.version:
+                    app.version = app.version + 1
             except DoesNotExist as e:
-                logger.info(f"App {UserPack.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one.")
+                logger.info(
+                    f"App {UserPack.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
+                )
         if app is None:
             app = UserApp(
                 app_id=f"{self.id}#{UserPack.COMMON_APP_NAME}",
@@ -70,30 +78,28 @@ class UserPack(Model):
                 created_at=datetime.datetime.now(),
                 configuration=config,
             )
-        policy = await app.run_app(base_stack, tmp_dir, iac_storage)
+        policy = await app.run_app(base_stack, TempDir(), iac_storage)
         if not dry_run:
             app.save()
             self.apps[UserPack.COMMON_APP_NAME] = app.version
         return policy
 
-
     async def run_pack(
         self,
         stack_packs: dict[str, StackPack],
         config: dict[str, ConfigValues],
-        tmp_dir: str,
-        iac_storage: IacStorage,
+        iac_storage: IacStorage = None,
         increment_versions: bool = True,
         imports: list[any] = [],
     ) -> Policy:
-        """ Run the stack packs with the given configuration and return the combined policy
+        """Run the stack packs with the given configuration and return the combined policy
 
         Args:
             stack_packs (dict[str, StackPack]): a dictionary of stack packs where the key is the name of the stack pack
             config (dict[str, ConfigValues]): a dictionary of configurations where the key is the name of the stack pack
             tmp_dir (str): the temporary directory to store the files related to the engine execution of the stack pack
-            iac_storage (IacStorage): the class to interact with to store the iac
-            increment_versions (bool, optional): A flag to enable storing IaC and incrementing the version of the application. If set to false nothing from the run will be saved. Defaults to True.
+            iac_storage (IacStorage): the class to interact with to store the iac. If None the iac will not be stored.
+            increment_versions (bool, optional): A flag to enable incrementing the version of the application. If set to false the stored data will not change. Defaults to True.
             imports (list[any], optional): A List of import constraints to apply to all stack packs. Defaults to [].
 
         Raises:
@@ -113,9 +119,15 @@ class UserPack(Model):
             if version is not None:
                 try:
                     app = UserApp.get(UserApp.composite_key(self.id, name), version)
-                    app.version += 1
+                    if increment_versions:
+                        # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
+                        latest_version = UserApp.get_latest_version_with_status(app.app_id)
+                        if latest_version is not None and latest_version.version == app.version:
+                            app.version = app.version + 1
                 except DoesNotExist as e:
-                    logger.info(f"App {name} does not exist for pack id {self.id}. Creating a new one.")
+                    logger.info(
+                        f"App {name} does not exist for pack id {self.id}. Creating a new one."
+                    )
             if app is None:
                 app = UserApp(
                     app_id=f"{self.id}#{name}",
@@ -131,7 +143,12 @@ class UserPack(Model):
 
         # Run the packs in parallel and only store the iac if we are incrementing the version
         tasks = [
-            app.run_app(stack_packs[app.get_app_name()], tmp_dir, iac_storage if increment_versions else None, imports)
+            app.run_app(
+                stack_packs[app.get_app_name()],
+                TempDir(),
+                iac_storage,
+                imports,
+            )
             for app in apps
         ]
         policies = await asyncio.gather(*tasks)
@@ -146,8 +163,6 @@ class UserPack(Model):
         for policy in policies[1:]:
             combined_policy.combine(policy)
 
-        print("combined")
-        print(combined_policy)
         return combined_policy
 
     def to_user_stack(self):
@@ -168,6 +183,7 @@ class UserPack(Model):
             created_by=self.created_by,
             created_at=self.created_at,
         )
+
 
 class UserStack(BaseModel):
     id: str

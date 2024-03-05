@@ -25,6 +25,7 @@ class IacStorage:
         self._bucket = bucket
 
     def get_iac(self, pack_id: str, app_name: str, version: int) -> Optional[bytes]:
+        logger.info(f"Getting iac for pack_id: {pack_id}, app_name: {app_name}, version: {version}")
         try:
             obj = self._bucket.Object(IacStorage.get_path_for_iac(pack_id, app_name, version))
             iac_raw = get_object(obj)
@@ -43,6 +44,7 @@ class IacStorage:
             raise
 
     def write_iac(self, pack_id: str, app_name: str, version: int, content: bytes) -> str:
+        logger.info(f"Writing iac for pack_id: {pack_id}, app_name: {app_name}, version: {version}")
         key = IacStorage.get_path_for_iac(pack_id, app_name, version)
         try:
             if not isinstance(content, bytes):
@@ -57,6 +59,7 @@ class IacStorage:
             )
 
     def delete_iac(self, pack_id: str, app_name: str, version: int):
+        logger.info(f"Deleting iac for pack_id: {pack_id}, app_name: {app_name}, version: {version}")
         keys = [IacStorage.get_path_for_iac(pack_id, app_name, version)]
         try:
             delete_objects(self._bucket, keys)
