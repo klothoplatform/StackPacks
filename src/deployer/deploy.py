@@ -124,7 +124,6 @@ async def deploy_common_stack(
     common_stack: CommonStack,
     iac_storage: IacStorage,
 ):
-    print(common_pack)
     common_version = common_pack.version
     logger.info(f"Deploying common stack {common_version}")
     iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
