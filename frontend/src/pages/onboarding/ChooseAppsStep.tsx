@@ -16,7 +16,7 @@ import { SelectableCard } from "../../components/SelectableCard.tsx";
 import { PiStackFill } from "react-icons/pi";
 import { FormProvider, useForm } from "react-hook-form";
 import useApplicationStore from "../store/ApplicationStore.ts";
-import type { StackPack } from "../../shared/models/StackPack.ts";
+import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
 import { SiWebpack } from "react-icons/si";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { useSearchParams } from "react-router-dom";
@@ -69,9 +69,9 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
     userStack,
   } = useApplicationStore();
 
-  const [apps, setApps] = useState<StackPack[]>([...stackPacks.values()]);
+  const [apps, setApps] = useState<AppTemplate[]>([...stackPacks.values()]);
   const [selectedApps, setSelectedApps] = useState<string[]>(
-    userStack ? Object.keys(userStack.configuration) : selectedStackPacks,
+    userStack ? Object.keys(userStack.stack_packs) : selectedStackPacks,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -94,14 +94,14 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
       (isLoaded && !userStack) ||
       setEquals(
         new Set(selectedStackPacks),
-        new Set(Object.keys(userStack.configuration)),
+        new Set(Object.keys(userStack.stack_packs)),
       )
     ) {
       return;
     }
     setSelectedApps(
-      userStack.configuration
-        ? Object.keys(userStack.configuration)
+      userStack.stack_packs
+        ? Object.keys(userStack.stack_packs)
         : selectedStackPacks,
     );
   }, [userStack, selectedStackPacks, isLoaded]);
@@ -146,6 +146,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
     updateOnboardingWorkflowState({
       selectedStackPacks: state.selectedApps,
     });
+
     try {
       if (!userStack) {
         await createOrUpdateStack({
@@ -155,7 +156,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
         if (
           setEquals(
             new Set(selectedApps),
-            new Set(Object.keys(userStack.configuration)),
+            new Set(Object.keys(userStack.stack_packs)),
           )
         ) {
           setIsSubmitting(false);
@@ -164,7 +165,10 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
         }
         await createOrUpdateStack({
           configuration: Object.fromEntries(
-            selectedApps.map((id) => [id, userStack.configuration[id] ?? {}]),
+            selectedApps.map((id) => [
+              id,
+              userStack.stack_packs[id]?.configuration ?? {},
+            ]),
           ),
         });
       }
@@ -230,7 +234,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
 const AppChooserComposite: FC = () => {
   const [layout, setLayout] = useState(AppChooserLayout.Grid);
   const { apps, selectedApps, setSelectedApps } = useAppChooser();
-  const [filteredApps, setFilteredApps] = useState<StackPack[]>([...apps]);
+  const [filteredApps, setFilteredApps] = useState<AppTemplate[]>([...apps]);
 
   useEffect(() => {
     setFilteredApps(apps);
@@ -286,13 +290,13 @@ const AppChooserLayoutSelector: FC<{
 };
 
 const AppChooser: FC<{
-  apps: StackPack[];
+  apps: AppTemplate[];
   layout: AppChooserLayout;
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
   const [_, setSearchParams] = useSearchParams();
 
-  const onClick = (app: StackPack, selected: boolean) => {
+  const onClick = (app: AppTemplate, selected: boolean) => {
     const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
     if (selected && !alreadySelected) {
@@ -336,9 +340,9 @@ const AppChooser: FC<{
 };
 
 const AppChooserItem: FC<{
-  app: StackPack;
+  app: AppTemplate;
   layout: AppChooserLayout;
-  onClick?: (app: StackPack, selected: boolean) => void;
+  onClick?: (app: AppTemplate, selected: boolean) => void;
   selected?: boolean;
 }> = ({ app, onClick, layout, selected }) => {
   const onSelect = () => {
@@ -374,13 +378,13 @@ const AppChooserItem: FC<{
 };
 
 const AppSearch: FC<{
-  apps: StackPack[];
-  onFilter: (apps: StackPack[]) => void;
+  apps: AppTemplate[];
+  onFilter: (apps: AppTemplate[]) => void;
 }> = ({ apps, onFilter }) => {
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const filterValue = event.target.value;
     const filter = filterValue
-      ? (app: StackPack) => {
+      ? (app: AppTemplate) => {
           return filterValue
             ? app.name
                 .toLowerCase()
@@ -407,8 +411,8 @@ const AppSearch: FC<{
 };
 
 type ChooseAppsContextProps = {
-  apps: StackPack[];
-  setApps: (apps: StackPack[]) => void;
+  apps: AppTemplate[];
+  setApps: (apps: AppTemplate[]) => void;
   selectedApps: string[];
   setSelectedApps: (apps: string[]) => void;
 };

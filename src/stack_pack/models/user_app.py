@@ -147,4 +147,3 @@ class AppModel(BaseModel):
     last_deployed_version: Optional[int] = None
     status: Optional[str] = None
     status_reason: Optional[str] = None
-    status_reason: Optional[str] = None

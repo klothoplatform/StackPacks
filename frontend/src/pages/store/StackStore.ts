@@ -1,8 +1,11 @@
 import type { StateCreator } from "zustand";
 import type { ErrorStore } from "./ErrorStore";
-import type { Stack } from "../../shared/models/Stack.ts";
-import { resolveDefaultConfigurations } from "../../shared/models/Stack.ts";
-import type { StackPack } from "../../shared/models/StackPack.ts";
+import type {
+  StackModification,
+  UserStack,
+} from "../../shared/models/UserStack.ts";
+import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
+import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
 import { getStack } from "../../api/GetStack.ts";
 import type { AuthStore } from "./AuthStore.ts";
 import { getStackPacks } from "../../api/GetStackPacks.ts";
@@ -15,23 +18,27 @@ import { createStack } from "../../api/CreateStack.ts";
 import { merge } from "ts-deepmerge";
 
 export interface StackStoreState {
-  userStack?: Stack;
+  userStack?: UserStack;
   userStackPolicy?: string;
-  stackPacks: Map<string, StackPack>;
+  stackPacks: Map<string, AppTemplate>;
 }
 
 export interface StackStoreBase extends StackStoreState {
-  getStack: () => Promise<Stack>;
-  getUserStack: (refresh?: boolean) => Promise<Stack>;
+  getStack: () => Promise<UserStack>;
+  getUserStack: (refresh?: boolean) => Promise<UserStack>;
   createOrUpdateStack: (
-    stack?: Partial<Stack>,
+    stack: StackModification,
   ) => Promise<CreateStackResponse | UpdateStackResponse>;
-  updateStack: (stack: Partial<Stack>) => Promise<UpdateStackResponse>;
-  createStack: (stack: Partial<Stack>) => Promise<CreateStackResponse>;
-  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, StackPack>>;
+  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
+  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
+  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
   installStack: () => Promise<void>;
   tearDownStack: () => Promise<void>;
   resetStackState: () => void;
+  getAppTemplates: (
+    appIds: string[],
+    refresh?: boolean,
+  ) => Promise<AppTemplate[]>;
 }
 
 const initialState: () => StackStoreState = () => ({
@@ -58,7 +65,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     const idToken = await get().getIdToken();
     return await getStack(idToken);
   },
-  createStack: async (stack: Partial<Stack>) => {
+  createStack: async (stack: Partial<UserStack>) => {
     const idToken = await get().getIdToken();
 
     const response = await createStack({ stack, idToken });
@@ -72,10 +79,13 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
     return response;
   },
-  createOrUpdateStack: async (stack: Partial<Stack>) => {
-    const defaultConfiguration = resolveDefaultConfigurations(
-      stack as Stack,
-      await get().getStackPacks(),
+  createOrUpdateStack: async (stack: StackModification) => {
+    const appTemplates = await get().getStackPacks();
+    const defaultConfiguration = Object.fromEntries(
+      Object.keys(stack.configuration ?? {}).map((appId) => [
+        appId,
+        resolveDefaultConfiguration(appTemplates.get(appId)),
+      ]),
     );
 
     // handle the case where the user has a stack and is updating it
@@ -88,7 +98,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       Object.entries(stack.configuration).forEach(([key, value]) => {
         if (value === undefined || Object.keys(value).length === 0) {
           stack.configuration[key] =
-            userStack.configuration[key] ??
+            userStack.stack_packs[key].configuration ??
             defaultConfiguration[key] ??
             stack.configuration[key];
         }
@@ -102,7 +112,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
 
     return await get().createStack(stack);
   },
-  updateStack: async (stack: Partial<Stack>) => {
+  updateStack: async (stack: Partial<UserStack>) => {
     const idToken = await get().getIdToken();
     const response = await updateStack({ stack, idToken });
     set(
@@ -116,11 +126,11 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     return response;
   },
   getStackPacks: async (forceRefresh?: boolean) => {
-    const idToken = await get().getIdToken();
     const currentStackPacks = get().stackPacks;
     if (!forceRefresh && currentStackPacks.size > 0) {
       return currentStackPacks;
     }
+    const idToken = await get().getIdToken();
     const updatedStackPacks = await getStackPacks(idToken);
     set(
       {
@@ -138,5 +148,12 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   tearDownStack: async () => {
     const idToken = await get().getIdToken();
     return await tearDownStack(idToken);
+  },
+  getAppTemplates: async (
+    appIds: string[],
+    refresh?: boolean,
+  ): Promise<AppTemplate[]> => {
+    const appTemplates = await get().getStackPacks(refresh);
+    return appIds.map((id) => appTemplates.get(id));
   },
 });

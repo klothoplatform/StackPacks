@@ -2,16 +2,19 @@ import type { AxiosResponse } from "axios";
 import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import type { Stack } from "../shared/models/Stack.ts";
+import type {
+  StackModification,
+  UserStack,
+} from "../shared/models/UserStack.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export interface UpdateStackRequest {
   idToken: string;
-  stack: Partial<Stack>;
+  stack: StackModification;
 }
 
 export interface UpdateStackResponse {
-  stack: Stack;
+  stack: UserStack;
   policy: string;
 }
 

@@ -20,8 +20,8 @@ export const HeaderNavBar: FC<PropsWithChildren<NavbarProps>> = function ({
       <div className="w-full px-1 pt-1 lg:px-5 lg:pl-3">
         <div className="flex items-center justify-between">
           <Navbar.Brand as={Link} to="/" className="pr-2">
-            <span className="whitespace-nowrap px-2 py-1 text-2xl font-semibold dark:text-white">
-              StackPacks
+            <span className="whitespace-nowrap px-2 py-1 text-2xl font-semibold text-primary-500 dark:text-primary-400">
+              stacksnap
             </span>
           </Navbar.Brand>
           <div className="mr-3 h-5 py-4 shadow-black"></div>

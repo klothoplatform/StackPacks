@@ -2,10 +2,10 @@ import type { AxiosResponse } from "axios";
 import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import type { Stack } from "../shared/models/Stack.ts";
+import type { UserStack } from "../shared/models/UserStack.ts";
 import { analytics } from "../shared/analytics.ts";
 
-export async function getStack(idToken: string): Promise<Stack> {
+export async function getStack(idToken: string): Promise<UserStack> {
   let response: AxiosResponse;
   try {
     response = await axios.get("/api/stack", {
@@ -39,7 +39,7 @@ export async function getStack(idToken: string): Promise<Stack> {
   return parseStack(response.data);
 }
 
-// TODO: implement stack parser
-function parseStack(data: any): Stack {
+function parseStack(data: any): UserStack {
+  delete data?.stack_packs?.common;
   return data;
 }

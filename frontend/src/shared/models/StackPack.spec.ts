@@ -10,10 +10,13 @@ import {
   CollectionTypes,
   PrimitiveTypes,
 } from "../configuration-properties.ts";
-import type { StackPack } from "./StackPack.ts";
-import { resolveDefaultConfiguration, resolveStackPacks } from "./StackPack.ts";
+import type { AppTemplate } from "./AppTemplate.ts";
+import {
+  resolveDefaultConfiguration,
+  resolveAppTemplates,
+} from "./AppTemplate.ts";
 
-const mockStackPack: StackPack = {
+const mockStackPack: AppTemplate = {
   id: "base",
   alternatives: ["alternative1", "alternative2"],
   base: {},
@@ -26,7 +29,7 @@ const mockStackPack: StackPack = {
 
 describe("resolveDefaultConfiguration", () => {
   it("should resolve default configuration for a stack pack with various property types", () => {
-    const inputStackPack: StackPack = {
+    const inputStackPack: AppTemplate = {
       ...mockStackPack,
       id: "mockStackPack",
       name: "Mock Stack Pack",
@@ -91,7 +94,7 @@ describe("resolveStackPacks", () => {
     const stackPacks = new Map();
     stackPacks.set("mockStackPack", mockStackPack);
 
-    const result = resolveStackPacks(["mockStackPack"], stackPacks);
+    const result = resolveAppTemplates(["mockStackPack"], stackPacks);
     expect(result).toEqual([mockStackPack]);
   });
 
@@ -99,7 +102,7 @@ describe("resolveStackPacks", () => {
     const stackPacks = new Map();
     stackPacks.set("mockStackPack", mockStackPack);
 
-    const result = resolveStackPacks(["invalidID"], stackPacks);
+    const result = resolveAppTemplates(["invalidID"], stackPacks);
     expect(result).toEqual([]);
   });
 
@@ -107,7 +110,7 @@ describe("resolveStackPacks", () => {
     const stackPacks = new Map();
     stackPacks.set("mockStackPack", mockStackPack);
 
-    const result = resolveStackPacks([], stackPacks);
+    const result = resolveAppTemplates([], stackPacks);
     expect(result).toEqual([]);
   });
 });

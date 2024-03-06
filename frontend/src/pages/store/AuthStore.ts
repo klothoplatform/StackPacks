@@ -57,7 +57,10 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
         console.log("no auth0");
         return { idToken: "", expiresAt: 0 };
       }
-      await auth0.getAccessTokenSilently();
+      const response = await auth0.getAccessTokenSilently({
+        detailedResponse: true,
+        cacheMode: "off",
+      });
       const claims = await auth0.getIdTokenClaims();
       if (!claims) {
         console.log("unauthenticated user");
@@ -65,7 +68,7 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
       }
       console.log("refreshed token");
       return {
-        idToken: claims.__raw,
+        idToken: response.id_token,
         expiresAt: claims.exp ?? 0,
       };
     };

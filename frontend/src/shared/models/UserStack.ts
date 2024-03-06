@@ -12,8 +12,6 @@
  * creationTime
  */
 
-import type { StackPack } from "./StackPack.ts";
-import { resolveDefaultConfiguration, resolveStackPacks } from "./StackPack.ts";
 import type { Property } from "../configuration-properties.ts";
 import {
   CollectionTypes,
@@ -22,55 +20,50 @@ import {
 } from "../configuration-properties.ts";
 import { isCollection } from "yaml";
 
-export interface Stack {
-  assumed_role_arn: string;
-  assumed_role_external_id: string;
+export interface UserStack {
+  assumed_role_arn?: string;
+  assumed_role_external_id?: string;
   created_at: number;
   created_by: string;
-  status: "new" | "not-started" | "running" | "succeeded" | "failed";
-  statusReason: string;
   id: string;
-  name: string;
   owner: string;
-  configuration: Configuration;
+  stack_packs: Record<string, ApplicationDeployment>;
   region: string;
 }
 
-export interface Configuration {
-  //stack pack name
-  [key: string]: {
-    // config key (e.g. CPU)
-    [key: string]: any;
-  };
+export interface ApplicationDeployment {
+  app_id: string;
+  configuration: Record<string, any>;
+  created_at: number;
+  created_by: string;
+  iac_stack_composite_key?: string;
+  last_deployed_version?: number;
+  status?: string;
+  status_reason?: string;
+  version: string;
 }
 
-export function resolveDefaultConfigurations(
-  stack: Stack,
-  stackPacks: Map<string, StackPack>,
-): Configuration {
-  const configuration: Configuration = {};
-  const packs = resolveStackPacks(
-    Object.keys(stack.configuration ?? {}),
-    stackPacks,
-  );
-  packs.forEach((pack) => {
-    configuration[pack.id] = resolveDefaultConfiguration(pack);
-  });
-  return configuration;
+export interface StackModification {
+  assumed_role_arn?: string;
+  assumed_role_external_id?: string;
+  configuration?: Configuration;
+  region?: string;
 }
+
+export interface Configuration extends Record<string, Record<string, any>> {}
 
 export function toFormState(
-  stackPackConfig: { [key: string]: any },
+  appConfig: Record<string, any> = {},
   fields: Property[] = [],
   stackPackId?: string,
 ) {
   const formState: any = {};
-  if (!stackPackConfig) {
+  if (!appConfig) {
     return formState;
   }
 
   const props = new Set([
-    ...Object.keys(stackPackConfig),
+    ...Object.keys(appConfig),
     ...fields.map((f) => f.id),
   ]);
 
@@ -80,7 +73,7 @@ export function toFormState(
       key = `${stackPackId}#${property}`;
     }
 
-    const value = stackPackConfig[property];
+    const value = appConfig[property];
     const field = fields.find((field) => field.id === property);
     switch (field?.type) {
       case CollectionTypes.Map:
@@ -227,4 +220,11 @@ function setConfigEntry(entry: ConfigEntry) {
   } else {
     current[last] = value;
   }
+}
+
+export function isStackDeployed(userStack: UserStack) {
+  if (!userStack?.stack_packs) {
+    return false;
+  }
+  return Object.values(userStack.stack_packs).some((app) => app.status);
 }

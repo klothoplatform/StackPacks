@@ -23,6 +23,7 @@ import { ConfigureAppsStep } from "./ConfigureAppsStep.tsx";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
+import { isStackDeployed } from "../../shared/models/UserStack.ts";
 
 const workflowSteps: Array<Step & { component: React.FC<any> }> = [
   {
@@ -66,8 +67,7 @@ function OnboardingPage() {
     (async () => {
       try {
         const userStack = await getUserStack(true);
-        // TODO: update this condition
-        if (!userStack?.status || userStack.status === "new") {
+        if (!isStackDeployed(userStack)) {
           setCanOnboard(true);
         } else {
           navigate("/user/dashboard", { replace: true });

@@ -10,11 +10,11 @@ import type { Property } from "../../shared/configuration-properties.ts";
 import {
   resolveConfigFromFormState,
   toFormState,
-} from "../../shared/models/Stack.ts";
+} from "../../shared/models/UserStack.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { merge } from "ts-deepmerge";
-import type { StackPack } from "../../shared/models/StackPack.ts";
-import { resolveStackPacks } from "../../shared/models/StackPack.ts";
+import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
+import { resolveAppTemplates } from "../../shared/models/AppTemplate.ts";
 import { UIError } from "../../shared/errors.ts";
 
 export interface ConfigFormSection {
@@ -28,7 +28,7 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
   const { userStack, getStackPacks } = useApplicationStore();
 
   const [sections, setSections] = useState<ConfigFormSection[]>([]);
-  const [stackPacks, setStackPacks] = useState<Map<string, StackPack>>(
+  const [stackPacks, setStackPacks] = useState<Map<string, AppTemplate>>(
     new Map(),
   );
 
@@ -38,9 +38,10 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
       setStackPacks(stackPacks);
 
       const sections: ConfigFormSection[] = Object.entries(
-        userStack?.configuration ?? {},
+        userStack?.stack_packs ?? {},
       )
-        .map(([stackPackId, config]) => {
+        .map(([stackPackId, appDeployment]) => {
+          const config = appDeployment?.configuration;
           const stackPack = stackPacks.get(stackPackId);
           if (!stackPack) {
             return undefined;
@@ -88,7 +89,7 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
 
 const ConfigForm: FC<{
   sections?: ConfigFormSection[];
-  stackPacks: Map<string, StackPack>;
+  stackPacks: Map<string, AppTemplate>;
   stepperProps: StepperNavigatorProps;
 }> = ({ sections, stackPacks, stepperProps }) => {
   const methods = useForm({
@@ -107,7 +108,7 @@ const ConfigForm: FC<{
 
     const packs = [
       ...new Set(
-        resolveStackPacks(
+        resolveAppTemplates(
           Object.keys(data)
             .map((f) => (f.includes("#") ? f.split("#")[0] : undefined))
             .filter((f) => f !== undefined),

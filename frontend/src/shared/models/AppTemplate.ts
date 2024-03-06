@@ -1,7 +1,7 @@
 import type { Property } from "../configuration-properties.ts";
 import { getNewConfiguration } from "../configuration-properties.ts";
 
-export interface StackPack {
+export interface AppTemplate {
   id: string;
   alternatives: string[];
   configuration: {
@@ -14,14 +14,14 @@ export interface StackPack {
   version: string;
 }
 
-export function resolveStackPacks(
+export function resolveAppTemplates(
   ids: string[],
-  stackPacks: Map<string, StackPack>,
-): StackPack[] {
+  stackPacks: Map<string, AppTemplate>,
+): AppTemplate[] {
   return ids.map((id) => stackPacks.get(id)).filter((pack) => pack);
 }
 
-export function resolveDefaultConfiguration(pack: StackPack): object {
+export function resolveDefaultConfiguration(pack: AppTemplate): object {
   if (!(Object.keys(pack.configuration ?? {}).length > 0)) {
     return {};
   }
