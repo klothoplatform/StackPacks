@@ -1,20 +1,16 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException
-from fastapi import Request
 
-from fastapi.responses import StreamingResponse, Response
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from pynamodb.exceptions import GetError, DoesNotExist
+from pynamodb.exceptions import DoesNotExist
 
-from src.dependencies.injection import get_iac_storage
 from src.auth.token import get_user_id
-
-from src.util.logging import logger
-
+from src.dependencies.injection import get_iac_storage
+from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
 from src.stack_pack.models.user_pack import UserPack, UserStack
-from src.stack_pack import ConfigValues, get_stack_packs, StackConfig
-from src.util.tmp import TempDir
 from src.util.aws.iam import Policy
+from src.util.logging import logger
+from src.util.tmp import TempDir
 
 router = APIRouter()
 
@@ -60,12 +56,14 @@ async def create_stack(
     common_policy: Policy = None
     iac_storage = get_iac_storage()
     stack_packs = get_stack_packs()
-    common_policy = await user_pack.run_base(
-        [sp for k, sp in stack_packs.items()],
-        body.configuration.get("base", {}),
-        iac_storage,
-    )
-    policy = await user_pack.run_pack(stack_packs, body.configuration)
+    with TempDir() as tmp_dir:
+        common_policy = await user_pack.run_base(
+            [sp for k, sp in stack_packs.items()],
+            body.configuration.get("base", {}),
+            iac_storage,
+            tmp_dir,
+        )
+        policy = await user_pack.run_pack(stack_packs, body.configuration, tmp_dir)
     user_pack.save()
     policy.combine(common_policy)
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
@@ -99,12 +97,14 @@ async def update_stack(
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
     if body.configuration:
         stack_packs = get_stack_packs()
-        common_policy = await user_pack.run_base(
-            [sp for k, sp in stack_packs.items()],
-            body.configuration.get("base", {}),
-            get_iac_storage(),
-        )
-        policy = await user_pack.run_pack(stack_packs, body.configuration)
+        with TempDir() as tmp_dir:
+            common_policy = await user_pack.run_base(
+                [sp for k, sp in stack_packs.items()],
+                body.configuration.get("base", {}),
+                get_iac_storage(),
+                tmp_dir,
+            )
+            policy = await user_pack.run_pack(stack_packs, body.configuration, tmp_dir)
         policy.combine(common_policy)
         user_pack.update(actions=[UserPack.apps.set(user_pack.apps)])
 

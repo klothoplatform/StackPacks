@@ -1,37 +1,30 @@
-import asyncio
-from io import BytesIO
-import os
-from pathlib import Path
-import re
-from tempfile import TemporaryDirectory
-from typing import List, Optional, Set
-from pydantic import BaseModel, Field
 import datetime
-from enum import Enum
-from pynamodb.models import Model
+import os
+from io import BytesIO
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, Field
 from pynamodb.attributes import (
-    UnicodeAttribute,
-    ListAttribute,
     JSONAttribute,
-    UTCDateTimeAttribute,
-    UnicodeSetAttribute,
     NumberAttribute,
+    UnicodeAttribute,
+    UTCDateTimeAttribute,
 )
-from pynamodb.expressions.condition import Not, Exists
+from pynamodb.models import Model
+
+from src.deployer.models.deployment import PulumiStack
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
     RunEngineResult,
     run_engine,
 )
-
-from src.stack_pack import StackConfig, StackPack, ConfigValues
-from src.deployer.models.deployment import PulumiStack
+from src.stack_pack import ConfigValues, StackPack
 from src.stack_pack.storage.iac_storage import IacStorage
-from src.util.compress import zip_directory_recurse
 from src.util.aws.iam import Policy
+from src.util.compress import zip_directory_recurse
 from src.util.logging import logger
-from src.util.tmp import TempDir
 
 
 class UserApp(Model):
@@ -88,11 +81,10 @@ class UserApp(Model):
     async def run_app(
         self,
         stack_pack: StackPack,
-        tmp_dir: TempDir,
+        dir: str,
         iac_storage: IacStorage | None,
         imports: list[any] = [],
     ) -> Policy:
-        dir = tmp_dir.dir
         constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
         engine_result: RunEngineResult = await run_engine(
@@ -154,4 +146,5 @@ class AppModel(BaseModel):
     configuration: ConfigValues = Field(default_factory=dict)
     last_deployed_version: Optional[int] = None
     status: Optional[str] = None
+    status_reason: Optional[str] = None
     status_reason: Optional[str] = None

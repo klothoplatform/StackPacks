@@ -1,23 +1,24 @@
 import asyncio
-from dataclasses import dataclass
-from typing import Tuple
 import uuid
+from typing import Tuple
+
 from aiomultiprocess import Pool
+from pulumi import automation as auto
+
 from src.dependencies.injection import get_iac_storage
-from src.deployer.pulumi.builder import AppBuilder
-from src.deployer.pulumi.deployer import AppDeployer
+from src.deployer.main import PROJECT_NAME, DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import (
-    DeploymentStatus,
     Deployment,
     DeploymentAction,
+    DeploymentStatus,
     PulumiStack,
 )
-from pulumi import automation as auto
+from src.deployer.pulumi.builder import AppBuilder
+from src.deployer.pulumi.deployer import AppDeployer
+from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_pack import UserPack
 from src.util.logging import logger
 from src.util.tmp import TempDir
-from src.stack_pack.models.user_pack import UserPack
-from src.stack_pack.models.user_app import UserApp
-from src.deployer.main import DeploymentResult, StackDeploymentRequest, PROJECT_NAME
 
 
 async def run_destroy(
@@ -121,7 +122,7 @@ async def tear_down_pack(
         if name == UserPack.COMMON_APP_NAME:
             continue
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
-        apps[app.get_app_name()] = app
+        apps[app.app_id] = app
         iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         deployment_stacks.append(
             StackDeploymentRequest(stack_name=app.app_id, iac=iac, pulumi_config={})
@@ -168,5 +169,4 @@ async def tear_down_pack(
             UserApp.iac_stack_composite_key.set(None),
         ]
     )
-
     return

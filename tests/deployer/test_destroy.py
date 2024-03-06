@@ -1,15 +1,12 @@
-from asyncio import AbstractEventLoop
-import aiounittest
-from unittest.mock import ANY, Mock, call, patch, MagicMock, AsyncMock
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import aiounittest
-from unittest.mock import AsyncMock, patch
-from fastapi import Request
-from src.deployer.models.deployment import DeploymentStatus, PulumiStack
+
+from src.deployer.destroy import run_concurrent_destroys, run_destroy, tear_down_pack
 from src.deployer.main import DeploymentResult, StackDeploymentRequest
-from src.deployer.destroy import run_destroy, run_concurrent_destroys, tear_down_pack
-from src.stack_pack.models.user_pack import UserPack
+from src.deployer.models.deployment import DeploymentStatus
 from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_pack import UserPack
 
 
 class TestDestroy(aiounittest.AsyncTestCase):
@@ -190,7 +187,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         ]
         mock_run_concurrent_destroys.side_effect = [
             (
-                ["app1", "app2"],
+                ["id#app1", "id#app2"],
                 [
                     DeploymentResult(
                         manager=None,
@@ -207,7 +204,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
                 ],
             ),
             (
-                ["common"],
+                ["id#common"],
                 [
                     DeploymentResult(
                         manager=None,

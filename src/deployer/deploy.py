@@ -1,26 +1,28 @@
 import asyncio
-from typing import Tuple
 import uuid
+from typing import Tuple
+
 from aiomultiprocess import Pool
-from src.deployer.main import DeploymentResult, PROJECT_NAME, StackDeploymentRequest
+from pulumi import automation as auto
+
 from src.dependencies.injection import get_iac_storage
-from src.deployer.pulumi.builder import AppBuilder
-from src.deployer.pulumi.deployer import AppDeployer
-from src.deployer.pulumi.manager import LiveState, AppManager
+from src.deployer.main import PROJECT_NAME, DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import (
-    DeploymentStatus,
     Deployment,
     DeploymentAction,
+    DeploymentStatus,
     PulumiStack,
 )
-from pulumi import automation as auto
-from src.util.logging import logger
-from src.util.tmp import TempDir
-from src.stack_pack.models.user_pack import UserPack
-from src.stack_pack.models.user_app import UserApp
+from src.deployer.pulumi.builder import AppBuilder
+from src.deployer.pulumi.deployer import AppDeployer
+from src.deployer.pulumi.manager import AppManager, LiveState
 from src.stack_pack import ConfigValues, StackPack
 from src.stack_pack.common_stack import CommonStack
+from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.logging import logger
+from src.util.tmp import TempDir
 
 
 async def build_and_deploy(
@@ -122,6 +124,7 @@ async def deploy_common_stack(
     common_stack: CommonStack,
     iac_storage: IacStorage,
 ):
+    print(common_pack)
     common_version = common_pack.version
     logger.info(f"Deploying common stack {common_version}")
     iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
@@ -164,13 +167,15 @@ async def rerun_pack_with_live_state(
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
         configuration[name] = app.get_configurations()
 
-    await user_pack.run_pack(
-        sps,
-        configuration,
-        iac_storage,
-        increment_versions=False,
-        imports=live_state.to_constraints(common_stack, common_pack.configuration),
-    )
+    with TempDir() as tmp_dir:
+        await user_pack.run_pack(
+            sps,
+            configuration,
+            tmp_dir,
+            iac_storage,
+            increment_versions=False,
+            imports=live_state.to_constraints(common_stack, common_pack.configuration),
+        )
     return
 
 
@@ -185,7 +190,7 @@ async def deploy_applications(
         if name == UserPack.COMMON_APP_NAME:
             continue
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
-        apps[app.get_app_name()] = app
+        apps[app.app_id] = app
         iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         sp = sps[app.get_app_name()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
@@ -227,7 +232,9 @@ async def deploy_pack(
     )
     common_stack = CommonStack([sp for sp in sps.values()])
     logger.info(f"Deploying common stack")
-    manager = await deploy_common_stack(pack_id, sps, common_pack, common_stack)
+    manager = await deploy_common_stack(
+        user_pack, common_pack, common_stack, iac_storage
+    )
     live_state = await manager.read_deployed_state()
 
     logger.info(f"Rerunning pack with live state")

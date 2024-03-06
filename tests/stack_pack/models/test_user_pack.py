@@ -9,6 +9,7 @@ from src.stack_pack.models.user_app import AppModel, UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
+from src.util.tmp import TempDir
 
 
 class TestUserPack(aiounittest.AsyncTestCase):
@@ -32,6 +33,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             "common": MagicMock(spec=ConfigValues),
         }
         self.mock_iac_storage = MagicMock(spec=IacStorage)
+        self.temp_dir = TempDir()
         return super().setUp()
 
     def tearDown(self) -> None:
@@ -40,21 +42,20 @@ class TestUserPack(aiounittest.AsyncTestCase):
         for key, mock in self.config.items():
             mock.reset_mock()
         self.mock_iac_storage.reset_mock()
+        self.temp_dir.cleanup()
         return super().tearDown()
 
     @patch.object(UserApp, "get_latest_version_with_status")
     @patch.object(UserApp, "get")
-    @patch("src.stack_pack.models.user_pack.TempDir")
     @patch("src.stack_pack.models.user_pack.CommonStack")
-    async def test_run_base(
-        self, mock_common_stack, mock_temp_dir, mock_get, mock_get_latest
-    ):
+    async def test_run_base(self, mock_common_stack, mock_get, mock_get_latest):
         # Arrange
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
         common_app = MagicMock(
             spec=UserApp,
             version=1,
+            get_app_name=MagicMock(return_value="common"),
             run_app=AsyncMock(
                 return_value=Policy('{"Version": "2012-10-17","Statement": []}')
             ),
@@ -64,7 +65,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act
         policy = await self.user_pack.run_base(
-            self.mock_stack_packs, self.config.get("common"), self.mock_iac_storage
+            self.mock_stack_packs,
+            self.config.get("common"),
+            self.mock_iac_storage,
+            f"{self.temp_dir.dir}",
         )
 
         # Assert
@@ -72,7 +76,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
-            common_stack, mock_temp_dir.return_value, self.mock_iac_storage
+            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 2, "app1": 1, "app2": 2})
@@ -83,10 +87,9 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
     @patch.object(UserApp, "get_latest_version_with_status")
     @patch.object(UserApp, "get")
-    @patch("src.stack_pack.models.user_pack.TempDir")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     async def test_run_base_latest_not_deployed(
-        self, mock_common_stack, mock_temp_dir, mock_get, mock_get_latest
+        self, mock_common_stack, mock_get, mock_get_latest
     ):
         # Arrange
         common_stack = MagicMock(spec=CommonStack)
@@ -94,6 +97,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         common_app = MagicMock(
             spec=UserApp,
             version=1,
+            get_app_name=MagicMock(return_value="common"),
             run_app=AsyncMock(
                 return_value=Policy('{"Version": "2012-10-17","Statement": []}')
             ),
@@ -103,7 +107,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act
         policy = await self.user_pack.run_base(
-            self.mock_stack_packs, self.config.get("common"), self.mock_iac_storage
+            self.mock_stack_packs,
+            self.config.get("common"),
+            self.mock_iac_storage,
+            f"{self.temp_dir.dir}",
         )
 
         # Assert
@@ -111,7 +118,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
-            common_stack, mock_temp_dir.return_value, self.mock_iac_storage
+            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 1, "app1": 1, "app2": 2})
@@ -120,12 +127,9 @@ class TestUserPack(aiounittest.AsyncTestCase):
             Policy('{"Version": "2012-10-17","Statement": []}').__str__(),
         )
 
-    @patch("src.stack_pack.models.user_pack.TempDir")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     @patch("src.stack_pack.models.user_pack.UserApp")
-    async def test_run_base_does_not_exist(
-        self, mock_user_app, mock_common_stack, mock_temp_dir
-    ):
+    async def test_run_base_does_not_exist(self, mock_user_app, mock_common_stack):
         # Arrange
         mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
         common_stack = MagicMock(spec=CommonStack)
@@ -133,6 +137,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         common_app = MagicMock(
             spec=UserApp,
             version=1,
+            get_app_name=MagicMock(return_value="common"),
             run_app=AsyncMock(
                 return_value=Policy('{"Version": "2012-10-17","Statement": []}')
             ),
@@ -142,7 +147,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act
         policy = await self.user_pack.run_base(
-            self.mock_stack_packs, self.config.get("common"), self.mock_iac_storage
+            self.mock_stack_packs,
+            self.config.get("common"),
+            self.mock_iac_storage,
+            f"{self.temp_dir.dir}",
         )
 
         # Assert
@@ -150,7 +158,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_user_app.get.assert_called_once_with("id#common", 1)
         mock_user_app.get_latest_version_with_status.assert_not_called()
         common_app.run_app.assert_called_once_with(
-            common_stack, mock_temp_dir.return_value, self.mock_iac_storage
+            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 1, "app1": 1, "app2": 2})
@@ -161,8 +169,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
     @patch.object(UserApp, "get_latest_version_with_status")
     @patch.object(UserApp, "get")
-    @patch("src.stack_pack.models.user_pack.TempDir")
-    async def test_run_pack(self, mock_temp_dir, mock_get, mock_get_latest):
+    async def test_run_pack(self, mock_get, mock_get_latest):
         # Arrange
         policy1 = MagicMock(spec=Policy)
         policy2 = MagicMock(spec=Policy)
@@ -186,7 +193,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act
         policy = await self.user_pack.run_pack(
-            self.mock_stack_packs, self.config, self.mock_iac_storage
+            self.mock_stack_packs,
+            self.config,
+            f"{self.temp_dir.dir}",
+            self.mock_iac_storage,
         )
 
         # Assert
@@ -196,13 +206,13 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         mock_app_1.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app1"),
-            mock_temp_dir.return_value,
+            f"{self.temp_dir.dir}/app1",
             self.mock_iac_storage,
             [],
         )
         mock_app_2.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app2"),
-            mock_temp_dir.return_value,
+            f"{self.temp_dir.dir}/app2",
             self.mock_iac_storage,
             [],
         )
@@ -214,9 +224,8 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         self.assertEqual(policy, policy1)
 
-    @patch("src.stack_pack.models.user_pack.TempDir")
     @patch("src.stack_pack.models.user_pack.UserApp")
-    async def test_run_pack_app_doesnt_exist(self, mock_user_app, mock_temp_dir):
+    async def test_run_pack_app_doesnt_exist(self, mock_user_app):
         # Arrange
         mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
         policy1 = MagicMock(spec=Policy)
@@ -242,7 +251,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act
         policy = await self.user_pack.run_pack(
-            self.mock_stack_packs, self.config, self.mock_iac_storage
+            self.mock_stack_packs,
+            self.config,
+            f"{self.temp_dir.dir}",
+            self.mock_iac_storage,
         )
 
         # Assert
@@ -252,13 +264,13 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         mock_app_1.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app1"),
-            mock_temp_dir.return_value,
+            f"{self.temp_dir.dir}/app1",
             self.mock_iac_storage,
             [],
         )
         mock_app_2.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app2"),
-            mock_temp_dir.return_value,
+            f"{self.temp_dir.dir}/app2",
             self.mock_iac_storage,
             [],
         )
@@ -272,10 +284,9 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
     @patch.object(UserApp, "get_latest_version_with_status")
     @patch.object(UserApp, "get")
-    @patch("src.stack_pack.models.user_pack.TempDir")
     @patch("src.stack_pack.models.user_pack.UserApp")
     async def test_run_pack_invalid_stack_name(
-        self, mock_user_app, mock_temp_dir, mock_get, mock_get_latest
+        self, mock_user_app, mock_get, mock_get_latest
     ):
         # Arrange
         mock_user_pack = UserPack(
@@ -297,7 +308,9 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Act & Assert
         with self.assertRaises(ValueError):
-            await mock_user_pack.run_pack(mock_stack_packs, config, mock_iac_storage)
+            await mock_user_pack.run_pack(
+                mock_stack_packs, config, f"{self.temp_dir.dir}", mock_iac_storage
+            )
 
     @patch.object(UserApp, "get")
     def test_to_user_stack(self, mock_get):

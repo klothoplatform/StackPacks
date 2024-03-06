@@ -1,27 +1,25 @@
-from asyncio import AbstractEventLoop
-import aiounittest
-from unittest.mock import ANY, Mock, call, patch, MagicMock, AsyncMock
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call, patch
 
 import aiounittest
-from unittest.mock import AsyncMock, patch
-from fastapi import Request
-from src.deployer.pulumi.manager import AppManager
+
 from src.deployer.deploy import (
-    deploy_pack,
     build_and_deploy,
-    run_concurrent_deployments,
-    deploy_common_stack,
-    rerun_pack_with_live_state,
     deploy_applications,
+    deploy_common_stack,
+    deploy_pack,
+    rerun_pack_with_live_state,
+    run_concurrent_deployments,
 )
-from src.deployer.models.deployment import DeploymentStatus, PulumiStack
 from src.deployer.main import DeploymentResult, StackDeploymentRequest
-from src.stack_pack.models.user_pack import UserPack
-from src.stack_pack.models.user_app import UserApp
+from src.deployer.models.deployment import DeploymentStatus, PulumiStack
+from src.deployer.pulumi.manager import AppManager
 from src.stack_pack import StackPack
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.live_state import LiveState
+from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.tmp import TempDir
 
 
 class TestDeploy(aiounittest.AsyncTestCase):
@@ -213,7 +211,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
         self.assertEqual(manager, mock_manager)
 
     @patch("src.deployer.deploy.UserApp")
-    async def test_rerun_pack_with_live_state(self, mock_user_app):
+    @patch("src.deployer.deploy.TempDir")
+    async def test_rerun_pack_with_live_state(self, mock_tmp_dir, mock_user_app):
         # Arrange
         mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
         mock_app_1 = MagicMock(
@@ -241,6 +240,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
             "app1": MagicMock(spec=StackPack),
             "app2": MagicMock(spec=StackPack),
         }
+        mock_tmp_dir.return_value = TempDir()
 
         # Act
         await rerun_pack_with_live_state(
@@ -259,6 +259,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_pack_instance.run_pack.assert_called_once_with(
             mock_sps,
             {"app1": {"key": "value"}, "app2": {"key2": "value2"}},
+            mock_tmp_dir.return_value.dir,
             mock_iac_storage,
             increment_versions=False,
             imports=["constraint1", "constraint2"],
@@ -300,7 +301,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_sps = {"app1": sp1, "app2": sp2}
         mock_run_concurrent_deployments.side_effect = [
             (
-                ["app1", "app2"],
+                ["id#app1", "id#app2"],
                 [
                     DeploymentResult(
                         manager=MagicMock(spec=AppManager),
@@ -409,7 +410,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_app.get.assert_called_once_with("id#common", 1)
         mock_common_stack.assert_called_once_with([sp1])
         mock_deploy_common_stack.assert_called_once_with(
-            "id", mock_sps, mock_common_pack, common_stack
+            user_pack, mock_common_pack, common_stack, mock_iac_storage
         )
         mock_rerun_pack_with_live_state.assert_called_once_with(
             user_pack,

@@ -9,7 +9,6 @@ from src.engine_service.engine_commands.run import RunEngineRequest
 from src.stack_pack import StackPack
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.storage.iac_storage import IacStorage
-from src.util.tmp import TempDir
 
 
 class TestUserApp(aiounittest.AsyncTestCase):
@@ -129,10 +128,9 @@ class TestUserApp(aiounittest.AsyncTestCase):
         )
         imports = ["constraint2"]
         mock_zip.return_value = b"zip_content"
-        temp_dir = MagicMock(spec=TempDir, dir="dir")
         # Act
         policy = await mock_user_app.run_app(
-            mock_stack_pack, temp_dir, mock_iac_storage, imports
+            mock_stack_pack, "dir", mock_iac_storage, imports
         )
 
         # Assert

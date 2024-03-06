@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import os
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -14,7 +15,6 @@ from src.stack_pack.models.user_app import AppModel, UserApp
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.logging import logger
-from src.util.tmp import TempDir
 
 
 class UserPack(Model):
@@ -43,6 +43,7 @@ class UserPack(Model):
         stack_packs: List[StackPack],
         config: ConfigValues,
         iac_storage: IacStorage,
+        tmp_dir: str,
         dry_run: bool = False,
     ) -> Policy:
         base_stack = CommonStack(stack_packs)
@@ -70,7 +71,11 @@ class UserPack(Model):
                 created_at=datetime.datetime.now(),
                 configuration=config,
             )
-        policy = await app.run_app(base_stack, TempDir(), iac_storage)
+        # Run the packs in parallel and only store the iac if we are incrementing the version
+        subdir = Path(tmp_dir) / app.get_app_name()
+        subdir.mkdir(exist_ok=True)
+        policy = await app.run_app(base_stack, str(subdir.absolute()), iac_storage)
+
         if not dry_run:
             app.save()
             self.apps[UserPack.COMMON_APP_NAME] = app.version
@@ -80,6 +85,7 @@ class UserPack(Model):
         self,
         stack_packs: dict[str, StackPack],
         config: dict[str, ConfigValues],
+        tmp_dir: str,
         iac_storage: IacStorage = None,
         increment_versions: bool = True,
         imports: list[any] = [],
@@ -141,15 +147,18 @@ class UserPack(Model):
             raise ValueError(f"Invalid stack names: {', '.join(invalid_stacks)}")
 
         # Run the packs in parallel and only store the iac if we are incrementing the version
-        tasks = [
-            app.run_app(
-                stack_packs[app.get_app_name()],
-                TempDir(),
-                iac_storage,
-                imports,
+        tasks = []
+        for app in apps:
+            subdir = Path(tmp_dir) / app.get_app_name()
+            subdir.mkdir(exist_ok=True)
+            tasks.append(
+                app.run_app(
+                    stack_packs[app.get_app_name()],
+                    str(subdir.absolute()),
+                    iac_storage,
+                    imports,
+                )
             )
-            for app in apps
-        ]
         policies = await asyncio.gather(*tasks)
 
         if increment_versions:
