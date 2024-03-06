@@ -1,28 +1,20 @@
 import asyncio
-import os
-from pathlib import Path
-import re
-from tempfile import TemporaryDirectory
-from typing import Optional, Tuple, List, Set
-from pydantic import BaseModel, Field
 import datetime
-from enum import Enum
-from pynamodb.models import Model
-from pynamodb.attributes import (
-    UnicodeAttribute,
-    UTCDateTimeAttribute,
-    JSONAttribute,
-)
+import os
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+from pynamodb.attributes import JSONAttribute, UnicodeAttribute, UTCDateTimeAttribute
 from pynamodb.exceptions import DoesNotExist
+from pynamodb.models import Model
 
 from src.stack_pack import ConfigValues, StackPack
-from src.stack_pack.storage.iac_storage import IacStorage
-from src.util.compress import zip_directory_recurse
-from src.util.tmp import TempDir
 from src.stack_pack.common_stack import CommonStack
-from src.util.aws.iam import Policy
 from src.stack_pack.models.user_app import AppModel, UserApp
+from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.aws.iam import Policy
 from src.util.logging import logger
+from src.util.tmp import TempDir
 
 
 class UserPack(Model):
@@ -111,6 +103,8 @@ class UserPack(Model):
         apps: List[UserApp] = []
         invalid_stacks = []
         for name, config in config.items():
+            if name is UserPack.COMMON_APP_NAME:
+                continue
             if name not in stack_packs:
                 invalid_stacks.append(name)
                 continue

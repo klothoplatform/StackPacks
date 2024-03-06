@@ -1,7 +1,8 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
-from src.stack_pack import ConfigValues, Resources, Edges, StackPack
+from src.stack_pack import ConfigValues, Edges, Resources, StackPack
 
 
 class LiveState(BaseModel):
@@ -31,7 +32,8 @@ class LiveState(BaseModel):
         for c in stack_pack.base.edges.to_constraints():
             source = c["target"]["source"]
             target = c["target"]["target"]
-            if self.resources.get(target) and self.resources.get(source):
+            if self.resources.get(target, None) is not None and self.resources.get(source, None) is not None:
                 constraints.append(c)
 
+        return constraints
         return constraints
