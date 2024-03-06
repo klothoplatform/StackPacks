@@ -14,7 +14,6 @@ class GetLiveStateRequest(NamedTuple):
     input_graph: str = None
 
 
-
 async def get_live_state(request: GetLiveStateRequest):
     tmp_dir = request.tmp_dir
     dir = Path(tmp_dir)

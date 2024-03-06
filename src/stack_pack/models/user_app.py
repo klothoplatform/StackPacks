@@ -15,7 +15,7 @@ from pynamodb.attributes import (
     JSONAttribute,
     UTCDateTimeAttribute,
     UnicodeSetAttribute,
-    NumberAttribute
+    NumberAttribute,
 )
 from pynamodb.expressions.condition import Not, Exists
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac

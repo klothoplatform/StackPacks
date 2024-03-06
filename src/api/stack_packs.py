@@ -46,7 +46,7 @@ async def create_stack(
             )
     except DoesNotExist as e:
         logger.debug(f"UserPack not found for user {user_id}")
-        
+
     user_pack = UserPack(
         id=user_id,
         owner=user_id,
@@ -65,9 +65,7 @@ async def create_stack(
         body.configuration.get("base", {}),
         iac_storage,
     )
-    policy = await user_pack.run_pack(
-        stack_packs, body.configuration
-    )
+    policy = await user_pack.run_pack(stack_packs, body.configuration)
     user_pack.save()
     policy.combine(common_policy)
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
@@ -106,7 +104,7 @@ async def update_stack(
             body.configuration.get("base", {}),
             get_iac_storage(),
         )
-        policy = await user_pack.run_pack(stack_packs,body.configuration)
+        policy = await user_pack.run_pack(stack_packs, body.configuration)
         policy.combine(common_policy)
         user_pack.update(actions=[UserPack.apps.set(user_pack.apps)])
 

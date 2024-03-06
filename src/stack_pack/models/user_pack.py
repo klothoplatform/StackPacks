@@ -121,8 +121,13 @@ class UserPack(Model):
                     app = UserApp.get(UserApp.composite_key(self.id, name), version)
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
-                        latest_version = UserApp.get_latest_version_with_status(app.app_id)
-                        if latest_version is not None and latest_version.version == app.version:
+                        latest_version = UserApp.get_latest_version_with_status(
+                            app.app_id
+                        )
+                        if (
+                            latest_version is not None
+                            and latest_version.version == app.version
+                        ):
                             app.version = app.version + 1
                 except DoesNotExist as e:
                     logger.info(

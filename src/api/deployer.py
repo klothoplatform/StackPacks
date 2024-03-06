@@ -10,10 +10,10 @@ from src.auth.token import get_user_id
 
 from src.util.logging import logger
 from src.deployer.main import (
-    tear_down_pack,
-    deploy_pack,
     stream_deployment_events,
 )
+from src.deployer.deploy import deploy_pack
+from src.deployer.destroy import tear_down_pack
 from src.stack_pack import get_stack_packs
 from aiomultiprocess import Worker
 
@@ -34,9 +34,8 @@ async def install(
 
     worker = Worker(target=deploy_pack, args=(user_id, stack_packs))
     worker.start()
-        
-    return {"message": "Deployment started"}
 
+    return {"message": "Deployment started"}
 
 
 @router.post("/api/tear_down")

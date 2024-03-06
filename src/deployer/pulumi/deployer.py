@@ -4,6 +4,7 @@ from pulumi import automation as auto
 from src.deployer.models.deployment import DeploymentStatus
 from src.util.logging import logger
 
+
 class AppDeployer:
     def __init__(self, stack: auto.Stack):
         self.stack = stack
@@ -27,9 +28,7 @@ class AppDeployer:
             self.stack.refresh()
             return DeploymentStatus.FAILED, e.__str__()
 
-    async def destroy_and_remove_stack(
-        self
-    ) -> Tuple[DeploymentStatus, str]:
+    async def destroy_and_remove_stack(self) -> Tuple[DeploymentStatus, str]:
         try:
             self.stack.destroy(on_output=print)
             logger.info(f"Removing stack {self.stack.name}")
