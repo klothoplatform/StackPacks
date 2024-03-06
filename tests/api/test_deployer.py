@@ -31,7 +31,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
-        
+
         worker = MagicMock()
         mock_worker.return_value = worker
         sp = MagicMock(spec=StackPack)
@@ -43,7 +43,9 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_get_user_id.assert_called_once()
-        mock_worker.assert_called_once_with(target=deploy_pack, args=("user_id", {"a": sp}))
+        mock_worker.assert_called_once_with(
+            target=deploy_pack, args=("user_id", {"a": sp})
+        )
         worker.start.assert_called_once()
 
         # Assert response
@@ -58,7 +60,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
-        
+
         worker = MagicMock()
         mock_worker.return_value = worker
 

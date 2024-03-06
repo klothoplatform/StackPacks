@@ -32,7 +32,10 @@ class LiveState(BaseModel):
         for c in stack_pack.base.edges.to_constraints():
             source = c["target"]["source"]
             target = c["target"]["target"]
-            if self.resources.get(target, None) is not None and self.resources.get(source, None) is not None:
+            if (
+                self.resources.get(target, None) is not None
+                and self.resources.get(source, None) is not None
+            ):
                 constraints.append(c)
 
         return constraints

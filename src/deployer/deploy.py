@@ -23,7 +23,6 @@ from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.storage.iac_storage import IacStorage
 
 
-
 async def build_and_deploy(
     region: str,
     assume_role_arn: str,
@@ -80,6 +79,7 @@ async def build_and_deploy(
         stack=pulumi_stack,
     )
 
+
 async def run_concurrent_deployments(
     region: str,
     assume_role_arn: str,
@@ -120,7 +120,7 @@ async def deploy_common_stack(
     user_pack: UserPack,
     common_pack: UserApp,
     common_stack: CommonStack,
-    iac_storage: IacStorage
+    iac_storage: IacStorage,
 ):
     common_version = common_pack.version
     logger.info(f"Deploying common stack {common_version}")
@@ -156,7 +156,7 @@ async def rerun_pack_with_live_state(
     sps: dict[str, StackPack],
 ):
     logger.info(f"Rerunning pack {user_pack.id} with imports")
-    
+
     configuration: dict[str, ConfigValues] = {}
     for name, version in user_pack.apps.items():
         if name == UserPack.COMMON_APP_NAME:
@@ -172,6 +172,7 @@ async def rerun_pack_with_live_state(
         imports=live_state.to_constraints(common_stack, common_pack.configuration),
     )
     return
+
 
 async def deploy_applications(
     user_pack: UserPack,
@@ -207,7 +208,7 @@ async def deploy_applications(
                 UserApp.iac_stack_composite_key.set(result.stack.composite_key()),
             ]
         )
-    
+
 
 async def deploy_pack(
     pack_id: str,
@@ -220,7 +221,7 @@ async def deploy_pack(
     common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
     if common_version == 0:
         raise ValueError("Common stack not found")
-    
+
     common_pack = UserApp.get(
         UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME), common_version
     )
@@ -233,7 +234,7 @@ async def deploy_pack(
     await rerun_pack_with_live_state(
         user_pack, common_pack, common_stack, iac_storage, live_state, sps
     )
-    
+
     logger.info(f"Deploying app stacks")
     await deploy_applications(user_pack, iac_storage, sps)
     return

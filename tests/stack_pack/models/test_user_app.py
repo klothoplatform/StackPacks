@@ -23,9 +23,11 @@ class TestUserApp(aiounittest.AsyncTestCase):
             version=1,
             created_by="created_by",
             configuration={"config": "value"},
-            iac_stack_composite_key="iac#stack"
+            iac_stack_composite_key="iac#stack",
         )
-        mock_pulumi_stack = MagicMock(spec=PulumiStack, status="status", status_reason="status_reason")
+        mock_pulumi_stack = MagicMock(
+            spec=PulumiStack, status="status", status_reason="status_reason"
+        )
         mock_get.return_value = mock_pulumi_stack
         mock_get_latest_version_with_status.return_value = mock_user_app
 
@@ -105,10 +107,10 @@ class TestUserApp(aiounittest.AsyncTestCase):
         mock_update.assert_called_once()
 
     # Continue with other tests for run_app, get_latest_version, get_latest_version_with_status, composite_key
-    
-    @patch('src.stack_pack.models.user_app.run_engine')
-    @patch('src.stack_pack.models.user_app.export_iac')
-    @patch('src.stack_pack.models.user_app.zip_directory_recurse')
+
+    @patch("src.stack_pack.models.user_app.run_engine")
+    @patch("src.stack_pack.models.user_app.export_iac")
+    @patch("src.stack_pack.models.user_app.zip_directory_recurse")
     async def test_run_app(self, mock_zip, mock_export_iac, mock_run_engine):
         # Arrange
         mock_user_app = UserApp(
@@ -118,19 +120,20 @@ class TestUserApp(aiounittest.AsyncTestCase):
             configuration={"config": "value"},
         )
         mock_stack_pack = MagicMock(
-            spec=StackPack,
-            to_constraints=MagicMock(return_value=["constraint1"])
+            spec=StackPack, to_constraints=MagicMock(return_value=["constraint1"])
         )
         mock_iac_storage = MagicMock(spec=IacStorage)
         mock_run_engine.return_value = MagicMock(
             resources_yaml="resources_yaml",
-            policy='{"Version": "2012-10-17","Statement": []}'
-        ) 
+            policy='{"Version": "2012-10-17","Statement": []}',
+        )
         imports = ["constraint2"]
-        mock_zip.return_value = b'zip_content'
+        mock_zip.return_value = b"zip_content"
         temp_dir = MagicMock(spec=TempDir, dir="dir")
         # Act
-        policy = await mock_user_app.run_app(mock_stack_pack, temp_dir, mock_iac_storage, imports)
+        policy = await mock_user_app.run_app(
+            mock_stack_pack, temp_dir, mock_iac_storage, imports
+        )
 
         # Assert
         mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
@@ -138,13 +141,19 @@ class TestUserApp(aiounittest.AsyncTestCase):
             RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
         )
         mock_export_iac.assert_called_once_with(
-            ExportIacRequest(input_graph='resources_yaml', name="stack", tmp_dir="dir")
+            ExportIacRequest(input_graph="resources_yaml", name="stack", tmp_dir="dir")
         )
-        mock_stack_pack.copy_files.assert_called_once_with({"config": "value"}, Path("dir"))
+        mock_stack_pack.copy_files.assert_called_once_with(
+            {"config": "value"}, Path("dir")
+        )
         mock_zip.assert_called_once_with(ANY, "dir")
-        mock_iac_storage.write_iac.assert_called_once_with("id", "app", 1, b'zip_content')
-        self.assertEqual(policy.__str__(), '{\n    "Version": "2012-10-17",\n    "Statement": []\n}')
-        
+        mock_iac_storage.write_iac.assert_called_once_with(
+            "id", "app", 1, b"zip_content"
+        )
+        self.assertEqual(
+            policy.__str__(), '{\n    "Version": "2012-10-17",\n    "Statement": []\n}'
+        )
+
     @patch.object(UserApp, "query")
     def test_get_latest_version(self, mock_query):
         # Arrange

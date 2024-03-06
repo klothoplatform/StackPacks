@@ -19,6 +19,7 @@ from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.models.user_app import UserApp
 from src.deployer.main import DeploymentResult, StackDeploymentRequest, PROJECT_NAME
 
+
 async def run_destroy(
     region: str,
     assume_role_arn: str,
@@ -72,6 +73,7 @@ async def run_destroy(
         manager=None, status=result_status, reason=reason, stack=pulumi_stack
     )
 
+
 async def run_concurrent_destroys(
     region: str,
     assume_role_arn: str,
@@ -103,7 +105,6 @@ async def run_concurrent_destroys(
         gathered = await asyncio.gather(*tasks)
         logger.info(f"Tasks: {tasks}")
         return app_order, gathered
-
 
 
 async def tear_down_pack(

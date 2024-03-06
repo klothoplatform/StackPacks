@@ -24,6 +24,7 @@ class DeploymentResult:
     reason: str
     stack: PulumiStack | None
 
+
 class StackDeploymentRequest(BaseModel):
     stack_name: str
     iac: bytes
