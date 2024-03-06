@@ -52,7 +52,6 @@ type InputProps = {
   required?: boolean;
   error?: any;
   valueSelector?: string;
-  disableHelperText?: boolean;
 } & TextInputProps;
 
 type TextProps = TextInputProps &
@@ -70,15 +69,6 @@ type BooleanProps = {
   valueSelector?: string;
 } & CheckboxProps &
   ConfigFieldProps;
-
-type ResourceProps = {
-  qualifiedFieldName: string;
-  resourceTypes?: string[];
-  disabled?: boolean;
-  required?: boolean;
-  error?: any;
-  valueSelector?: string;
-};
 
 type EnumProps = {
   qualifiedFieldName: string;
@@ -196,15 +186,17 @@ export const ConfigField: FC<ConfigFieldProps> = ({
       element = <></>;
   }
 
-  // TODO do something with displayedResource
   if (!title) {
     title = qualifiedFieldId || field.qualifiedId || "";
   }
 
-  const silenceRequired =
-    (required || field.required) &&
-    field.type === PrimitiveTypes.Enum &&
-    defaultValues?.[qualifiedFieldId] !== undefined;
+  // const silenceRequired =
+  //   (required || field.required) &&
+  //   field.type === PrimitiveTypes.Enum &&
+  //   defaultValues?.[qualifiedFieldId] !== undefined;
+
+  // temporarily silencing required for all fields
+  const silenceRequired = true;
 
   return (
     <>
@@ -294,7 +286,6 @@ export const StringField: FC<TextProps> = ({
           inputMode="text"
           type={showValue ? "text" : "password"}
           valueSelector={valueSelector}
-          disableHelperText={field.secret}
           rules={{
             minLength: field.minLength
               ? {
@@ -402,7 +393,6 @@ const InputField: FC<InputProps> = ({
   valueSelector,
   rules,
   error,
-  disableHelperText,
   ...rest
 }) => {
   const { register } = useFormContext();
