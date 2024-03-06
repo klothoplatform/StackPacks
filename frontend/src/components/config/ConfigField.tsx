@@ -47,6 +47,7 @@ export interface ConfigFieldProps {
 }
 
 type InputProps = {
+  field: Property;
   qualifiedFieldName: string;
   rules?: RegisterOptions;
   required?: boolean;
@@ -71,6 +72,7 @@ type BooleanProps = {
   ConfigFieldProps;
 
 type EnumProps = {
+  field: EnumProperty;
   qualifiedFieldName: string;
   allowedValues?: string[];
   disabled?: boolean;
@@ -171,6 +173,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.Enum:
       element = (
         <EnumField
+          field={field as EnumProperty}
           qualifiedFieldName={qualifiedFieldId ?? "UNKNOWN-ENUM"}
           allowedValues={(field as EnumProperty).allowedValues}
           valueSelector={valueSelector}
@@ -281,6 +284,7 @@ export const StringField: FC<TextProps> = ({
     <div className="flex w-full gap-2">
       <div className="w-full">
         <InputField
+          field={field}
           className="w-full"
           qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
           inputMode="text"
@@ -327,6 +331,7 @@ export const NumberField: FC<NumberProps> = ({
 }) => {
   return (
     <InputField
+      field={field}
       qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
       inputMode="numeric"
       type="number"
@@ -361,6 +366,7 @@ export const IntField: FC<NumberProps> = ({
 }) => {
   return (
     <InputField
+      field={field}
       qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
       inputMode="numeric"
       type="number"
@@ -388,6 +394,7 @@ export const IntField: FC<NumberProps> = ({
 };
 
 const InputField: FC<InputProps> = ({
+  field,
   qualifiedFieldName,
   required,
   valueSelector,
@@ -407,8 +414,7 @@ const InputField: FC<InputProps> = ({
       helperText={<InputHelperText error={error} />}
       {...rest}
       {...register(id, {
-        required:
-          required && `${qualifiedFieldName.split(".").pop()} is required.`,
+        required: required && `${field.name} is required.`,
         ...rules,
       })}
     />
@@ -420,7 +426,6 @@ export const BooleanField: FC<BooleanProps> = ({
   qualifiedFieldId,
   field,
   valueSelector,
-  required,
   ...props
 }) => {
   const { register } = useFormContext();
@@ -431,15 +436,13 @@ export const BooleanField: FC<BooleanProps> = ({
       id={id}
       disabled={configurationDisabled}
       {...props}
-      {...register(id, {
-        required:
-          required && `${qualifiedFieldId.split(".").pop()} is required.`,
-      })}
+      {...register(id)}
     />
   );
 };
 
 export const EnumField: FC<EnumProps> = ({
+  field,
   qualifiedFieldName,
   allowedValues,
   disabled,
@@ -468,14 +471,21 @@ export const EnumField: FC<EnumProps> = ({
       silenceRequired
         ? undefined
         : {
-            required:
-              required && `${qualifiedFieldName.split(".").pop()} is required.`,
+            required: required && `${field.name} is required.`,
           },
     );
     return () => {
       unregister(id, { keepDefaultValue: true });
     };
-  }, [id, qualifiedFieldName, register, required, silenceRequired, unregister]);
+  }, [
+    field.name,
+    id,
+    qualifiedFieldName,
+    register,
+    required,
+    silenceRequired,
+    unregister,
+  ]);
 
   return (
     <ErrorHelper error={error}>
