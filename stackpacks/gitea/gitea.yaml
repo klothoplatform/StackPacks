@@ -136,8 +136,8 @@ configuration:
     type: number
     default: 512
     validation:
-      min: 256
-      max: 4096
+      minValue: 256
+      maxValue: 4096
 
   Memory:
     name: Memory
@@ -145,8 +145,8 @@ configuration:
     type: number
     default: 2048
     validation:
-      min: 256
-      max: 4096
+      minValue: 256
+      maxValue: 4096
 
   DBUsername:
     name: Database Username
@@ -154,9 +154,19 @@ configuration:
     type: string
     default: giteauser
     pulumi_key: klo:gitea-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
 
   DBPassword:
     name: Database Password
     description: The password to use for the Gitea database
     type: string
     pulumi_key: klo:gitea-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+
