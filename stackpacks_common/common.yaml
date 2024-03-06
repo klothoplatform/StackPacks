@@ -1,0 +1,28 @@
+network:
+  resources:
+    aws:region:region:
+    aws:vpc:stackpacks-vpc:
+    aws:subnet:stackpacks-private-subnet-1:
+      Type: private
+      Vpc: aws:vpc:stackpacks-vpc
+    aws:subnet:stackpacks-private-subnet-2:
+      Type: private
+      Vpc: aws:vpc:stackpacks-vpc
+    aws:subnet:stackpacks-public-subnet-1:
+      Type: public
+      Vpc: aws:vpc:stackpacks-vpc
+    aws:subnet:stackpacks-public-subnet-2:
+      Type: public
+      Vpc: aws:vpc:stackpacks-vpc
+  edges:
+    # We need to connect the subnets to the region since normally they autogenerate one and ecs requires a downstream region for logs
+    # Because the engine wont modify anything about existing resources without explicit command this is our workaround
+    aws:subnet:stackpacks-public-subnet-1 -> aws:region:region:
+    aws:subnet:stackpacks-public-subnet-2 -> aws:region:region:
+    aws:subnet:stackpacks-private-subnet-1 -> aws:region:region:
+    aws:subnet:stackpacks-private-subnet-2 -> aws:region:region:
+ecs:
+  depends_on:
+    - network
+  resources:
+    aws:ecs_cluster:stackpacks-ecs-cluster:

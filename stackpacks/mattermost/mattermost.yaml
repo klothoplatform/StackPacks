@@ -1,6 +1,10 @@
 name: Mattermost
 version: '1.0.0'
 
+requires:
+  - network
+  - ecs
+
 base:
   resources:
     aws:ecr_image:mattermost:

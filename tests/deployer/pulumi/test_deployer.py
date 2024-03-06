@@ -1,10 +1,9 @@
-import aiounittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import jsons
+import aiounittest
+
 from src.deployer.models.deployment import DeploymentStatus
 from src.deployer.pulumi.deployer import AppDeployer
-from pulumi import automation as auto
 
 
 class TestAppDeployer(aiounittest.AsyncTestCase):
@@ -18,7 +17,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack)
-        result_status, reason = await deployer.deploy(MagicMock())
+        result_status, reason = await deployer.deploy()
 
         # Assert calls
         mock_stack.preview.assert_called_once()
@@ -26,7 +25,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Assert return value
         self.assertEqual(result_status, DeploymentStatus.SUCCEEDED)
-        self.assertEqual(reason, jsons.dump(mock_up_result.outputs.items.return_value))
+        self.assertEqual(reason, "Deployment succeeded.")
 
     @patch("src.deployer.pulumi.deployer.auto.UpResult")
     async def test_deploy_error(self, mock_up_result):
@@ -36,7 +35,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack)
-        result_status, reason = await deployer.deploy(MagicMock())
+        result_status, reason = await deployer.deploy()
 
         # Assert calls and return value
         mock_stack.preview.assert_called_once()
@@ -50,7 +49,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack)
-        result_status, reason = await deployer.destroy_and_remove_stack(MagicMock())
+        result_status, reason = await deployer.destroy_and_remove_stack()
 
         # Assert calls
         mock_stack.destroy.assert_called_once()
@@ -58,7 +57,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Assert return value
         self.assertEqual(result_status, DeploymentStatus.SUCCEEDED)
-        self.assertIsNone(reason)
+        self.assertEqual(reason, "Stack removed successfully.")
 
     async def test_destroy_and_remove_stack_error(self):
         # Setup mock objects
@@ -67,10 +66,10 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack)
-        result_status, reason = await deployer.destroy_and_remove_stack(MagicMock())
+        result_status, reason = await deployer.destroy_and_remove_stack()
 
         # Assert calls and return value
         mock_stack.destroy.assert_called_once()
         mock_stack.workspace.remove_stack.assert_not_called()
         self.assertEqual(result_status, DeploymentStatus.FAILED)
-        self.assertIsNone(reason)
+        self.assertEqual(reason, "destroy error")
