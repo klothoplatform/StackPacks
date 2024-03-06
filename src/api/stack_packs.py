@@ -93,7 +93,6 @@ async def my_stack(request: Request) -> UserStack:
         user_pack = UserPack.get(user_id, user_id)
     except DoesNotExist:
         raise HTTPException(status_code=404, detail="Stack not found")
-    user_pack = UserPack.get(user_id, user_id)
     return user_pack.to_user_stack()
 
 
@@ -106,6 +105,7 @@ async def list_stackpacks():
             "name": cfg.name,
             "description": cfg.description,
             "type": cfg.type,
+            "secret": cfg.secret,
         }
         if cfg.default is not None:
             c["default"] = cfg.default
