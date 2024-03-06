@@ -176,6 +176,7 @@ class StackConfig(BaseModel):
     description: str
     type: str
     default: Any = Field(default=None)
+    secret: bool = Field(default=False)
     validation: Any = Field(default=None)
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
