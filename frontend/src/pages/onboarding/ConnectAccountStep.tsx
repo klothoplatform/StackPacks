@@ -1,5 +1,5 @@
-import type { FC, PropsWithChildren } from "react";
-import React from "react";
+import type { FC } from "react";
+import React, { useEffect } from "react";
 import type { StepperNavigatorProps } from "../../components/Stepper.tsx";
 import { StepperNavigator } from "../../components/Stepper.tsx";
 import { Button, Card, List, TextInput } from "flowbite-react";
@@ -10,69 +10,56 @@ import { MdContentCopy } from "react-icons/md";
 import { RiExternalLinkLine } from "react-icons/ri";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { env } from "../../shared/environment.ts";
-import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
+import { UIError } from "../../shared/errors.ts";
+import { InstructionalStep } from "../../components/InstructionalStep.tsx";
 
 export interface ConnectAccountFormState {
-  iamRoleArn: string;
+  assumedRoleArn: string;
 }
 
 const MANAGED_POLICIES = [].map(encodeURIComponent).join("&policies=");
 
-const samplePolicy = `{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ec2:AttachVolume",
-                "ec2:DetachVolume"
-            ],
-            "Resource": "arn:aws:ec2:*:*:instance/*",
-            "Condition": {
-                "StringEquals": {"aws:ResourceTag/Department": "Development"}
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ec2:AttachVolume",
-                "ec2:DetachVolume"
-            ],
-            "Resource": "arn:aws:ec2:*:*:volume/*",
-            "Condition": {
-                "StringEquals": {"aws:ResourceTag/VolumeUser": "\${aws:username}"}
-            }
-        }
-    ]
-}`;
-
 export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
   const {
-    onboardingWorkflowState: { iamRoleArn, externalId },
-    updateOnboardingWorkflowState,
+    onboardingWorkflowState: { externalId },
+    userStack,
+    updateStack,
+    userStackPolicy,
+    addError,
   } = useApplicationStore();
   const { goForwards } = useStepper();
   const methods = useForm<ConnectAccountFormState>({
     mode: "all",
-    defaultValues: {
-      iamRoleArn: iamRoleArn,
-    },
   });
 
-  useEffectOnMount(() => {
+  useEffect(() => {
     methods.reset({
-      iamRoleArn: iamRoleArn,
+      assumedRoleArn: userStack?.assumed_role_arn ?? "",
     });
-  });
+  }, [methods, userStack?.assumed_role_arn]);
 
-  const { isValid, errors } = methods.formState;
+  const { isValid, errors, isDirty } = methods.formState;
 
-  const completeStep = (data: ConnectAccountFormState) => {
+  const completeStep = async (data: ConnectAccountFormState) => {
+    if (!isDirty) {
+      goForwards();
+      return;
+    }
+
     try {
       console.log(data);
-      updateOnboardingWorkflowState({ iamRoleArn: data.iamRoleArn });
+      await updateStack({
+        assumed_role_arn: data.assumedRoleArn,
+        assumed_role_external_id: externalId,
+      });
     } catch (e) {
-      console.error(e);
+      addError(
+        new UIError({
+          message: "An error occurred while updating your stack's IAM Role.",
+          cause: e,
+          errorId: "ConnectAccountStep:Submit",
+        }),
+      );
       return;
     }
     goForwards();
@@ -91,7 +78,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
               Create an IAM role in your AWS account to enable StackPacks to
               deploy and manage stacks on your behalf.
             </p>
-            <Step title="Step 1">
+            <InstructionalStep title="Step 1">
               <p>
                 Create an IAM role in your AWS account using the link below.
               </p>
@@ -140,9 +127,9 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   </List>
                 </div>
               </div>
-            </Step>
+            </InstructionalStep>
 
-            <Step title="Step 2">
+            <InstructionalStep title="Step 2">
               Create a custom policy for the IAM role with the following
               permissions and continue to Step 3.
               <CollapsibleSection
@@ -159,25 +146,25 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   </div>
                 }
                 onExpand={async () => {
-                  await navigator.clipboard.writeText(samplePolicy);
+                  await navigator.clipboard.writeText(userStackPolicy);
                 }}
               >
                 <div
                   className={
-                    "gray-200 mx-4 h-fit overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-green-700 dark:bg-gray-700 dark:text-green-200"
+                    "gray-200 mx-4 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-xs text-green-700 dark:bg-gray-700 dark:text-green-200"
                   }
                 >
-                  {samplePolicy}
+                  <code>{userStackPolicy}</code>
                 </div>
               </CollapsibleSection>
-            </Step>
-            <Step title={"Step 3"}>
+            </InstructionalStep>
+            <InstructionalStep title={"Step 3"}>
               <p>
                 Assign the custom policy or an existing policy to the IAM role
                 you created in Step 1.
               </p>
-            </Step>
-            <Step title={"Step 4"}>
+            </InstructionalStep>
+            <InstructionalStep title={"Step 4"}>
               <p>
                 Open the role you created in Step 1 and copy its ARN into the
                 field below.
@@ -190,7 +177,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   type="text"
                   id="awsRoleArn"
                   placeholder="arn:aws:iam::<account-id>:role/StackPacksRole"
-                  {...methods.register("iamRoleArn", {
+                  {...methods.register("assumedRoleArn", {
                     required: true,
                     validate: (v) =>
                       /^arn:aws[\w-]*:iam::\d{12}:role\/.+$/.test(v)
@@ -199,12 +186,12 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   })}
                   helperText={
                     <span className={"text-red-600 dark:text-red-500"}>
-                      {errors?.iamRoleArn?.message}
+                      {errors?.assumedRoleArn?.message}
                     </span>
                   }
                 />
               </div>
-            </Step>
+            </InstructionalStep>
           </div>
           <div className="ml-auto mt-4 flex size-fit gap-4">
             <StepperNavigator
@@ -216,28 +203,5 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
         </div>
       </div>
     </Card>
-  );
-};
-
-const Step: FC<
-  PropsWithChildren<{
-    title: string;
-    optional?: boolean;
-  }>
-> = ({ title, optional, children }) => {
-  return (
-    <div className={"flex h-fit w-full flex-col gap-2"}>
-      <h3
-        className={"text-lg font-medium text-primary-500 dark:text-primary-400"}
-      >
-        {title}
-        {optional && (
-          <span className={"text-sm text-gray-500 dark:text-gray-400"}>
-            {" (optional)"}
-          </span>
-        )}
-      </h3>
-      {children}
-    </div>
   );
 };

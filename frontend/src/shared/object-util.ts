@@ -107,3 +107,56 @@ export function getModifiedFields(
   }
   return properties;
 }
+
+export function arrayEquals<T>(
+  a: T[] | undefined,
+  b: T[] | undefined,
+): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a === undefined || b === undefined) {
+    return false;
+  }
+  return (
+    Array.isArray(a) &&
+    Array.isArray(b) &&
+    a.length === b.length &&
+    a.every((val, index) => val === b[index])
+  );
+}
+
+export function setEquals<T>(
+  a: Set<T> | undefined,
+  b: Set<T> | undefined,
+): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a === undefined || b === undefined) {
+    return false;
+  }
+
+  return a.size === b.size && [...a].every((value) => b.has(value));
+}
+
+// findChildProperty finds a child property of an object by path.
+// A period indicates a child property, a "[]" indicates an array index.
+export function findChildProperty(obj: any, path: string): any {
+  const parts = path.split(/[[.]/);
+  let current: any = obj;
+  for (const part of parts) {
+    if (current === undefined) {
+      return undefined;
+    }
+    if (part.endsWith("]")) {
+      const index = parseInt(
+        part.substring(part.indexOf("[") + 1, part.length),
+      );
+      current = current[index];
+    } else {
+      current = current[part];
+    }
+  }
+  return current;
+}

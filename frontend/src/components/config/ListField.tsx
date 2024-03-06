@@ -5,12 +5,7 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 import { Button, Checkbox, Textarea, TextInput } from "flowbite-react";
 import { HiMinusCircle, HiPlusCircle } from "react-icons/hi";
 import type { ConfigFieldProps } from "./ConfigField";
-import {
-  EnumField,
-  ErrorHelper,
-  findChildProperty,
-  InputHelperText,
-} from "./ConfigField";
+import { EnumField, ErrorHelper, InputHelperText } from "./ConfigField";
 import { ConfigSection } from "./ConfigSection";
 import { ConfigGroup } from "./ConfigGroup";
 import classNames from "classnames";
@@ -21,11 +16,12 @@ import type {
 } from "../../shared/configuration-properties.ts";
 import {
   CollectionTypes,
-  getNewValue,
+  getNewConfiguration,
   isCollection,
   isPrimitive,
   PrimitiveTypes,
 } from "../../shared/configuration-properties.ts";
+import { findChildProperty } from "../../shared/object-util.ts";
 
 type ListProps = ConfigFieldProps & {
   field: ListProperty;
@@ -33,27 +29,27 @@ type ListProps = ConfigFieldProps & {
 
 export const ListField: FC<ListProps> = ({
   stackPackId,
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   disabled,
 }) => {
-  qualifiedFieldName = qualifiedFieldName ?? "UNKNOWN-LIST";
+  qualifiedFieldId = qualifiedFieldId ?? "UNKNOWN-LIST";
   const { register, control, formState } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
-    name: qualifiedFieldName,
+    name: qualifiedFieldId,
     rules: {
-      required: field.required && `${qualifiedFieldName} is required.`,
+      required: field.required && `${qualifiedFieldId} is required.`,
       minLength: field.minLength
         ? {
             value: field.minLength,
-            message: `${qualifiedFieldName} must have at least ${field.minLength} entries.`,
+            message: `${qualifiedFieldId} must have at least ${field.minLength} entries.`,
           }
         : undefined,
       maxLength: field.maxLength
         ? {
             value: field.maxLength,
-            message: `${qualifiedFieldName} may have at most ${field.maxLength} entries.`,
+            message: `${qualifiedFieldId} may have at most ${field.maxLength} entries.`,
           }
         : undefined,
       validate: {
@@ -63,7 +59,7 @@ export const ListField: FC<ListProps> = ({
             for (const item of items) {
               const value = JSON.stringify(item);
               if (uniqueValues.has(value)) {
-                return `${qualifiedFieldName} must have unique values.`;
+                return `${qualifiedFieldId} must have unique values.`;
               }
               uniqueValues.add(value);
             }
@@ -74,7 +70,7 @@ export const ListField: FC<ListProps> = ({
     },
   });
   const { errors } = formState;
-  const error = findChildProperty(errors, qualifiedFieldName);
+  const error = findChildProperty(errors, qualifiedFieldId);
   const { configurationDisabled, itemType, properties } = field as ListProperty;
 
   disabled = configurationDisabled || disabled;
@@ -93,7 +89,7 @@ export const ListField: FC<ListProps> = ({
               <PrimitiveListItem
                 key={formField.id}
                 index={index}
-                qualifiedFieldName={`${qualifiedFieldName}[${index}]`}
+                qualifiedFieldName={`${qualifiedFieldId}[${index}]`}
                 type={itemType}
                 required={field.required}
                 allowedValues={(field as EnumProperty).allowedValues}
@@ -128,7 +124,7 @@ export const ListField: FC<ListProps> = ({
               <CollectionListItem
                 key={formField.id}
                 index={index}
-                qualifiedFieldName={`${qualifiedFieldName}[${index}]`}
+                qualifiedFieldName={`${qualifiedFieldId}[${index}]`}
                 type={itemType}
                 properties={properties}
                 required={field.required}
@@ -142,7 +138,7 @@ export const ListField: FC<ListProps> = ({
               size="sm"
               className={"mt-1 size-fit"}
               color="purple"
-              onClick={() => append(getNewValue(properties))}
+              onClick={() => append(getNewConfiguration(properties))}
             >
               <HiPlusCircle />
             </Button>
@@ -155,9 +151,9 @@ export const ListField: FC<ListProps> = ({
   console.warn(`Unknown property type: ${itemType}`);
   return (
     <Textarea
-      id={qualifiedFieldName}
+      id={qualifiedFieldId}
       disabled={configurationDisabled}
-      {...register(qualifiedFieldName ?? "")}
+      {...register(qualifiedFieldId ?? "")}
     />
   );
 };
@@ -298,7 +294,7 @@ const CollectionListItem: FC<{
       item = (
         <ConfigSection id={qualifiedFieldName} title={title}>
           <ConfigGroup
-            qualifiedFieldName={qualifiedFieldName}
+            qualifiedFieldId={qualifiedFieldName}
             fields={properties}
             hidePrefix
           />
@@ -310,7 +306,7 @@ const CollectionListItem: FC<{
       item = (
         <ConfigSection id={qualifiedFieldName} title={title}>
           <ConfigGroup
-            qualifiedFieldName={qualifiedFieldName}
+            qualifiedFieldId={qualifiedFieldName}
             fields={properties}
             hidePrefix
           />

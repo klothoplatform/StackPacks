@@ -1,13 +1,13 @@
 import type { AxiosResponse } from "axios";
+import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import { client } from "../shared/axios.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export async function installStack(idToken: string) {
   let response: AxiosResponse;
   try {
-    response = await client.post("/api/install", {
+    response = await axios.post("/api/install", {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

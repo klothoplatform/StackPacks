@@ -24,6 +24,7 @@ interface CollapsibleSectionProps {
   size?: keyof FlowbiteSizes;
   onExpand?: () => Promise<void>;
   onCollapse?: () => void;
+  collapsed?: boolean;
 }
 
 export const CollapsibleSection: FC<
@@ -41,8 +42,9 @@ export const CollapsibleSection: FC<
   onCollapse,
   onExpand,
   size,
+  collapsed,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(!collapsed);
 
   const Trigger = trigger;
   const isTop = !placement?.startsWith("bottom");

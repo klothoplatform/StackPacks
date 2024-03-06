@@ -1,8 +1,8 @@
 import type { AxiosResponse } from "axios";
+import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import type { Stack } from "../shared/models/Stack.ts";
-import { client } from "../shared/axios.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export interface CreateStackRequest {
@@ -10,14 +10,27 @@ export interface CreateStackRequest {
   stack: Partial<Stack>;
 }
 
-export async function createStack(request: CreateStackRequest): Promise<Stack> {
+export interface CreateStackResponse {
+  stack: Stack;
+  policy: string;
+}
+
+export async function createStack(
+  request: CreateStackRequest,
+): Promise<CreateStackResponse> {
   let response: AxiosResponse;
   try {
-    response = await client.post("/api/stack", request.stack, {
-      headers: {
-        ...(request.idToken && { Authorization: `Bearer ${request.idToken}` }),
+    response = await axios.post(
+      "/api/stack",
+      { ...request.stack, status: "new" },
+      {
+        headers: {
+          ...(request.idToken && {
+            Authorization: `Bearer ${request.idToken}`,
+          }),
+        },
       },
-    });
+    );
   } catch (e: any) {
     const error = new ApiError({
       errorId: "CreateStack",
@@ -37,10 +50,5 @@ export async function createStack(request: CreateStackRequest): Promise<Stack> {
       stackPacks: Object.keys(request.stack.configuration),
     },
   });
-  return parseStack(response.data);
-}
-
-// TODO: implement stack parser
-function parseStack(data: any): Stack {
-  return data;
+  return response.data as CreateStackResponse;
 }

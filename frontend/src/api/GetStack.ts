@@ -1,14 +1,14 @@
 import type { AxiosResponse } from "axios";
+import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import type { Stack } from "../shared/models/Stack.ts";
-import { client } from "../shared/axios.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export async function getStack(idToken: string): Promise<Stack> {
   let response: AxiosResponse;
   try {
-    response = await client.get("/api/stack", {
+    response = await axios.get("/api/stack", {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

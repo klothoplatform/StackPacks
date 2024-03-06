@@ -8,7 +8,7 @@ import { CollectionTypes } from "../../shared/configuration-properties.ts";
 
 type ConfigGroupProps = {
   stackPackId?: string;
-  qualifiedFieldName?: string;
+  qualifiedFieldId?: string;
   valueSelector?: string;
   fields?: Property[];
   hidePrefix?: boolean;
@@ -16,19 +16,16 @@ type ConfigGroupProps = {
 
 export const ConfigGroup: FC<ConfigGroupProps> = ({
   stackPackId,
-  qualifiedFieldName,
+  qualifiedFieldId,
   valueSelector,
   fields,
-  hidePrefix,
 }) => {
   const rows: ReactNode[] = [];
   let resourceMetadata: any;
 
-  const parentLength = qualifiedFieldName?.split(".").length;
   // Make sure that all field names are fully qualified with the configResource prefix
   const prefix =
-    qualifiedFieldName?.startsWith(`${stackPackId}#`) ||
-    stackPackId === undefined
+    qualifiedFieldId?.startsWith(`${stackPackId}#`) || stackPackId === undefined
       ? ""
       : `${stackPackId}#`;
   const addRow = (property: Property) => {
@@ -49,18 +46,13 @@ export const ConfigGroup: FC<ConfigGroupProps> = ({
         <ConfigField
           // only show the resource if it isn't the one selected
           field={property}
-          qualifiedFieldName={
-            qualifiedFieldName
-              ? `${prefix}${qualifiedFieldName}.${property.name}`
-              : `${prefix}${property.qualifiedName}`
+          qualifiedFieldId={
+            qualifiedFieldId
+              ? `${prefix}${qualifiedFieldId}.${property.id}`
+              : `${prefix}${property.qualifiedId}`
           }
           valueSelector={valueSelector}
-          title={
-            parentLength && hidePrefix
-              ? qualifiedFieldName.split(".").slice(parentLength).join(".") +
-                property.name
-              : property.qualifiedName
-          }
+          title={property.name}
           required={
             (property.required && !resourceMetadata?.imported) ||
             (property.required &&

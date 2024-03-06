@@ -31,14 +31,14 @@ const workflowSteps: Array<Step & { component: React.FC<any> }> = [
     component: ChooseAppsStep,
   },
   {
-    id: "connect-account",
-    title: "Connect Account",
-    component: ConnectAccountStep,
-  },
-  {
     id: "configure-stack",
     title: "Configure Stack",
     component: ConfigureAppsStep,
+  },
+  {
+    id: "connect-account",
+    title: "Connect Account",
+    component: ConnectAccountStep,
   },
   {
     id: "deploy",
@@ -52,7 +52,7 @@ function OnboardingPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const {
-    loadUserStack,
+    getUserStack,
     updateOnboardingWorkflowState,
     onboardingWorkflowState: { selectedStackPacks },
   } = useApplicationStore();
@@ -65,8 +65,9 @@ function OnboardingPage() {
     }
     (async () => {
       try {
-        const userStack = await loadUserStack();
-        if (!userStack) {
+        const userStack = await getUserStack(true);
+        // TODO: update this condition
+        if (!userStack?.status || userStack.status === "new") {
           setCanOnboard(true);
         } else {
           navigate("/user/dashboard", { replace: true });
@@ -82,7 +83,7 @@ function OnboardingPage() {
         setIsLoaded(true);
       }
     })();
-  }, [isAuthenticated, isLoaded, loadUserStack, navigate, addError]);
+  }, [isAuthenticated, isLoaded, getUserStack, navigate, addError]);
 
   useEffectOnMount(() => {
     if (selectedStackPacks.length > 0) {

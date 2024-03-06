@@ -28,7 +28,6 @@ const initialState: () => OnboardingWorkflowStoreState = () => ({
     externalId: crypto.randomUUID().toString(),
     selectedStackPacks: [],
     region: "",
-    iamRoleArn: "arn:aws:iam::123456789012:role/role-remove-this-at-some-point",
   },
 });
 

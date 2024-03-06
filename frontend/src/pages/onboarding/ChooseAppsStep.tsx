@@ -20,6 +20,9 @@ import type { StackPack } from "../../shared/models/StackPack.ts";
 import { SiWebpack } from "react-icons/si";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { useSearchParams } from "react-router-dom";
+import { UIError } from "../../shared/errors.ts";
+import { AiOutlineLoading } from "react-icons/ai";
+import { setEquals } from "../../shared/object-util.ts";
 
 export enum AppChooserLayout {
   List,
@@ -61,19 +64,22 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
     onboardingWorkflowState: { selectedStackPacks },
     updateOnboardingWorkflowState,
     getStackPacks,
+    createOrUpdateStack,
+    addError,
+    userStack,
   } = useApplicationStore();
 
   const [apps, setApps] = useState<StackPack[]>([...stackPacks.values()]);
-  const [selectedApps, setSelectedApps] =
-    useState<string[]>(selectedStackPacks);
+  const [selectedApps, setSelectedApps] = useState<string[]>(
+    userStack ? Object.keys(userStack.configuration) : selectedStackPacks,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffectOnMount(() => {
-    (async () => {
-      const stackPacks = await getStackPacks();
-      console.log(stackPacks);
-      setApps([...stackPacks.values()]);
-    })();
-  });
+  useEffect(() => {
+    // this effect is primarily for picking up onboarding session resets triggered by OnboardingPage.
+    setSelectedApps(selectedStackPacks);
+  }, [selectedStackPacks]);
 
   const methods = useForm<ChooseAppsFormState>({
     defaultValues: {
@@ -83,14 +89,43 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
   const { isValid } = methods.formState;
 
   useEffect(() => {
+    if (
+      !isLoaded ||
+      (isLoaded && !userStack) ||
+      setEquals(
+        new Set(selectedStackPacks),
+        new Set(Object.keys(userStack.configuration)),
+      )
+    ) {
+      return;
+    }
+    setSelectedApps(
+      userStack.configuration
+        ? Object.keys(userStack.configuration)
+        : selectedStackPacks,
+    );
+  }, [userStack, selectedStackPacks, isLoaded]);
+
+  useEffectOnMount(() => {
+    // load stack packs
+    (async () => {
+      const stackPacks = await getStackPacks();
+      console.log(stackPacks);
+      setApps([...stackPacks.values()]);
+    })();
+
+    // register form fields
     methods.register("selectedApps", {
       validate: (v) =>
         v?.length ? undefined : "Please select at least one app",
     });
+
+    setIsLoaded(true);
+
     return () => {
       methods.unregister("selectedApps", {});
     };
-  }, []);
+  });
 
   useEffect(() => {
     methods.setValue("selectedApps", selectedApps, {
@@ -100,16 +135,52 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
     });
   }, [selectedApps, isValid, methods]);
 
-  const canProgress = (selectedApps?.length ?? 0) > 0;
+  const canProgress = isLoaded && (selectedApps?.length ?? 0) > 0;
 
-  const completeStep = (state: ChooseAppsFormState) => {
+  const completeStep = async (state: ChooseAppsFormState) => {
     console.log(state);
+    if (!canProgress) {
+      return;
+    }
+    setIsSubmitting(true);
     updateOnboardingWorkflowState({
       selectedStackPacks: state.selectedApps,
     });
-    if (canProgress) {
-      props.goForwards();
+    try {
+      if (!userStack) {
+        await createOrUpdateStack({
+          configuration: Object.fromEntries(selectedApps.map((id) => [id, {}])),
+        });
+      } else {
+        if (
+          setEquals(
+            new Set(selectedApps),
+            new Set(Object.keys(userStack.configuration)),
+          )
+        ) {
+          setIsSubmitting(false);
+          props.goForwards();
+          return;
+        }
+        await createOrUpdateStack({
+          configuration: Object.fromEntries(
+            selectedApps.map((id) => [id, userStack.configuration[id] ?? {}]),
+          ),
+        });
+      }
+    } catch (e) {
+      addError(
+        new UIError({
+          message: "Stack creation failed.",
+          cause: e,
+        }),
+      );
+      return;
+    } finally {
+      setIsSubmitting(false);
     }
+
+    props.goForwards();
   };
 
   return (
@@ -129,15 +200,21 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
                 </div>
                 <div className="mx-auto flex gap-4 py-1">
                   <Button
+                    className={"size-fit"}
                     size={"xl"}
                     color={"purple"}
                     onClick={methods.handleSubmit(completeStep)}
-                    disabled={!isValid}
+                    isProcessing={isSubmitting}
+                    processingSpinner={
+                      <AiOutlineLoading className={"animate-spin"} />
+                    }
+                    disabled={isSubmitting || !isValid}
                   >
                     <div
                       className={"flex items-center gap-2 whitespace-nowrap"}
                     >
-                      <PiStackFill /> Create Stack
+                      {!isSubmitting && <PiStackFill />}{" "}
+                      {userStack ? "Update" : "Create"} Stack
                     </div>
                   </Button>
                 </div>

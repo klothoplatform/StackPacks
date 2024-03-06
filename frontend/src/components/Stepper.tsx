@@ -240,7 +240,9 @@ export const StepperNavigator: FC<StepperNavigatorProps> = ({
           onClick={handleGoForwards}
           isProcessing={isGoingForwards}
           processingSpinner={<AiOutlineLoading className="animate-spin" />}
-          disabled={nextDisabled || currentStep === steps.length - 1}
+          disabled={
+            isGoingForwards || nextDisabled || currentStep === steps.length - 1
+          }
         >
           Next
         </Button>

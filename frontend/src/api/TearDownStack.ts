@@ -1,13 +1,13 @@
 import type { AxiosResponse } from "axios";
+import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import { client } from "../shared/axios.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export async function tearDownStack(idToken: string) {
   let response: AxiosResponse;
   try {
-    response = await client.post("/api/tear_down", {
+    response = await axios.post("/api/tear_down", {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

@@ -1,7 +1,15 @@
 import type { CheckboxProps, TextInputProps } from "flowbite-react";
-import { Checkbox, Dropdown, Label, TextInput, Tooltip } from "flowbite-react";
+import {
+  Button,
+  Checkbox,
+  Dropdown,
+  Label,
+  TextInput,
+  Tooltip,
+  useThemeMode,
+} from "flowbite-react";
 import type { FC, PropsWithChildren } from "react";
-import React, { Fragment, useEffect } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 
 import { type RegisterOptions, useFormContext } from "react-hook-form";
 
@@ -24,12 +32,13 @@ import {
   CollectionTypes,
   PrimitiveTypes,
 } from "../../shared/configuration-properties.ts";
+import { findChildProperty } from "../../shared/object-util.ts";
 
 export interface ConfigFieldProps {
   stackPackId?: string;
   // qualifiedFieldName is the qualified name of the field, including the stackpack id prefix
   // in the format `${stackPackId}#${fieldName}`.
-  qualifiedFieldName: string;
+  qualifiedFieldId: string;
   field: Property;
   title?: string;
   required?: boolean;
@@ -43,6 +52,7 @@ type InputProps = {
   required?: boolean;
   error?: any;
   valueSelector?: string;
+  disableHelperText?: boolean;
 } & TextInputProps;
 
 type TextProps = TextInputProps &
@@ -81,7 +91,7 @@ type EnumProps = {
 
 export const ConfigField: FC<ConfigFieldProps> = ({
   field,
-  qualifiedFieldName,
+  qualifiedFieldId,
   title,
   required,
   valueSelector,
@@ -90,7 +100,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
   const { type, configurationDisabled } = field;
   const { formState } = useFormContext();
   const { errors, touchedFields, dirtyFields, defaultValues } = formState;
-  const id = qualifiedFieldName + (valueSelector ?? "");
+  const id = qualifiedFieldId + (valueSelector ?? "");
   const error = findChildProperty(errors, id);
   const touched = findChildProperty(touchedFields, id);
   const dirty = findChildProperty(dirtyFields, id);
@@ -100,7 +110,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.String:
       element = (
         <StringField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field}
           valueSelector={valueSelector}
           required={required}
@@ -113,7 +123,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.Number:
       element = (
         <NumberField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field as NumberProperty}
           valueSelector={valueSelector}
           required={required}
@@ -126,7 +136,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.Integer:
       element = (
         <IntField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field as NumberProperty}
           valueSelector={valueSelector}
           required={required}
@@ -139,7 +149,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.Boolean:
       element = (
         <BooleanField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field}
           valueSelector={valueSelector}
           {...props}
@@ -153,7 +163,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case CollectionTypes.Set:
       element = (
         <ListField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field as ListProperty}
           {...props}
         />
@@ -162,7 +172,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case CollectionTypes.Map:
       element = (
         <MapField
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           field={field as MapProperty}
           {...props}
         />
@@ -171,7 +181,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
     case PrimitiveTypes.Enum:
       element = (
         <EnumField
-          qualifiedFieldName={qualifiedFieldName ?? "UNKNOWN-ENUM"}
+          qualifiedFieldName={qualifiedFieldId ?? "UNKNOWN-ENUM"}
           allowedValues={(field as EnumProperty).allowedValues}
           valueSelector={valueSelector}
           disabled={configurationDisabled}
@@ -188,13 +198,13 @@ export const ConfigField: FC<ConfigFieldProps> = ({
 
   // TODO do something with displayedResource
   if (!title) {
-    title = qualifiedFieldName || field.qualifiedName || "";
+    title = qualifiedFieldId || field.qualifiedId || "";
   }
 
   const silenceRequired =
     (required || field.required) &&
     field.type === PrimitiveTypes.Enum &&
-    defaultValues?.[qualifiedFieldName] !== undefined;
+    defaultValues?.[qualifiedFieldId] !== undefined;
 
   return (
     <>
@@ -204,7 +214,7 @@ export const ConfigField: FC<ConfigFieldProps> = ({
           <div className="flex flex-col gap-1">
             <Label
               title={title}
-              htmlFor={qualifiedFieldName}
+              htmlFor={qualifiedFieldId}
               className={"flex w-full"}
               color={error ? "failure" : "default"}
             >
@@ -267,47 +277,66 @@ export const ConfigField: FC<ConfigFieldProps> = ({
 };
 
 export const StringField: FC<TextProps> = ({
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   valueSelector,
   ...rest
 }) => {
+  const [showValue, setShowValue] = useState(!field.secret);
+  const { mode } = useThemeMode();
+
   return (
-    <InputField
-      qualifiedFieldName={qualifiedFieldName ?? field.qualifiedName}
-      inputMode="text"
-      type="text"
-      valueSelector={valueSelector}
-      rules={{
-        minLength: field.minLength
-          ? {
-              value: field.minLength,
-              message: `${field.name} must be at least ${field.minLength} characters in length.`,
-            }
-          : undefined,
-        maxLength: field.maxLength
-          ? {
-              value: field.maxLength,
-              message: `${field.name} may be at most ${field.maxLength} characters in length.`,
-            }
-          : undefined,
-      }}
-      disabled={field.configurationDisabled}
-      required={field.required}
-      {...rest}
-    />
+    <div className="flex w-full gap-2">
+      <div className="w-full">
+        <InputField
+          className="w-full"
+          qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
+          inputMode="text"
+          type={showValue ? "text" : "password"}
+          valueSelector={valueSelector}
+          disableHelperText={field.secret}
+          rules={{
+            minLength: field.minLength
+              ? {
+                  value: field.minLength,
+                  message: `${field.name} must be at least ${field.minLength} characters in length.`,
+                }
+              : undefined,
+            maxLength: field.maxLength
+              ? {
+                  value: field.maxLength,
+                  message: `${field.name} may be at most ${field.maxLength} characters in length.`,
+                }
+              : undefined,
+          }}
+          disabled={field.configurationDisabled}
+          required={field.required}
+          {...rest}
+        />
+      </div>
+      {field.secret && (
+        <Button
+          color={mode}
+          size={"xs"}
+          className={"h-[34px] w-12 whitespace-nowrap"}
+          onClick={() => setShowValue(!showValue)}
+        >
+          {showValue ? "Hide" : "Show"}
+        </Button>
+      )}
+    </div>
   );
 };
 
 export const NumberField: FC<NumberProps> = ({
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   valueSelector,
   ...rest
 }) => {
   return (
     <InputField
-      qualifiedFieldName={qualifiedFieldName ?? field.qualifiedName}
+      qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
       inputMode="numeric"
       type="number"
       rules={{
@@ -334,14 +363,14 @@ export const NumberField: FC<NumberProps> = ({
 };
 
 export const IntField: FC<NumberProps> = ({
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   valueSelector,
   ...rest
 }) => {
   return (
     <InputField
-      qualifiedFieldName={qualifiedFieldName ?? field.qualifiedName}
+      qualifiedFieldName={qualifiedFieldId ?? field.qualifiedId}
       inputMode="numeric"
       type="number"
       step="1"
@@ -373,11 +402,13 @@ const InputField: FC<InputProps> = ({
   valueSelector,
   rules,
   error,
+  disableHelperText,
   ...rest
 }) => {
   const { register } = useFormContext();
   const id = qualifiedFieldName + (valueSelector ?? "");
   return (
+    // <div className="flex w-full flex-col">
     <TextInput
       sizing={"sm"}
       id={id}
@@ -391,11 +422,12 @@ const InputField: FC<InputProps> = ({
         ...rules,
       })}
     />
+    // </div>
   );
 };
 
 export const BooleanField: FC<BooleanProps> = ({
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   valueSelector,
   required,
@@ -403,7 +435,7 @@ export const BooleanField: FC<BooleanProps> = ({
 }) => {
   const { register } = useFormContext();
   const { configurationDisabled } = field;
-  const id = qualifiedFieldName + (valueSelector ?? "");
+  const id = qualifiedFieldId + (valueSelector ?? "");
   return (
     <Checkbox
       id={id}
@@ -411,7 +443,7 @@ export const BooleanField: FC<BooleanProps> = ({
       {...props}
       {...register(id, {
         required:
-          required && `${qualifiedFieldName.split(".").pop()} is required.`,
+          required && `${qualifiedFieldId.split(".").pop()} is required.`,
       })}
     />
   );
@@ -453,7 +485,7 @@ export const EnumField: FC<EnumProps> = ({
     return () => {
       unregister(id, { keepDefaultValue: true });
     };
-  }, [id, qualifiedFieldName, register, required, unregister]);
+  }, [id, qualifiedFieldName, register, required, silenceRequired, unregister]);
 
   return (
     <ErrorHelper error={error}>
@@ -503,27 +535,6 @@ export const ErrorHelper: FC<PropsWithChildren<{ error?: any }>> = ({
     <>{children}</>
   );
 };
-
-// findChildProperty finds a child property of an object by path.
-// A period indicates a child property, a "[]" indicates an array index.
-export function findChildProperty(obj: any, path: string): any {
-  const parts = path.split(/[[.]/);
-  let current: any = obj;
-  for (const part of parts) {
-    if (current === undefined) {
-      return undefined;
-    }
-    if (part.endsWith("]")) {
-      const index = parseInt(
-        part.substring(part.indexOf("[") + 1, part.length),
-      );
-      current = current[index];
-    } else {
-      current = current[part];
-    }
-  }
-  return current;
-}
 
 export const InputHelperText: FC<{ error?: any }> = ({ error }) => {
   return (

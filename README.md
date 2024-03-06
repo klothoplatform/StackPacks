@@ -18,7 +18,7 @@ This file overrides incompatible settings like volume for dynamodb-local.
 Example:
 
 ```shell
-docker compose -f wsl-compose.yml up -D
+docker compose -f wsl-compose.yml up -d
 ```
 
 

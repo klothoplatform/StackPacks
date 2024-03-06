@@ -1,10 +1,11 @@
 export interface Property {
+  id?: string;
   configurationDisabled?: boolean;
   deployTime?: boolean;
   name: string;
   description?: string;
   properties?: Property[];
-  qualifiedName: string;
+  qualifiedId: string;
   required?: boolean;
   defaultValue?: any;
   type: PropertyType;
@@ -67,6 +68,7 @@ export interface ResourceProperty extends Property {
 export interface StringProperty extends Property {
   minLength?: number;
   maxLength?: number;
+  secret?: boolean;
 }
 
 export interface EnumProperty extends Property {
@@ -104,15 +106,17 @@ export function isCollection(value: string): value is CollectionTypes {
 }
 
 export type RawProperty = {
+  id: string;
   name: string;
   type: string;
   description?: string;
   configurationDisabled: boolean;
   deployTime: boolean;
   properties: object;
-  required?: boolean;
-  defaultValue?: any;
+  default?: any;
+  secret?: boolean;
   validation: {
+    required?: boolean;
     allowedValues?: string[];
     minValue?: number;
     maxValue?: number;
@@ -167,15 +171,16 @@ export function parseProperty(
   parentQualifiedName?: string,
 ): Property {
   const {
+    id,
     name,
     type: rawType,
     description,
     configurationDisabled,
     deployTime,
     properties: children,
-    required,
-    defaultValue,
+    default: defaultValue,
     validation,
+    secret,
   }: RawProperty = rawProperty as any;
 
   const {
@@ -187,6 +192,7 @@ export function parseProperty(
     maxLength,
     uniqueItems,
     uniqueKeys,
+    required,
   } = validation || {};
 
   if (!name) {
@@ -194,13 +200,14 @@ export function parseProperty(
   }
 
   const type = parseType(rawType);
-  const qualifiedName = `${
+  const qualifiedId = `${
     parentQualifiedName ? parentQualifiedName + "." : ""
-  }${name}`;
+  }${id}`;
 
   const property: Property = {
+    id,
     name,
-    qualifiedName,
+    qualifiedId,
     type,
     description,
     configurationDisabled,
@@ -217,7 +224,7 @@ export function parseProperty(
       const listProperty = property as ListProperty;
       listProperty.itemType = itemType;
       if (isCollection(itemType)) {
-        listProperty.properties = parseProperties(children, qualifiedName);
+        listProperty.properties = parseProperties(children, qualifiedId);
       }
       if (itemType === PrimitiveTypes.Resource) {
         (listProperty as ResourceListProperty).resourceTypes =
@@ -234,7 +241,7 @@ export function parseProperty(
       const setProperty = property as SetProperty;
       setProperty.itemType = itemType;
       if (isCollection(itemType)) {
-        setProperty.properties = parseProperties(children, qualifiedName);
+        setProperty.properties = parseProperties(children, qualifiedId);
       }
       setProperty.allowedValues = allowedValues;
       setProperty.minLength = minLength;
@@ -263,7 +270,7 @@ export function parseProperty(
       mapProperty.maxLength = maxLength;
 
       if (isCollection(valueType)) {
-        mapProperty.properties = parseProperties(children, qualifiedName);
+        mapProperty.properties = parseProperties(children, qualifiedId);
       }
       break;
     }
@@ -282,6 +289,7 @@ export function parseProperty(
       const stringProperty = property as StringProperty;
       stringProperty.minLength = minLength;
       stringProperty.maxLength = maxLength;
+      stringProperty.secret = secret;
       break;
     }
     case PrimitiveTypes.Integer:
@@ -330,23 +338,25 @@ export function deriveDisplayName(type: string): string {
     .join(" ");
 }
 
-export function getNewValue(properties: Property[] | undefined): object {
+export function getNewConfiguration(
+  properties: Property[] | undefined,
+): object {
   const val: any = {};
   for (const property of properties ?? []) {
     switch (property.type) {
       case PrimitiveTypes.Number:
-        val[property.name] = 0;
+        val[property.id] = 0;
         break;
       case PrimitiveTypes.Boolean:
-        val[property.name] = false;
+        val[property.id] = false;
         break;
       case CollectionTypes.List:
       case CollectionTypes.Set:
       case CollectionTypes.Map:
-        val[property.name] = [];
+        val[property.id] = [];
         break;
       default:
-        val[property.name] = "";
+        val[property.id] = "";
     }
   }
   return val;

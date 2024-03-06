@@ -18,32 +18,32 @@ type MapProps = ConfigFieldProps & {
 };
 
 export const MapField: FC<MapProps> = ({
-  qualifiedFieldName,
+  qualifiedFieldId,
   field,
   removable,
   disabled,
 }) => {
-  qualifiedFieldName = qualifiedFieldName ?? "UNKNOWN-MAP";
+  qualifiedFieldId = qualifiedFieldId ?? "UNKNOWN-MAP";
 
   const { register, control } = useFormContext();
   const { configurationDisabled, keyType, valueType } = field as MapProperty;
 
   useFieldArray({
     control,
-    name: qualifiedFieldName,
+    name: qualifiedFieldId,
     rules: {
       required:
-        field.required && `${qualifiedFieldName.split(".").pop()} is required.`,
+        field.required && `${qualifiedFieldId.split(".").pop()} is required.`,
       minLength: field.minLength
         ? {
             value: field.minLength,
-            message: `${qualifiedFieldName} must have at least ${field.minLength} entries.`,
+            message: `${qualifiedFieldId} must have at least ${field.minLength} entries.`,
           }
         : undefined,
       maxLength: field.maxLength
         ? {
             value: field.maxLength,
-            message: `${qualifiedFieldName} may have at most ${field.maxLength} entries.`,
+            message: `${qualifiedFieldId} may have at most ${field.maxLength} entries.`,
           }
         : undefined,
       validate: {
@@ -56,7 +56,7 @@ export const MapField: FC<MapProps> = ({
             for (const item of items) {
               const key = JSON.stringify(item.key);
               if (uniqueKeys.has(key)) {
-                return `${qualifiedFieldName} must have unique keys.`;
+                return `${qualifiedFieldId} must have unique keys.`;
               }
               uniqueKeys.add(key);
             }
@@ -73,7 +73,7 @@ export const MapField: FC<MapProps> = ({
   ) {
     return (
       <PrimitiveTable
-        id={qualifiedFieldName}
+        id={qualifiedFieldId}
         disabled={configurationDisabled || disabled}
         properties={["key", "value"]}
       />
@@ -82,12 +82,12 @@ export const MapField: FC<MapProps> = ({
   if (keyType === PrimitiveTypes.String && valueType === CollectionTypes.Map) {
     return (
       <ConfigSection
-        id={qualifiedFieldName}
-        title={field.qualifiedName}
+        id={qualifiedFieldId}
+        title={field.qualifiedId}
         removable={removable}
       >
         <ConfigGroup
-          qualifiedFieldName={qualifiedFieldName}
+          qualifiedFieldId={qualifiedFieldId}
           fields={field.properties}
           hidePrefix
         />
@@ -97,9 +97,9 @@ export const MapField: FC<MapProps> = ({
 
   return (
     <Textarea
-      id={qualifiedFieldName}
+      id={qualifiedFieldId}
       disabled={configurationDisabled}
-      {...register(qualifiedFieldName ?? "")}
+      {...register(qualifiedFieldId ?? "")}
     />
   );
 };
