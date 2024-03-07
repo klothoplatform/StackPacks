@@ -16,20 +16,30 @@ class DeploymentDir:
     It's mostly a convenience class to encapsulate the logic of where logs are stored and how to access them.
     """
 
-    def __init__(self, user_id):
+    def __init__(self, user_id: str, deploy_id: str):
         self.user_id = user_id
-        self.log_root = LOG_DIR / user_id
+        self.user_root = LOG_DIR / user_id
+        self.deploy_root = self.user_root / deploy_id
 
-    def log_path(self, stack_id: str, log_type: str, deploy_id: str):
-        return self.log_root / stack_id / f"{log_type}_{deploy_id}.log"
+    def log_path(self, stack_id: str):
+        return self.deploy_root / f"{stack_id}.log"
 
-    def get_log(self, stack_id, log_type, deploy_id):
+    def get_log(self, stack_id: str):
         return DeployLog(
             self,
             stack_id,
-            log_type,
-            deploy_id,
         )
+
+    def update_latest(self):
+        self.user_root.mkdir(parents=True, exist_ok=True)
+
+        latest = self.user_root / "latest"
+        logger.info(
+            "Linking %s -> %s (%s)", latest, self.deploy_root.name, latest.exists()
+        )
+        if latest.exists():
+            latest.unlink()
+        latest.symlink_to(self.deploy_root.name)
 
 
 class DeployLog:
@@ -39,12 +49,10 @@ class DeployLog:
     # even across restarts.
     END_MESSAGE = "END\n"
 
-    def __init__(self, dir: DeploymentDir, stack_id, log_type, deploy_id):
+    def __init__(self, dir: DeploymentDir, stack_id: str):
         self.dir = dir
-        self.path = dir.log_path(stack_id, log_type, deploy_id)
         self.stack_id = stack_id
-        self.log_type = log_type
-        self.deploy_id = deploy_id
+        self.path = dir.log_path(stack_id)
 
     @contextmanager
     def on_output(self):
@@ -55,10 +63,7 @@ class DeployLog:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         writer = open(self.path, "a")
 
-        latest = self.dir.log_path(self.stack_id, self.log_type, "latest")
-        if latest.exists():
-            latest.unlink()
-        latest.symlink_to(self.path.name)
+        self.dir.update_latest()
 
         def on_output(s: str):
             writer.write(s + "\n")
@@ -73,11 +78,6 @@ class DeployLog:
     def tail(self):
         return DeployLogHandler(self)
 
-    async def tail_wait_created(self):
-        while not self.path.exists():
-            await asyncio.sleep(1)
-        return DeployLogHandler(self)
-
 
 class DeployLogHandler(FileSystemEventHandler):
     """DeployLogHandler is used for communcation between the watchdog FileSystemEventHandler and the StreamingResponse
@@ -88,24 +88,11 @@ class DeployLogHandler(FileSystemEventHandler):
         self.log = log
         self.messages = asyncio.Queue()
         self.complete = False
-
-        self.reader = open(self.log.path, "r")
-        for line in self.reader.readlines():
-            if line == DeployLog.END_MESSAGE:
-                self.complete = True
-                logger.info("Log already complete")
-                break
-            else:
-                self.messages.put_nowait(line)
-
-        if not self.complete:
-            self.observer = Observer()
-            self.observer.schedule(self, str(log.path), recursive=False)
-            self.observer.start()
+        self.file = None
 
     def on_any_event(self, event):
         line_count = 0
-        for line in self.reader.readlines():
+        for line in self.file.readlines():
             line_count += 1
             if line.strip() == "END":
                 self.complete = True
@@ -118,17 +105,40 @@ class DeployLogHandler(FileSystemEventHandler):
     def __aiter__(self):
         return self
 
+    def setup_file(self):
+        self.file = open(self.log.path, "r")
+        for line in self.file.readlines():
+            if line == DeployLog.END_MESSAGE:
+                self.complete = True
+                logger.info("Log already complete")
+                break
+            else:
+                self.messages.put_nowait(line)
+
+        if not self.complete:
+            self.observer = Observer()
+            self.observer.schedule(self, str(self.log.path), recursive=False)
+            self.observer.start()
+
     async def __anext__(self):
-        for attempt in range(12):  # wait up to 1 minute (12*5 seconds)
+        if self.file is None:
+            # Poll for file creation
+            for attempt in range(60 * 10):  # wait up to 10 minutes
+                if self.log.path.exists():
+                    break
+                await asyncio.sleep(1)
+            self.setup_file()
+
+        if self.complete and self.messages.empty():
+            raise StopAsyncIteration
+
+        try:
+            line = await asyncio.wait_for(
+                self.messages.get(),
+                timeout=60 * 10,
+            )
+            return line
+        except TimeoutError:
             if self.complete and self.messages.empty():
                 raise StopAsyncIteration
-
-            try:
-                line = await asyncio.wait_for(
-                    self.messages.get(),
-                    timeout=5,
-                )
-                return line
-            except TimeoutError:
-                logger.info("Timed out waiting for logs on iteration %d", attempt)
-                pass
+            raise

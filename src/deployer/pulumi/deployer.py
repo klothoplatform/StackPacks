@@ -11,35 +11,38 @@ class AppDeployer:
     def __init__(self, stack: auto.Stack, deploy_dir: DeploymentDir):
         self.stack = stack
         self.deploy_dir = deploy_dir
+        self.deploy_log = deploy_dir.get_log(stack.name)
+        self.deploy_dir.update_latest()
 
     async def deploy(self) -> Tuple[DeploymentStatus, str]:
-        try:
-            preview_result = self.stack.preview()
-            logger.info(f"Preview result: {preview_result}")
-        except Exception as e:
-            logger.error(f"Failed to preview stack", exc_info=True)
-            return DeploymentStatus.FAILED, e.__str__()
-        try:
-            result: auto.UpResult = self.stack.up(on_output=print)
-            logger.info(f"Deployed stack, {self.stack.name}, successfully.")
-            return DeploymentStatus.SUCCEEDED, "Deployment succeeded."
-        except Exception as e:
-            logger.error(
-                f"Deployment of stack, {self.stack.name}, failed.", exc_info=True
-            )
-            logger.info(f"Refreshing stack {self.stack.name}")
-            self.stack.refresh()
-            return DeploymentStatus.FAILED, e.__str__()
+        with self.deploy_log.on_output() as on_output:
+            try:
+                preview_result = self.stack.preview(on_output=on_output)
+                logger.info(f"Preview result: {preview_result}")
+            except Exception as e:
+                logger.error(f"Failed to preview stack", exc_info=True)
+                return DeploymentStatus.FAILED, str(e)
+            try:
+                self.stack.up(on_output=on_output)
+                logger.info(f"Deployed stack, {self.stack.name}, successfully.")
+                return DeploymentStatus.SUCCEEDED, "Deployment succeeded."
+            except Exception as e:
+                logger.error(
+                    f"Deployment of stack, {self.stack.name}, failed.", exc_info=True
+                )
+                logger.info(f"Refreshing stack {self.stack.name}")
+                self.stack.refresh(on_output=on_output)
+                return DeploymentStatus.FAILED, str(e)
 
     async def destroy_and_remove_stack(self) -> Tuple[DeploymentStatus, str]:
         try:
-            with deploy_log.on_output() as on_output:
+            with self.deploy_log.on_output() as on_output:
                 self.stack.destroy(on_output=on_output)
             logger.info(f"Removing stack {self.stack.name}")
             self.stack.workspace.remove_stack(self.stack.name)
             return DeploymentStatus.SUCCEEDED, "Stack removed successfully."
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Destroy of stack, {self.stack.name}, failed.", exc_info=True)
             logger.info(f"Refreshing stack {self.stack.name}")
-            self.stack.refresh()
-            return DeploymentStatus.FAILED, e.__str__()
+            self.stack.refresh(on_output=on_output)
+            return DeploymentStatus.FAILED, str(e)

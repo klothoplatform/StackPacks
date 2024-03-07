@@ -65,7 +65,7 @@ class UserPack(Model):
                 )
         if app is None:
             app = UserApp(
-                app_id=f"{self.id}#{UserPack.COMMON_APP_NAME}",
+                app_id=UserPack.COMMON_APP_NAME,
                 version=1,
                 created_by=self.created_by,
                 created_at=datetime.datetime.now(),
@@ -135,7 +135,7 @@ class UserPack(Model):
                     )
             if app is None:
                 app = UserApp(
-                    app_id=f"{self.id}#{name}",
+                    app_id=name,
                     version=1,
                     created_by=self.created_by,
                     created_at=datetime.datetime.now(),

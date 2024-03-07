@@ -2,6 +2,7 @@ import io
 import os
 import subprocess
 import zipfile
+from pathlib import Path
 
 from pulumi import automation as auto
 
@@ -10,7 +11,7 @@ from src.util.logging import logger as log
 
 
 class AppBuilder:
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: Path):
         self.output_dir = output_dir
 
     def prepare_stack(self, iac: bytes, pulumi_stack: PulumiStack) -> auto.Stack:
@@ -19,6 +20,8 @@ class AppBuilder:
         return self.create_pulumi_stack(pulumi_stack)
 
     def create_output_dir(self, iac: bytes):
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         # Create a BytesIO object from the bytes
         zip_io = io.BytesIO(iac)
         # Open the BytesIO object with zipfile.ZipFile

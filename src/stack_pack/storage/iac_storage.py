@@ -1,13 +1,8 @@
 from typing import Optional
-import logging
-from botocore.exceptions import ClientError
-from src.engine_service.engine_commands.run import RunEngineResult
-import jsons
-import logging
-from typing import Optional
 
 from botocore.exceptions import ClientError
-from src.util.aws.s3 import put_object, get_object, delete_objects
+
+from src.util.aws.s3 import delete_objects, get_object, put_object
 from src.util.logging import logger
 
 
@@ -59,7 +54,7 @@ class IacStorage:
                 raise TypeError(f"content must be of type bytes, not {type(content)}")
             obj = self._bucket.Object(key)
             put_object(obj, content)
-            logger.info("Wrote %s (size: %d)", id, len(content))
+            logger.info("Wrote %s (size: %d)", key, len(content))
             return key
         except Exception as e:
             raise WriteIacError(
