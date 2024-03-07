@@ -34,6 +34,7 @@ class DeploymentDir:
         self.user_root.mkdir(parents=True, exist_ok=True)
 
         latest = self.user_root / "latest"
+
         logger.info(
             "Linking %s -> %s (%s)", latest, self.deploy_root.name, latest.exists()
         )
@@ -127,6 +128,10 @@ class DeployLogHandler(FileSystemEventHandler):
                 if self.log.path.exists():
                     break
                 await asyncio.sleep(1)
+            if not self.log.path.exists():
+                logger.warning("Log file %s was never created", self.log.path)
+                raise StopAsyncIteration
+
             self.setup_file()
 
         if self.complete and self.messages.empty():
