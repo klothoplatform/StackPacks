@@ -12,12 +12,34 @@ import {
   HeaderNavBarRow1Right,
 } from "../../components/HeaderNavBar.tsx";
 import { Sidebar, SidebarItem, SidebarItemGroup } from "flowbite-react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+
+const sidebarConfig = [
+  {
+    id: "your-stack",
+    url: "/user/dashboard",
+    title: "Your Stack",
+  },
+  {
+    id: "deployment-logs",
+    url: "/user/dashboard/deployment-logs",
+    title: "Deployment Logs",
+  },
+  {
+    id: "latest-logs",
+    url: "/user/dashboard/deployment-logs/latest",
+    title: "Latest Logs",
+  },
+];
 
 function UserDashboardPage() {
   const { isAuthenticated, user, addError } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeItem = sidebarConfig.find(
+    (item) => item.url === location.pathname,
+  )?.id;
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
@@ -58,15 +80,15 @@ function UserDashboardPage() {
         <div className={"flex size-full"}>
           <Sidebar>
             <SidebarItemGroup>
-              <SidebarItem onClick={() => navigate("/user/dashboard")}>
-                Your Stack
-              </SidebarItem>
-              <SidebarItem onClick={() => navigate("./deployment-logs")}>
-                Deployment Logs
-              </SidebarItem>
-              <SidebarItem onClick={() => navigate("./deployment-logs/latest")}>
-                Latest Logs
-              </SidebarItem>
+              {sidebarConfig.map((item) => (
+                <SidebarItem
+                  key={item.id}
+                  active={item.id === activeItem}
+                  onClick={() => navigate(item.url)}
+                >
+                  {item.title}
+                </SidebarItem>
+              ))}
             </SidebarItemGroup>
           </Sidebar>
           <div className="flex size-full flex-row justify-center overflow-hidden">
