@@ -256,7 +256,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_run_concurrent_destroys.side_effect = [
             (
-                ["id#app1", "id#app2"],
+                ["app1", "app2"],
                 [
                     DeploymentResult(
                         manager=MagicMock(spec=AppManager),

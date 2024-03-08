@@ -333,7 +333,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_sps = {"app1": sp1, "app2": sp2}
         mock_run_concurrent_deployments.side_effect = [
             (
-                ["id#app1", "id#app2"],
+                ["app1", "app2"],
                 [
                     DeploymentResult(
                         manager=MagicMock(spec=AppManager),

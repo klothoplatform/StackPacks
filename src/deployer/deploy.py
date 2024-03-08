@@ -224,7 +224,7 @@ async def deploy_applications(
         if name == UserPack.COMMON_APP_NAME:
             continue
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
-        apps[app.app_id] = app
+        apps[app.get_app_name()] = app
         iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         sp = sps[app.get_app_name()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())

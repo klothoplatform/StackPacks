@@ -167,7 +167,7 @@ async def destroy_applications(
         if app == None:
             # this would mean that nothing has been deployed
             continue
-        apps[app.app_id] = app
+        apps[app.get_app_name()] = app
         try:
             iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         except IaCDoesNotExistError:

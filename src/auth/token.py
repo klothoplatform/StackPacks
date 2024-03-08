@@ -41,8 +41,6 @@ async def get_user_id(request: Request) -> str:
                 {"code": "unauthorized", "description": "Unauthorized"}, 401
             )
         token = await get_id_token(request)
-        print(token)
-        print(token["sub"])
         return token["sub"]
     except:
         logging.error("Error getting user id", exc_info=True)
