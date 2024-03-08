@@ -399,8 +399,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.UserApp")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
+    @patch("src.deployer.deploy.get_ses_client")
+    @patch("src.deployer.deploy.send_email")
     async def test_deploy_pack(
         self,
+        mock_send_email,
+        mock_get_ses_client,
         mock_temp_dir,
         mock_common_stack,
         mock_user_app,
@@ -429,6 +433,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_deploy_common_stack.return_value = manager
         mock_temp_dir.return_value = MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
+        mock_get_ses_client.return_value = MagicMock()
 
         # Act
         await deploy_pack(pack_id="id", sps=mock_sps, deployment_id="deploy_id")
@@ -457,4 +462,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         mock_deploy_applications.assert_called_once_with(
             user_pack, mock_iac_storage, mock_sps, "deploy_id", Path("/tmp")
+        )
+        mock_send_email.assert_called_once_with(
+            mock_get_ses_client.return_value, ANY, mock_sps.keys()
         )

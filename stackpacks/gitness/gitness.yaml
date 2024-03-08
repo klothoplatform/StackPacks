@@ -53,6 +53,8 @@ base:
     aws:ecs_service:gitness-service -> aws:rds_instance:gitness-db:
     aws:ecs_task_definition:gitness-task -> aws:efs_access_point:gitness-efs:gitness-data:
     aws:efs_access_point:gitness-efs:gitness-data -> aws:efs_file_system:gitness-efs:
+    # Service to FS edge sets up the mount_target
+    aws:ecs_service:gitness-service -> aws:efs_file_system:gitness-efs:
   files: {}
 
 configuration:

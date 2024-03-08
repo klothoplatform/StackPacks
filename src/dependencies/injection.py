@@ -15,7 +15,8 @@ else:
     s3_resource = boto3.resource("s3")
 
 
-ses_client = boto3.client("sesv2", endpoint_url=os.environ.get("SES_ENDPOINT", None))
+def get_ses_client():
+    return boto3.client("sesv2", endpoint_url=os.environ.get("SES_ENDPOINT", None))
 
 
 def create_iac_bucket():

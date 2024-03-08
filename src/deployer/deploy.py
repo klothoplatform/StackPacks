@@ -7,7 +7,7 @@ from aiomultiprocess import Pool
 from pulumi import automation as auto
 from pydantic import BaseModel
 
-from src.dependencies.injection import get_iac_storage, ses_client
+from src.dependencies.injection import get_iac_storage, get_ses_client
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -298,4 +298,4 @@ async def deploy_pack(
 
         logger.info(f"Deploying app stacks")
         await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
-        send_email(ses_client, "user@user.com", sps.keys())
+        send_email(get_ses_client(), "user@user.com", sps.keys())
