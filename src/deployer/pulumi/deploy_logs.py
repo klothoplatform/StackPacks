@@ -9,6 +9,7 @@ from watchdog.observers import Observer
 from src.util.logging import logger
 
 LOG_DIR = Path(os.getenv("DEPLOY_LOG_DIR", "deployments"))
+PRINT_LOGS = os.getenv("PRINT_LOGS", False)
 
 
 class DeploymentDir:
@@ -67,6 +68,8 @@ class DeployLog:
         self.dir.update_latest()
 
         def on_output(s: str):
+            if PRINT_LOGS:
+                print(s)
             writer.write(s + "\n")
             writer.flush()
 
