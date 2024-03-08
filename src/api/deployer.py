@@ -1,7 +1,6 @@
 import uuid
 
-from aiomultiprocess import Worker
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.auth.token import get_user_id
@@ -18,6 +17,7 @@ router = APIRouter()
 @router.post("/api/install")
 async def install(
     request: Request,
+    background_tasks: BackgroundTasks,
     deployment_id: str = None,
 ):
     user_id = await get_user_id(request)
@@ -28,8 +28,8 @@ async def install(
     elif deployment_id == "latest":
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
-    worker = Worker(target=deploy_pack, args=(user_id, stack_packs, deployment_id))
-    worker.start()
+    background_tasks.add_task(deploy_pack, user_id, stack_packs)
+
 
     return JSONResponse(
         status_code=201,
@@ -40,6 +40,7 @@ async def install(
 @router.post("/api/tear_down")
 async def tear_down(
     request: Request,
+    background_tasks: BackgroundTasks,
     deployment_id: str = None,
 ):
     user_id = await get_user_id(request)
@@ -49,8 +50,8 @@ async def tear_down(
     elif deployment_id == "latest":
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
-    worker = Worker(target=tear_down_pack, args=(user_id, deployment_id))
-    worker.start()
+    background_tasks.add_task(tear_down_pack, user_id)
+
 
     return JSONResponse(
         status_code=201,

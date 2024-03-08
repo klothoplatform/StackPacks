@@ -1,8 +1,8 @@
-import boto3
 import os
 
-from src.stack_pack.storage.iac_storage import IacStorage
+import boto3
 
+from src.stack_pack.storage.iac_storage import IacStorage
 
 if os.getenv("IAC_BUCKET", None) is None:
     s3_resource = boto3.resource(
@@ -13,6 +13,9 @@ if os.getenv("IAC_BUCKET", None) is None:
     )
 else:
     s3_resource = boto3.resource("s3")
+
+
+ses_client = boto3.client("sesv2", endpoint_url=os.environ.get("SES_ENDPOINT", None))
 
 
 def create_iac_bucket():

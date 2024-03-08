@@ -16,7 +16,6 @@ base:
         TargetGroup: aws:target_group:gitea-ssh
         ContainerName: gitea-task
       TaskDefinition: aws:ecs_task_definition:gitea-task
-      EnableExecuteCommand: true # REMOVEME testing
     aws:ecs_task_definition:gitea-task:
       Cpu: ${CPU}
       Memory: ${Memory}

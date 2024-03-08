@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from src.stack_pack import ConfigValues, Edges, Resources, StackPack
+from src.util.logging import logger
 
 
 class LiveState(BaseModel):
@@ -21,6 +22,7 @@ class LiveState(BaseModel):
                         break
         for c in self.resources.to_constraints(ConfigValues({})):
             if c["scope"] == "application" and c["operator"] == "must_exist":
+                logger.info(f"Adding import constraint from live state resource {c}")
                 c["operator"] = "import"
             constraints.append(c)
         if self.edges:
@@ -38,5 +40,4 @@ class LiveState(BaseModel):
             ):
                 constraints.append(c)
 
-        return constraints
         return constraints

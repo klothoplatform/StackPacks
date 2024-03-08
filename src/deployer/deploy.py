@@ -7,7 +7,7 @@ from aiomultiprocess import Pool
 from pulumi import automation as auto
 from pydantic import BaseModel
 
-from src.dependencies.injection import get_iac_storage
+from src.dependencies.injection import get_iac_storage, ses_client
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -23,6 +23,7 @@ from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.aws.ses import send_email
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
@@ -297,3 +298,4 @@ async def deploy_pack(
 
         logger.info(f"Deploying app stacks")
         await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
+        send_email(ses_client, "user@user.com", sps.keys())

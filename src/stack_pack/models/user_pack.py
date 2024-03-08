@@ -107,6 +107,7 @@ class UserPack(Model):
             Policy: The combined policy of all the stack packs
         """
         apps: List[UserApp] = []
+        base_stack = CommonStack([sp for k, sp in stack_packs.items()])
         invalid_stacks = []
         for name, config in config.items():
             if name is UserPack.COMMON_APP_NAME:
@@ -119,6 +120,7 @@ class UserPack(Model):
             if version is not None:
                 try:
                     app = UserApp.get(UserApp.composite_key(self.id, name), version)
+                    app.configuration = config
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
                         latest_version = UserApp.get_latest_version_with_status(
@@ -151,9 +153,17 @@ class UserPack(Model):
         for app in apps:
             subdir = Path(tmp_dir) / app.get_app_name()
             subdir.mkdir(exist_ok=True)
+            sp = stack_packs[app.get_app_name()]
+            # Extend the base resources to the stack pack in case they are used in the stack pack
+            for id, properties in base_stack.base.resources.items():
+                import_constraints = [
+                    c["node"] for c in imports if c["operator"] == "import"
+                ]
+                if id not in import_constraints:
+                    sp.base.resources.update({id: properties})
             tasks.append(
                 app.run_app(
-                    stack_packs[app.get_app_name()],
+                    sp,
                     str(subdir.absolute()),
                     iac_storage,
                     imports,

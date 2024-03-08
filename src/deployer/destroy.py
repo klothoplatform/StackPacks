@@ -158,7 +158,12 @@ async def destroy_applications(
     for name, version in user_pack.apps.items():
         if name == UserPack.COMMON_APP_NAME:
             continue
-        app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
+        app = UserApp.get_latest_version_with_status(
+            UserApp.composite_key(user_pack.id, name)
+        )
+        if app == None:
+            # this would mean that nothing has been deployed
+            continue
         apps[app.app_id] = app
         try:
             iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
