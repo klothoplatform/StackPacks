@@ -42,6 +42,9 @@ class StackDeploymentRequest(BaseModel):
     deployment_id: str
 
 
+PROJECT_NAME = "StackPack"
+
+
 async def build_and_deploy(
     region: str,
     assume_role_arn: str,
@@ -53,7 +56,7 @@ async def build_and_deploy(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
-        project_name=user,
+        project_name=PROJECT_NAME,
         name=PulumiStack.sanitize_stack_name(app),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Deployment in progress",
@@ -193,15 +196,14 @@ async def rerun_pack_with_live_state(
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
         configuration[name] = app.get_configurations()
 
-        await user_pack.run_pack(
-            sps,
-            configuration,
-            tmp_dir,
-            iac_storage,
-            increment_versions=False,
-            imports=live_state.to_constraints(common_stack, common_pack.configuration),
-        )
-    return
+    await user_pack.run_pack(
+        sps,
+        configuration,
+        tmp_dir,
+        iac_storage,
+        increment_versions=False,
+        imports=live_state.to_constraints(common_stack, common_pack.configuration),
+    )
 
 
 async def deploy_applications(
@@ -269,7 +271,7 @@ async def deploy_pack(
             UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
             common_version,
         )
-        common_stack = CommonStack([sp for sp in sps.values()])
+        common_stack = CommonStack(list(sps.values()))
         logger.info(f"Deploying common stack")
 
         manager = await deploy_common_stack(

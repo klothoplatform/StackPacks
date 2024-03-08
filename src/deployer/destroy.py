@@ -6,7 +6,7 @@ from aiomultiprocess import Pool
 from pulumi import automation as auto
 
 from src.dependencies.injection import get_iac_storage
-from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
+from src.deployer.deploy import PROJECT_NAME, DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -34,7 +34,7 @@ async def run_destroy(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
-        project_name=user,
+        project_name=PROJECT_NAME,
         name=PulumiStack.sanitize_stack_name(app),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Destroy in progress",
@@ -115,19 +115,13 @@ async def run_concurrent_destroys(
 
 async def destroy_common_stack(
     user_pack: UserPack,
+    common_pack: UserApp,
     iac_storage: IacStorage,
     deployment_id: str,
     tmp_dir: Path,
 ):
-    common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
-    if common_version == 0:
-        raise ValueError("Common stack not found")
-
+    common_version = common_pack.version
     logger.info(f"Destroying common stack {common_version}")
-    common_pack = UserApp.get(
-        UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
-        common_version,
-    )
     iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
 
     order, results = await run_concurrent_destroys(
@@ -215,5 +209,17 @@ async def tear_down_pack(
 
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
+
         await destroy_applications(user_pack, iac_storage, deployment_id, tmp_dir)
-        await destroy_common_stack(user_pack, iac_storage, deployment_id, tmp_dir)
+
+        common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
+        if common_version == 0:
+            raise ValueError("Common stack not found")
+
+        common_pack = UserApp.get(
+            UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
+            common_version,
+        )
+        await destroy_common_stack(
+            user_pack, common_pack, iac_storage, deployment_id, tmp_dir
+        )
