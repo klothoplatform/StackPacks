@@ -43,6 +43,7 @@ async def create_stack(
     except DoesNotExist as e:
         logger.debug(f"UserPack not found for user {user_id}")
 
+    print(user_id)
     user_pack = UserPack(
         id=user_id,
         owner=user_id,

@@ -41,7 +41,26 @@ async def get_user_id(request: Request) -> str:
                 {"code": "unauthorized", "description": "Unauthorized"}, 401
             )
         token = await get_id_token(request)
+        print(token)
+        print(token["sub"])
         return token["sub"]
+    except:
+        logging.error("Error getting user id", exc_info=True)
+        raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)
+
+
+async def get_email(request: Request) -> str:
+    if LOCAL_USER is not None:
+        logging.info("Skipping authentication for local dev user")
+        return LOCAL_USER
+
+    try:
+        if is_public_user(request):
+            raise AuthError(
+                {"code": "unauthorized", "description": "Unauthorized"}, 401
+            )
+        token = await get_id_token(request)
+        return token["email"]
     except:
         logging.error("Error getting user id", exc_info=True)
         raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)

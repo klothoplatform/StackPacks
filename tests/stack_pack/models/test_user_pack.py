@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import aiounittest
 from pynamodb.exceptions import DoesNotExist
@@ -162,6 +162,13 @@ class TestUserPack(aiounittest.AsyncTestCase):
         # Assert
         mock_common_stack.assert_called_once_with(self.mock_stack_packs)
         mock_user_app.get.assert_called_once_with("id#common", 1)
+        mock_user_app.assert_called_once_with(
+            app_id="id#common",
+            version=1,
+            created_by="created_by",
+            created_at=ANY,
+            configuration=self.config.get("common"),
+        )
         mock_user_app.get_latest_version_with_status.assert_not_called()
         common_app.run_app.assert_called_once_with(
             common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
@@ -360,6 +367,14 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_user_app.get_latest_version_with_status.assert_has_calls(
             [call(mock_app_2.app_id)]
         )
+        mock_user_app.assert_called_once_with(
+            app_id="id#app1",
+            version=1,
+            created_by="created_by",
+            created_at=ANY,
+            configuration=self.config.get("app1"),
+        )
+
         mock_app_1.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app1"),
             f"{self.temp_dir.dir}/app1",

@@ -37,6 +37,7 @@ class DeploymentResult:
 
 
 class StackDeploymentRequest(BaseModel):
+    project_name: str
     stack_name: str
     iac: bytes
     pulumi_config: dict[str, str]
@@ -49,7 +50,8 @@ PROJECT_NAME = "StackPack"
 async def build_and_deploy(
     region: str,
     assume_role_arn: str,
-    app: str,
+    project_name: str,
+    app_name: str,
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
@@ -57,8 +59,8 @@ async def build_and_deploy(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
-        project_name=PROJECT_NAME,
-        name=PulumiStack.sanitize_stack_name(app),
+        project_name=project_name,
+        name=PulumiStack.sanitize_stack_name(app_name),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Deployment in progress",
         created_by=user,
@@ -126,6 +128,7 @@ async def run_concurrent_deployments(
                 args=(
                     region,
                     assume_role_arn,
+                    stack.project_name,
                     stack.stack_name,
                     user,
                     stack.iac,
@@ -160,7 +163,8 @@ async def deploy_common_stack(
         user_pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                stack_name=common_pack.app_id,
+                project_name=common_pack.get_pack_id(),
+                stack_name=common_pack.get_app_name(),
                 iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
@@ -226,7 +230,8 @@ async def deploy_applications(
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
         deployment_stacks.append(
             StackDeploymentRequest(
-                stack_name=app.app_id,
+                project_name=app.get_pack_id(),
+                stack_name=app.get_app_name(),
                 iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
@@ -253,9 +258,7 @@ async def deploy_applications(
 
 
 async def deploy_pack(
-    pack_id: str,
-    sps: dict[str, StackPack],
-    deployment_id: str,
+    pack_id: str, sps: dict[str, StackPack], deployment_id: str, email: str | None
 ):
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
@@ -298,4 +301,5 @@ async def deploy_pack(
 
         logger.info(f"Deploying app stacks")
         await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
-        send_email(get_ses_client(), "user@user.com", sps.keys())
+        if email is not None:
+            send_email(get_ses_client(), email, sps.keys())

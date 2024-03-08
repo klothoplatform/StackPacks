@@ -65,7 +65,8 @@ class UserPack(Model):
                 )
         if app is None:
             app = UserApp(
-                app_id=UserPack.COMMON_APP_NAME,
+                # This has to be a composite key so we can correlate the app with the pack
+                app_id=UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME),
                 version=1,
                 created_by=self.created_by,
                 created_at=datetime.datetime.now(),
@@ -136,7 +137,8 @@ class UserPack(Model):
                     )
             if app is None:
                 app = UserApp(
-                    app_id=name,
+                    # This has to be a composite key so we can correlate the app with the pack
+                    app_id=UserApp.composite_key(self.id, name),
                     version=1,
                     created_by=self.created_by,
                     created_at=datetime.datetime.now(),

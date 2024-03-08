@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from src.auth.token import get_user_id
+from src.auth.token import get_email, get_user_id
 from src.deployer.deploy import deploy_pack
 from src.deployer.destroy import tear_down_pack
 from src.deployer.models.deployment import PulumiStack
@@ -21,6 +21,7 @@ async def install(
     deployment_id: str = None,
 ):
     user_id = await get_user_id(request)
+    users_email = await get_email(request)
     stack_packs = get_stack_packs()
 
     if deployment_id is None:
@@ -28,7 +29,9 @@ async def install(
     elif deployment_id == "latest":
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
-    background_tasks.add_task(deploy_pack, user_id, stack_packs, deployment_id)
+    background_tasks.add_task(
+        deploy_pack, user_id, stack_packs, deployment_id, users_email
+    )
 
     return JSONResponse(
         status_code=201,

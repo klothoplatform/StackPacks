@@ -47,12 +47,20 @@ class TestDestroy(aiounittest.AsyncTestCase):
 
         # Call the method
         await run_destroy(
-            "region", "arn", "app", "user", b"iac", cfg, "deploy_id", Path("/tmp")
+            "region",
+            "arn",
+            "project",
+            "app",
+            "user",
+            b"iac",
+            cfg,
+            "deploy_id",
+            Path("/tmp"),
         )
 
         # Assert calls
         mock_pulumi_stack.assert_called_once_with(
-            project_name="StackPack",
+            project_name="project",
             name=mock_pulumi_stack.sanitize_stack_name.return_value,
             status="IN_PROGRESS",
             status_reason="Destroy in progress",
@@ -95,12 +103,14 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         stack_deployment_requests = [
             StackDeploymentRequest(
+                project_name="project",
                 stack_name="stack1",
                 iac=b"iac1",
                 pulumi_config={},
                 deployment_id="deploy_id",
             ),
             StackDeploymentRequest(
+                project_name="project",
                 stack_name="stack2",
                 iac=b"iac2",
                 pulumi_config={},
@@ -122,6 +132,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
                     args=(
                         "region",
                         "arn",
+                        "project",
                         "stack1",
                         "user",
                         b"iac1",
@@ -135,6 +146,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
                     args=(
                         "region",
                         "arn",
+                        "project",
                         "stack2",
                         "user",
                         b"iac2",
@@ -158,6 +170,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             spec=UserApp,
             app_id="id#common",
             version="1",
+            get_pack_id=MagicMock(return_value="id"),
             get_app_name=MagicMock(return_value="app1"),
             configuration={"key": "value"},
         )
@@ -194,7 +207,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
             mock_user_pack.assumed_role_arn,
             [
                 StackDeploymentRequest(
-                    stack_name=mock_common_pack.app_id,
+                    project_name="id",
+                    stack_name="app1",
                     iac=b"iac",
                     pulumi_config={},
                     deployment_id="deploy_id",
@@ -221,12 +235,14 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_app_1 = MagicMock(
             spec=UserApp,
             app_id="id#app1",
+            get_pack_id=MagicMock(return_value="id"),
             get_app_name=MagicMock(return_value="app1"),
             composite_key=MagicMock(return_value="id#app1"),
         )
         mock_app_2 = MagicMock(
             spec=UserApp,
             app_id="id#app2",
+            get_pack_id=MagicMock(return_value="id"),
             get_app_name=MagicMock(return_value="app2"),
             composite_key=MagicMock(return_value="id#app2"),
         )
@@ -274,13 +290,15 @@ class TestDestroy(aiounittest.AsyncTestCase):
             mock_user_pack.assumed_role_arn,
             [
                 StackDeploymentRequest(
-                    stack_name="id#app1",
+                    project_name="id",
+                    stack_name="app1",
                     iac=b"iac1",
                     pulumi_config={},
                     deployment_id="deploy_id",
                 ),
                 StackDeploymentRequest(
-                    stack_name="id#app2",
+                    project_name="id",
+                    stack_name="app2",
                     iac=b"iac2",
                     pulumi_config={},
                     deployment_id="deploy_id",

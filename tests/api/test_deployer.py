@@ -10,6 +10,7 @@ from src.stack_pack import StackPack
 
 
 class TestRoutes(aiounittest.AsyncTestCase):
+    @patch("src.api.deployer.get_email")
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.get_stack_packs")
@@ -20,10 +21,12 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_get_stack_packs,
         mock_bg,
         mock_get_user_id,
+        mock_get_email,
     ):
         # Setup mock objects
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
+        mock_get_email.return_value = "users_email"
 
         sp = MagicMock(spec=StackPack)
         mock_get_stack_packs.return_value = {"a": sp}
@@ -36,7 +39,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         # Assert calls
         mock_get_user_id.assert_called_once()
         mock_bg.add_task.assert_called_once_with(
-            deploy_pack, "user_id", {"a": sp}, "deployment_id"
+            deploy_pack, "user_id", {"a": sp}, "deployment_id", "users_email"
         )
 
         # Assert response

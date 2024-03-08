@@ -29,13 +29,12 @@ base:
         - Name: GITNESS_DATABASE_DRIVER
           Value: postgres
         - Name: GITNESS_URL_BASE
-          Value: aws:cloudfront_distribution:gitness-cf#DomainName
+          Value: aws:load_balancer:gitness-lb#NlbUri
         MountPoints[0]:
           ContainerPath: /data
           SourceVolume: gitness-data
     aws:load_balancer:gitness-lb:
       Scheme: internet-facing
-      Type: application
     aws:rds_instance:gitness-db:
     aws:efs_file_system:gitness-efs:
     aws:efs_access_point:gitness-efs:gitness-data:

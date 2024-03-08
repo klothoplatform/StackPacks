@@ -6,7 +6,7 @@ from aiomultiprocess import Pool
 from pulumi import automation as auto
 
 from src.dependencies.injection import get_iac_storage
-from src.deployer.deploy import PROJECT_NAME, DeploymentResult, StackDeploymentRequest
+from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -26,7 +26,8 @@ from src.util.tmp import TempDir
 async def run_destroy(
     region: str,
     assume_role_arn: str,
-    app: str,
+    project_name: str,
+    app_name: str,
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
@@ -34,8 +35,8 @@ async def run_destroy(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
-        project_name=PROJECT_NAME,
-        name=PulumiStack.sanitize_stack_name(app),
+        project_name=project_name,
+        name=PulumiStack.sanitize_stack_name(app_name),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Destroy in progress",
         created_by=user,
@@ -97,6 +98,7 @@ async def run_concurrent_destroys(
                 args=(
                     region,
                     assume_role_arn,
+                    stack.project_name,
                     stack.stack_name,
                     user,
                     stack.iac,
@@ -129,7 +131,8 @@ async def destroy_common_stack(
         user_pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                stack_name=common_pack.app_id,
+                project_name=common_pack.get_pack_id(),
+                stack_name=common_pack.get_app_name(),
                 iac=iac,
                 pulumi_config={},
                 deployment_id=deployment_id,
@@ -176,7 +179,8 @@ async def destroy_applications(
 
         deployment_stacks.append(
             StackDeploymentRequest(
-                stack_name=app.app_id,
+                project_name=app.get_pack_id(),
+                stack_name=app.get_app_name(),
                 iac=iac,
                 pulumi_config={},
                 deployment_id=deployment_id,

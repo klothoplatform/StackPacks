@@ -97,7 +97,7 @@ class UserApp(Model):
             await export_iac(
                 ExportIacRequest(
                     input_graph=engine_result.resources_yaml,
-                    name="stack",
+                    name=self.get_pack_id(),
                     tmp_dir=dir,
                 )
             )
