@@ -230,7 +230,10 @@ class TestDestroy(aiounittest.AsyncTestCase):
             get_app_name=MagicMock(return_value="app2"),
             composite_key=MagicMock(return_value="id#app2"),
         )
-        mock_user_app.get.side_effect = [mock_app_1, mock_app_2]
+        mock_user_app.get_latest_version_with_status.side_effect = [
+            mock_app_1,
+            mock_app_2,
+        ]
         mock_user_pack = MagicMock(spec=UserPack, id="id", apps={"app1": 1, "app2": 1})
         mock_iac_storage = MagicMock(
             spec=IacStorage, get_iac=Mock(side_effect=[b"iac1", b"iac2"])
@@ -260,7 +263,9 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
 
         # Assert
-        mock_user_app.get.assert_has_calls([call("id#app1", 1), call("id#app2", 1)])
+        mock_user_app.get_latest_version_with_status.assert_has_calls(
+            [call("id#app1"), call("id#app2")]
+        )
         mock_iac_storage.get_iac.assert_has_calls(
             [call("id", "app1", 1), call("id", "app2", 1)]
         )

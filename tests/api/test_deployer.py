@@ -35,7 +35,9 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_get_user_id.assert_called_once()
-        mock_bg.add_task.assert_called_once_with(deploy_pack, "user_id", {"a": sp}, "deployment_id")
+        mock_bg.add_task.assert_called_once_with(
+            deploy_pack, "user_id", {"a": sp}, "deployment_id"
+        )
 
         # Assert response
         self.assertEqual(response.status_code, 201)

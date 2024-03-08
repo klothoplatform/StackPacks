@@ -28,8 +28,7 @@ async def install(
     elif deployment_id == "latest":
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
-    background_tasks.add_task(deploy_pack, user_id, stack_packs)
-
+    background_tasks.add_task(deploy_pack, user_id, stack_packs, deployment_id)
 
     return JSONResponse(
         status_code=201,
@@ -51,7 +50,6 @@ async def tear_down(
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
     background_tasks.add_task(tear_down_pack, user_id)
-
 
     return JSONResponse(
         status_code=201,
