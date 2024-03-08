@@ -1,59 +1,71 @@
-from asyncio import Queue
-import asyncio
-from multiprocessing import Process
-from fastapi import APIRouter
-from fastapi import Request, BackgroundTasks
-import concurrent.futures
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from src.auth.token import get_user_id
+import uuid
 
-from src.util.logging import logger
-from src.deployer.main import (
-    stream_deployment_events,
-)
+from aiomultiprocess import Worker
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+
+from src.auth.token import get_user_id
 from src.deployer.deploy import deploy_pack
 from src.deployer.destroy import tear_down_pack
+from src.deployer.models.deployment import PulumiStack
+from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.stack_pack import get_stack_packs
-from aiomultiprocess import Worker
+from src.stack_pack.models.user_app import UserApp
 
 router = APIRouter()
-
-
-def read_zip_to_bytes(zip_file_path):
-    with open(zip_file_path, "rb") as file:
-        return file.read()
 
 
 @router.post("/api/install")
 async def install(
     request: Request,
+    deployment_id: str = None,
 ):
     user_id = await get_user_id(request)
     stack_packs = get_stack_packs()
 
-    worker = Worker(target=deploy_pack, args=(user_id, stack_packs))
+    if deployment_id is None:
+        deployment_id = str(uuid.uuid4())
+    elif deployment_id == "latest":
+        return Response(status_code=400, content="latest is a reserved deployment_id")
+
+    worker = Worker(target=deploy_pack, args=(user_id, stack_packs, deployment_id))
     worker.start()
 
-    return {"message": "Deployment started"}
+    return JSONResponse(
+        status_code=201,
+        content={"message": "Deployment started", "deployment_id": deployment_id},
+    )
 
 
 @router.post("/api/tear_down")
 async def tear_down(
     request: Request,
+    deployment_id: str = None,
 ):
     user_id = await get_user_id(request)
 
-    worker = Worker(target=tear_down_pack, args=(user_id))
+    if deployment_id is None:
+        deployment_id = str(uuid.uuid4())
+    elif deployment_id == "latest":
+        return Response(status_code=400, content="latest is a reserved deployment_id")
+
+    worker = Worker(target=tear_down_pack, args=(user_id, deployment_id))
     worker.start()
 
-    return {"message": "Destroy started"}
+    return JSONResponse(
+        status_code=201,
+        content={"message": "Destroy started", "deployment_id": deployment_id},
+    )
 
 
-@router.get("/api/install/{id}/logs")
-async def stream_deployment_logs(request: Request, id: str):
+@router.get("/api/install/{deploy_id}/{app_id}/logs")
+async def stream_deployment_logs(request: Request, deploy_id: str, app_id: str):
+    user_id = await get_user_id(request)
+    deploy_dir = DeploymentDir(user_id, deploy_id)
+    app_key = UserApp.composite_key(user_id, app_id)
+    log = deploy_dir.get_log(PulumiStack.sanitize_stack_name(app_key))
     return StreamingResponse(
-        stream_deployment_events(request, id),
+        log.tail(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-buffer"},
     )

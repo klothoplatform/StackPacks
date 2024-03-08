@@ -39,3 +39,7 @@ reset-backend:
 	rm -rf ./docker/dynamodb
 	mkdir -p ./docker/dynamodb
 	docker compose up -d
+
+clean-local:
+	rm -rf tmp/*
+	rm -rf deployments/*/

@@ -99,7 +99,7 @@ async def update_stack(
         stack_packs = get_stack_packs()
         with TempDir() as tmp_dir:
             common_policy = await user_pack.run_base(
-                [sp for k, sp in stack_packs.items()],
+                stack_packs.values(),
                 body.configuration.get("base", {}),
                 get_iac_storage(),
                 tmp_dir,
@@ -150,4 +150,5 @@ async def list_stackpacks():
             },
         }
         for spid, sp in sps.items()
+        if not spid.startswith("test_")
     }

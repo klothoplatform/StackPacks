@@ -9,13 +9,6 @@ from src.util.tmp import TempDir
 
 class TestAppBuilder(aiounittest.AsyncTestCase):
 
-    def setUp(self) -> None:
-        self.mock_sts_client = MagicMock()
-        return super().setUp()
-
-    def tearDown(self) -> None:
-        return super().tearDown()
-
     @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")
     @patch("src.deployer.pulumi.builder.subprocess.run")
     @patch("src.deployer.pulumi.builder.zipfile.ZipFile")
@@ -28,7 +21,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack,
     ):
         # Setup mock objects
-        builder = AppBuilder(self.mock_sts_client)
+        builder = AppBuilder("tmp_dir")
         builder.create_output_dir = MagicMock()
 
         builder.install_npm_deps = MagicMock()

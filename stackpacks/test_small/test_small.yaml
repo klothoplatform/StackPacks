@@ -1,0 +1,11 @@
+name: Small Testing SP
+version: '1.0.0'
+
+base:
+  resources:
+    aws:lambda_function:test_func:
+  edges: {}
+  files:
+    test_func-image.Dockerfile:
+
+configuration: {}

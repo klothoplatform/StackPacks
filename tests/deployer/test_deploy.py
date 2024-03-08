@@ -1,8 +1,11 @@
+from pathlib import Path
 from unittest.mock import ANY, AsyncMock, MagicMock, Mock, call, patch
 
 import aiounittest
 
 from src.deployer.deploy import (
+    DeploymentResult,
+    StackDeploymentRequest,
     build_and_deploy,
     deploy_applications,
     deploy_common_stack,
@@ -10,7 +13,6 @@ from src.deployer.deploy import (
     rerun_pack_with_live_state,
     run_concurrent_deployments,
 )
-from src.deployer.main import DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import DeploymentStatus, PulumiStack
 from src.deployer.pulumi.manager import AppManager
 from src.stack_pack import StackPack
@@ -19,80 +21,77 @@ from src.stack_pack.live_state import LiveState
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
-from src.util.tmp import TempDir
 
 
 class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.AppDeployer")
     @patch("src.deployer.deploy.Deployment")
     @patch("src.deployer.deploy.PulumiStack")
-    @patch("src.deployer.deploy.TempDir")
+    @patch("src.deployer.deploy.AppBuilder")
+    @patch("src.deployer.deploy.auto.ConfigValue")
+    @patch("src.deployer.deploy.DeploymentDir")
     async def test_build_and_deploy(
         self,
-        mock_temp_dir: MagicMock,
+        DeploymentDir,
+        auto_config_value,
+        AppBuilder,
         mock_pulumi_stack,
         mock_deployment,
         mock_app_deployer,
     ):
-        with (
-            patch("src.deployer.deploy.AppBuilder") as AppBuilder,
-            patch("src.deployer.pulumi.builder.auto.ConfigValue") as auto_config_value,
-        ):
-            mock_builder = AppBuilder.return_value
+        DeploymentDir.return_value = MagicMock()
 
-            auto_config_value.side_effect = lambda v, secret: v
-            mock_temp_dir.dir = "/tmp"
-            mock_deployer = MagicMock()
-            mock_app_deployer.return_value = mock_deployer
-            mock_deployer.deploy = AsyncMock(return_value=(MagicMock(), "reason"))
+        mock_builder = AppBuilder.return_value
 
-            # Call the method
-            cfg = {"key": "value"}
-            await build_and_deploy(
-                "region", "arn", "app", "user", b"iac", cfg, mock_temp_dir
-            )
+        auto_config_value.side_effect = lambda v, secret: v
+        mock_deployer = MagicMock()
+        mock_app_deployer.return_value = mock_deployer
+        mock_deployer.deploy = AsyncMock(return_value=(MagicMock(), "reason"))
 
-            # Assert calls
-            mock_pulumi_stack.assert_called_once_with(
-                project_name="StackPack",
-                name=mock_pulumi_stack.sanitize_stack_name.return_value,
-                status="IN_PROGRESS",
-                status_reason="Deployment in progress",
-                created_by="user",
+        # Call the method
+        cfg = {"key": "value"}
+        await build_and_deploy(
+            "region", "arn", "app", "user", b"iac", cfg, "deploy_id", Path("/tmp")
+        )
+
+        # Assert calls
+        mock_pulumi_stack.assert_called_once_with(
+            project_name="StackPack",
+            name=mock_pulumi_stack.sanitize_stack_name.return_value,
+            status="IN_PROGRESS",
+            status_reason="Deployment in progress",
+            created_by="user",
+        )
+        mock_deployment.assert_called_once_with(
+            id=ANY,
+            iac_stack_composite_key=mock_pulumi_stack.return_value.composite_key.return_value,
+            action="DEPLOY",
+            status="IN_PROGRESS",
+            status_reason="Deployment in progress",
+            initiated_by="user",
+        )
+        AppBuilder.assert_called_once_with(Path("/tmp"))
+        mock_builder.prepare_stack.assert_called_once_with(
+            b"iac", mock_pulumi_stack.return_value
+        )
+        mock_builder.configure_aws.assert_called_once_with(
+            mock_builder.prepare_stack.return_value, "arn", "region"
+        )
+        mock_app_deployer.assert_called_once_with(
+            mock_builder.prepare_stack.return_value,
+            DeploymentDir.return_value,
+        )
+        for k, v in cfg.items():
+            mock_builder.prepare_stack.return_value.set_config.assert_called_once_with(
+                k, v
             )
-            mock_deployment.assert_called_once_with(
-                id=ANY,
-                iac_stack_composite_key=mock_pulumi_stack.return_value.composite_key.return_value,
-                action="DEPLOY",
-                status="IN_PROGRESS",
-                status_reason="Deployment in progress",
-                initiated_by="user",
-            )
-            AppBuilder.assert_called_once_with("/tmp")
-            mock_builder.prepare_stack.assert_called_once_with(
-                b"iac", mock_pulumi_stack.return_value
-            )
-            mock_builder.configure_aws.assert_called_once_with(
-                mock_builder.prepare_stack.return_value, "arn", "region"
-            )
-            mock_app_deployer.assert_called_once_with(
-                mock_builder.prepare_stack.return_value
-            )
-            for k, v in cfg.items():
-                mock_builder.prepare_stack.return_value.set_config.assert_called_once_with(
-                    k, v
-                )
-            mock_deployer.deploy.assert_called_once_with()
-            mock_pulumi_stack.return_value.update.assert_called_once()
-            mock_deployment.return_value.update.assert_called_once()
+        mock_deployer.deploy.assert_called_once_with()
+        mock_pulumi_stack.return_value.update.assert_called_once()
+        mock_deployment.return_value.update.assert_called_once()
 
     @patch("src.deployer.deploy.Pool")
     @patch("src.deployer.deploy.build_and_deploy")
-    @patch("src.deployer.deploy.TempDir")
-    async def test_run_concurrent_deployments(
-        self, mock_temp_dir: MagicMock, mock_build_and_deploy, mock_pool
-    ):
-        mock_temp_dir.return_value = MagicMock()
+    async def test_run_concurrent_deployments(self, mock_build_and_deploy, mock_pool):
         mock_pool_instance = mock_pool.return_value.__aenter__.return_value
         mock_pool_instance.apply = mock_build_and_deploy
         mock_build_and_deploy.return_value = DeploymentResult(
@@ -102,12 +101,22 @@ class TestDeploy(aiounittest.AsyncTestCase):
             reason="Success",
         )
         stack_deployment_requests = [
-            StackDeploymentRequest(stack_name="stack1", iac=b"iac1", pulumi_config={}),
-            StackDeploymentRequest(stack_name="stack2", iac=b"iac2", pulumi_config={}),
+            StackDeploymentRequest(
+                stack_name="stack1",
+                iac=b"iac1",
+                pulumi_config={},
+                deployment_id="deploy_id",
+            ),
+            StackDeploymentRequest(
+                stack_name="stack2",
+                iac=b"iac2",
+                pulumi_config={},
+                deployment_id="deploy_id",
+            ),
         ]
 
         app_order, results = await run_concurrent_deployments(
-            "region", "arn", stack_deployment_requests, "user"
+            "region", "arn", stack_deployment_requests, "user", Path("/tmp")
         )
 
         mock_pool.assert_called_once()
@@ -122,7 +131,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
                         "user",
                         b"iac1",
                         {},
-                        mock_temp_dir.return_value,
+                        "deploy_id",
+                        Path("/tmp") / "stack1",
                     ),
                 ),
                 call(
@@ -134,12 +144,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
                         "user",
                         b"iac2",
                         {},
-                        mock_temp_dir.return_value,
+                        "deploy_id",
+                        Path("/tmp") / "stack2",
                     ),
                 ),
             ]
         )
-        assert mock_temp_dir.call_count == 2
         assert mock_build_and_deploy.call_count == 2
         assert app_order == ["stack1", "stack2"]
         assert all(isinstance(result, DeploymentResult) for result in results)
@@ -177,7 +187,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
 
         # Act
         manager = await deploy_common_stack(
-            mock_user_pack, mock_common_pack, mock_common_stack, mock_iac_storage
+            mock_user_pack,
+            mock_common_pack,
+            mock_common_stack,
+            mock_iac_storage,
+            "deploy_id",
+            Path("/tmp"),
         )
 
         # Assert
@@ -195,9 +210,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
                     stack_name=mock_common_pack.app_id,
                     iac=b"iac",
                     pulumi_config=mock_common_stack.get_pulumi_configs.return_value,
+                    deployment_id="deploy_id",
                 )
             ],
             mock_user_pack.id,
+            Path("/tmp"),
         )
         mock_common_pack.update.assert_called_once_with(
             actions=[
@@ -211,8 +228,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         self.assertEqual(manager, mock_manager)
 
     @patch("src.deployer.deploy.UserApp")
-    @patch("src.deployer.deploy.TempDir")
-    async def test_rerun_pack_with_live_state(self, mock_tmp_dir, mock_user_app):
+    async def test_rerun_pack_with_live_state(self, mock_user_app):
         # Arrange
         mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
         mock_app_1 = MagicMock(
@@ -240,7 +256,6 @@ class TestDeploy(aiounittest.AsyncTestCase):
             "app1": MagicMock(spec=StackPack),
             "app2": MagicMock(spec=StackPack),
         }
-        mock_tmp_dir.return_value = TempDir()
 
         # Act
         await rerun_pack_with_live_state(
@@ -250,6 +265,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_iac_storage,
             mock_live_state,
             mock_sps,
+            "/tmp",
         )
 
         # Assert
@@ -259,7 +275,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_pack_instance.run_pack.assert_called_once_with(
             mock_sps,
             {"app1": {"key": "value"}, "app2": {"key2": "value2"}},
-            mock_tmp_dir.return_value.dir,
+            "/tmp",
             mock_iac_storage,
             increment_versions=False,
             imports=["constraint1", "constraint2"],
@@ -319,7 +335,9 @@ class TestDeploy(aiounittest.AsyncTestCase):
             )
         ]
         # Act
-        await deploy_applications(mock_user_pack, mock_iac_storage, mock_sps)
+        await deploy_applications(
+            mock_user_pack, mock_iac_storage, mock_sps, "deploy_id", Path("/tmp")
+        )
 
         # Assert
         mock_user_app.get.assert_has_calls([call("id#app1", 1), call("id#app2", 1)])
@@ -335,13 +353,20 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_user_pack.assumed_role_arn,
             [
                 StackDeploymentRequest(
-                    stack_name="id#app1", iac=b"iac1", pulumi_config={"key": "value"}
+                    stack_name="id#app1",
+                    iac=b"iac1",
+                    pulumi_config={"key": "value"},
+                    deployment_id="deploy_id",
                 ),
                 StackDeploymentRequest(
-                    stack_name="id#app2", iac=b"iac2", pulumi_config={"key2": "value2"}
+                    stack_name="id#app2",
+                    iac=b"iac2",
+                    pulumi_config={"key2": "value2"},
+                    deployment_id="deploy_id",
                 ),
             ],
             mock_user_pack.id,
+            Path("/tmp"),
         )
         mock_app_1.update.assert_called_once_with(
             actions=[
@@ -373,8 +398,10 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.UserPack")
     @patch("src.deployer.deploy.UserApp")
     @patch("src.deployer.deploy.CommonStack")
+    @patch("src.deployer.deploy.TempDir")
     async def test_deploy_pack(
         self,
+        mock_temp_dir,
         mock_common_stack,
         mock_user_app,
         mock_user_pack,
@@ -400,9 +427,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         mock_common_stack.return_value = common_stack
         mock_deploy_common_stack.return_value = manager
+        mock_temp_dir.return_value = MagicMock()
+        mock_temp_dir.return_value.__enter__.return_value = "/tmp"
 
         # Act
-        await deploy_pack(pack_id="id", sps=mock_sps)
+        await deploy_pack(pack_id="id", sps=mock_sps, deployment_id="deploy_id")
 
         # Assert
         mock_get_iac_storage.assert_called_once()
@@ -410,7 +439,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_app.get.assert_called_once_with("id#common", 1)
         mock_common_stack.assert_called_once_with([sp1])
         mock_deploy_common_stack.assert_called_once_with(
-            user_pack, mock_common_pack, common_stack, mock_iac_storage
+            user_pack,
+            mock_common_pack,
+            common_stack,
+            mock_iac_storage,
+            "deploy_id",
+            Path("/tmp"),
         )
         mock_rerun_pack_with_live_state.assert_called_once_with(
             user_pack,
@@ -419,7 +453,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_iac_storage,
             live_state,
             mock_sps,
+            "/tmp",
         )
         mock_deploy_applications.assert_called_once_with(
-            user_pack, mock_iac_storage, mock_sps
+            user_pack, mock_iac_storage, mock_sps, "deploy_id", Path("/tmp")
         )

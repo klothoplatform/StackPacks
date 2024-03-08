@@ -1,12 +1,13 @@
 import asyncio
-import uuid
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Tuple
 
 from aiomultiprocess import Pool
 from pulumi import automation as auto
+from pydantic import BaseModel
 
 from src.dependencies.injection import get_iac_storage
-from src.deployer.main import PROJECT_NAME, DeploymentResult, StackDeploymentRequest
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -14,6 +15,7 @@ from src.deployer.models.deployment import (
     PulumiStack,
 )
 from src.deployer.pulumi.builder import AppBuilder
+from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
 from src.stack_pack import ConfigValues, StackPack
@@ -25,6 +27,24 @@ from src.util.logging import logger
 from src.util.tmp import TempDir
 
 
+@dataclass
+class DeploymentResult:
+    manager: AppManager | None
+    status: DeploymentStatus
+    reason: str
+    stack: PulumiStack | None
+
+
+class StackDeploymentRequest(BaseModel):
+    stack_name: str
+    iac: bytes
+    pulumi_config: dict[str, str]
+    deployment_id: str
+
+
+PROJECT_NAME = "StackPack"
+
+
 async def build_and_deploy(
     region: str,
     assume_role_arn: str,
@@ -32,9 +52,9 @@ async def build_and_deploy(
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
-    tmp_dir: TempDir,
+    deployment_id: str,
+    tmp_dir: Path,
 ) -> DeploymentResult:
-    deployment_id = str(uuid.uuid4())
     pulumi_stack = PulumiStack(
         project_name=PROJECT_NAME,
         name=PulumiStack.sanitize_stack_name(app),
@@ -53,13 +73,14 @@ async def build_and_deploy(
 
     pulumi_stack.save()
     deployment.save()
-    builder = AppBuilder(tmp_dir.dir)
+    builder = AppBuilder(tmp_dir)
     stack = builder.prepare_stack(iac, pulumi_stack)
     builder.configure_aws(stack, assume_role_arn, region)
     for k, v in pulumi_config.items():
         stack.set_config(k, auto.ConfigValue(v, secret=True))
     deployer = AppDeployer(
         stack,
+        DeploymentDir(user, deployment_id),
     )
     result_status, reason = await deployer.deploy()
     pulumi_stack.update(
@@ -87,6 +108,7 @@ async def run_concurrent_deployments(
     assume_role_arn: str,
     stacks: list[StackDeploymentRequest],
     user: str,
+    tmp_dir: Path,
 ) -> Tuple[list[str], list[DeploymentResult]]:
     # This version of the function creates an empty list tasks, then iterates over the stacks list.
     # For each stack, it applies the build_and_deploy function using the pool, awaits the result, and appends it to the tasks list.
@@ -107,7 +129,8 @@ async def run_concurrent_deployments(
                     user,
                     stack.iac,
                     stack.pulumi_config,
-                    TempDir(),
+                    stack.deployment_id,
+                    tmp_dir / stack.stack_name,
                 ),
             )
             app_order.append(stack.stack_name)
@@ -123,6 +146,8 @@ async def deploy_common_stack(
     common_pack: UserApp,
     common_stack: CommonStack,
     iac_storage: IacStorage,
+    deployment_id: str,
+    tmp_dir: Path,
 ):
     common_version = common_pack.version
     logger.info(f"Deploying common stack {common_version}")
@@ -134,10 +159,14 @@ async def deploy_common_stack(
         user_pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                stack_name=common_pack.app_id, iac=iac, pulumi_config=pulumi_config
+                stack_name=common_pack.app_id,
+                iac=iac,
+                pulumi_config=pulumi_config,
+                deployment_id=deployment_id,
             )
         ],
         user_pack.id,
+        tmp_dir,
     )
     common_pack.update(
         actions=[
@@ -156,6 +185,7 @@ async def rerun_pack_with_live_state(
     iac_storage: IacStorage,
     live_state: LiveState,
     sps: dict[str, StackPack],
+    tmp_dir: str,
 ):
     logger.info(f"Rerunning pack {user_pack.id} with imports")
 
@@ -166,22 +196,22 @@ async def rerun_pack_with_live_state(
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
         configuration[name] = app.get_configurations()
 
-    with TempDir() as tmp_dir:
-        await user_pack.run_pack(
-            sps,
-            configuration,
-            tmp_dir,
-            iac_storage,
-            increment_versions=False,
-            imports=live_state.to_constraints(common_stack, common_pack.configuration),
-        )
-    return
+    await user_pack.run_pack(
+        sps,
+        configuration,
+        tmp_dir,
+        iac_storage,
+        increment_versions=False,
+        imports=live_state.to_constraints(common_stack, common_pack.configuration),
+    )
 
 
 async def deploy_applications(
     user_pack: UserPack,
     iac_storage: IacStorage,
     sps: dict[str, StackPack],
+    deployment_id: str,
+    tmp_dir: Path,
 ):
     deployment_stacks: list[StackDeploymentRequest] = []
     apps: dict[str, UserApp] = {}
@@ -195,12 +225,19 @@ async def deploy_applications(
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
         deployment_stacks.append(
             StackDeploymentRequest(
-                stack_name=app.app_id, iac=iac, pulumi_config=pulumi_config
+                stack_name=app.app_id,
+                iac=iac,
+                pulumi_config=pulumi_config,
+                deployment_id=deployment_id,
             )
         )
 
     order, results = await run_concurrent_deployments(
-        user_pack.region, user_pack.assumed_role_arn, deployment_stacks, user_pack.id
+        user_pack.region,
+        user_pack.assumed_role_arn,
+        deployment_stacks,
+        user_pack.id,
+        tmp_dir,
     )
     for i, name in enumerate(order):
         app = apps[name]
@@ -217,30 +254,46 @@ async def deploy_applications(
 async def deploy_pack(
     pack_id: str,
     sps: dict[str, StackPack],
+    deployment_id: str,
 ):
-    logger.info(f"Deploying pack {pack_id}")
-    iac_storage = get_iac_storage()
-    user_pack = UserPack.get(pack_id)
+    with TempDir() as tmp_dir_str:
+        tmp_dir = Path(tmp_dir_str)
 
-    common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
-    if common_version == 0:
-        raise ValueError("Common stack not found")
+        logger.info(f"Deploying pack {pack_id}")
+        iac_storage = get_iac_storage()
+        user_pack = UserPack.get(pack_id)
 
-    common_pack = UserApp.get(
-        UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME), common_version
-    )
-    common_stack = CommonStack([sp for sp in sps.values()])
-    logger.info(f"Deploying common stack")
-    manager = await deploy_common_stack(
-        user_pack, common_pack, common_stack, iac_storage
-    )
-    live_state = await manager.read_deployed_state()
+        common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
+        if common_version == 0:
+            raise ValueError("Common stack not found")
 
-    logger.info(f"Rerunning pack with live state")
-    await rerun_pack_with_live_state(
-        user_pack, common_pack, common_stack, iac_storage, live_state, sps
-    )
+        common_pack = UserApp.get(
+            UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
+            common_version,
+        )
+        common_stack = CommonStack(list(sps.values()))
+        logger.info(f"Deploying common stack")
 
-    logger.info(f"Deploying app stacks")
-    await deploy_applications(user_pack, iac_storage, sps)
-    return
+        manager = await deploy_common_stack(
+            user_pack,
+            common_pack,
+            common_stack,
+            iac_storage,
+            deployment_id,
+            tmp_dir,
+        )
+        live_state = await manager.read_deployed_state()
+
+        logger.info(f"Rerunning pack with live state")
+        await rerun_pack_with_live_state(
+            user_pack,
+            common_pack,
+            common_stack,
+            iac_storage,
+            live_state,
+            sps,
+            tmp_dir_str,
+        )
+
+        logger.info(f"Deploying app stacks")
+        await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
