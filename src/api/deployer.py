@@ -49,7 +49,7 @@ async def tear_down(
     elif deployment_id == "latest":
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
-    background_tasks.add_task(tear_down_pack, user_id)
+    background_tasks.add_task(tear_down_pack, user_id, deployment_id)
 
     return JSONResponse(
         status_code=201,

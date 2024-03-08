@@ -1,6 +1,8 @@
 name: Gitea
 version: '1.0.0'
-
+requires:
+  - network
+  - ecs
 base:
   resources:
     aws:ecr_image:gitness:
@@ -33,8 +35,8 @@ base:
           SourceVolume: gitness-data
     aws:load_balancer:gitness-lb:
       Scheme: internet-facing
+      Type: application
     aws:rds_instance:gitness-db:
-    aws:cloudfront_distribution:gitness-cf:
     aws:efs_file_system:gitness-efs:
     aws:efs_access_point:gitness-efs:gitness-data:
       FileSystem: aws:efs_file_system:gitness-efs
@@ -48,7 +50,6 @@ base:
               Permissions: "777"
           Path: /mnt/data
   edges:
-    aws:cloudfront_distribution:gitness-cf -> aws:load_balancer:gitness-lb:
     aws:load_balancer:gitness-lb -> aws:ecs_service:gitness-service:
     aws:ecs_service:gitness-service -> aws:rds_instance:gitness-db:
     aws:ecs_task_definition:gitness-task -> aws:efs_access_point:gitness-efs:gitness-data:
