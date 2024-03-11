@@ -1,0 +1,129 @@
+name: Mattermost
+version: '1.0.0'
+
+requires:
+  - network
+  - ecs
+
+base:
+  resources:
+    aws:ecr_image:tooljet:
+      BaseImage: tooljet/tooljet:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:tooljet-service:
+      HealthCheckGracePeriodSeconds: 900
+      LoadBalancers[0].ContainerPort: 3000
+      TaskDefinition: aws:ecs_task_definition:tooljet-task
+      AssignPublicIp: true
+      DesiredCount: 1
+    aws:ecs_task_definition:tooljet-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:tooljet
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Command:
+          - npm
+          - run
+          - "start:prod"
+        Environment:
+        - Name: TOOLJET_HOST
+          Value: "http://localhost"
+        - Name: PG_HOST
+          Value: aws:rds_instance:tooljet-db#Host
+        - Name: PG_USER
+          Value: aws:rds_instance:tooljet-db#Username
+        - Name: PG_PASS
+          Value: aws:rds_instance:tooljet-db#Password
+        - Name: PG_DB
+          Value: aws:rds_instance:tooljet-db#DatabaseName
+        - Name: DEPLOYMENT_PLATFORM
+          Value: "aws:ecs"
+        - Name: REDIS_HOST
+          Value: aws:memorydb_cluster:tooljet-memcluster#PrimaryAddress
+        - Name: REDIS_PORT
+          Value: aws:memorydb_cluster:tooljet-memcluster#PrimaryPort
+    aws:target_group:tooljet-tg:
+      Port: 3000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /api/health
+        Matcher: 200
+    aws:load_balancer:tooljet-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:tooljet-lb:tooljet-listener:
+      LoadBalancer: aws:load_balancer:tooljet-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:tooljet-tg
+    aws:rds_instance:tooljet-db:
+      AllocatedStorage: 100
+    aws:memorydb_cluster:tooljet-memcluster:
+    aws:cloudfront_distribution:tooljet-cf:
+  edges:
+    aws:cloudfront_distribution:tooljet-cf -> aws:load_balancer:tooljet-lb:
+    aws:load_balancer:tooljet-lb -> aws:ecs_service:tooljet-service:
+    aws:load_balancer:tooljet-lb -> aws:load_balancer_listener:tooljet-lb:tooljet-listener:
+    aws:load_balancer_listener:tooljet-lb:tooljet-listener -> aws:target_group:tooljet-tg:
+    aws:target_group:tooljet-tg -> aws:ecs_service:tooljet-service:
+    aws:ecs_service:tooljet-service -> aws:rds_instance:tooljet-db:
+    aws:ecs_service:tooljet-service -> aws:memorydb_cluster:tooljet-memcluster:
+  files:
+    Dockerfile:
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the Mattermost service
+    type: number
+    default: 1024
+    validation:
+      minValue: 1024
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the Mattermost service
+    type: number
+    default: 3072
+    validation:
+      minValue: 3072
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Mattermost database
+    type: string
+    default: mattermostuser
+    pulumi_key: klo:tooljet-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Mattermost database
+    type: string
+    pulumi_key: klo:tooljet-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+  
+  RedisClusterPassword:
+    name: Redis Cluster Password
+    description: The password to use for the Redis cluster
+    type: string
+    pulumi_key: klo:tooljet-service-tooljet-memcluster-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128

@@ -139,7 +139,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
             RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
         )
         mock_export_iac.assert_called_once_with(
-            ExportIacRequest(input_graph="resources_yaml", name="stack", tmp_dir="dir")
+            ExportIacRequest(input_graph="resources_yaml", name="id", tmp_dir="dir")
         )
         mock_stack_pack.copy_files.assert_called_once_with(
             {"config": "value"}, Path("dir")

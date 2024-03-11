@@ -47,6 +47,23 @@ async def get_user_id(request: Request) -> str:
         raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)
 
 
+async def get_email(request: Request) -> str:
+    if LOCAL_USER is not None:
+        logging.info("Skipping authentication for local dev user")
+        return LOCAL_USER
+
+    try:
+        if is_public_user(request):
+            raise AuthError(
+                {"code": "unauthorized", "description": "Unauthorized"}, 401
+            )
+        token = await get_id_token(request)
+        return token["email"]
+    except:
+        logging.error("Error getting user id", exc_info=True)
+        raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)
+
+
 async def get_id_token(request: Request):
     token = get_token_auth_header(request)
     # The client will read the JWT header to get the kid field,

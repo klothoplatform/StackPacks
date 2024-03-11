@@ -51,12 +51,20 @@ class TestDeploy(aiounittest.AsyncTestCase):
         # Call the method
         cfg = {"key": "value"}
         await build_and_deploy(
-            "region", "arn", "app", "user", b"iac", cfg, "deploy_id", Path("/tmp")
+            "region",
+            "arn",
+            "project",
+            "app",
+            "user",
+            b"iac",
+            cfg,
+            "deploy_id",
+            Path("/tmp"),
         )
 
         # Assert calls
         mock_pulumi_stack.assert_called_once_with(
-            project_name="StackPack",
+            project_name="project",
             name=mock_pulumi_stack.sanitize_stack_name.return_value,
             status="IN_PROGRESS",
             status_reason="Deployment in progress",
@@ -102,12 +110,14 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         stack_deployment_requests = [
             StackDeploymentRequest(
+                project_name="project",
                 stack_name="stack1",
                 iac=b"iac1",
                 pulumi_config={},
                 deployment_id="deploy_id",
             ),
             StackDeploymentRequest(
+                project_name="project",
                 stack_name="stack2",
                 iac=b"iac2",
                 pulumi_config={},
@@ -127,6 +137,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
                     args=(
                         "region",
                         "arn",
+                        "project",
                         "stack1",
                         "user",
                         b"iac1",
@@ -140,6 +151,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
                     args=(
                         "region",
                         "arn",
+                        "project",
                         "stack2",
                         "user",
                         b"iac2",
@@ -163,7 +175,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
             spec=UserApp,
             app_id="id#common",
             version="1",
-            get_app_name=MagicMock(return_value="app1"),
+            get_pack_id=MagicMock(return_value="id"),
+            get_app_name=MagicMock(return_value="common"),
             configuration={"key": "value"},
         )
         mock_common_stack = MagicMock(
@@ -207,7 +220,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_user_pack.assumed_role_arn,
             [
                 StackDeploymentRequest(
-                    stack_name=mock_common_pack.app_id,
+                    project_name="id",
+                    stack_name="common",
                     iac=b"iac",
                     pulumi_config=mock_common_stack.get_pulumi_configs.return_value,
                     deployment_id="deploy_id",
@@ -291,6 +305,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_app_1 = MagicMock(
             spec=UserApp,
             app_id="id#app1",
+            get_pack_id=MagicMock(return_value="id"),
             get_app_name=MagicMock(return_value="app1"),
             get_configurations=MagicMock(return_value={"key": "value"}),
             composite_key=MagicMock(return_value="id#app1"),
@@ -298,6 +313,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_app_2 = MagicMock(
             spec=UserApp,
             app_id="id#app2",
+            get_pack_id=MagicMock(return_value="id"),
             get_app_name=MagicMock(return_value="app2"),
             get_configurations=MagicMock(return_value={"key2": "value2"}),
             composite_key=MagicMock(return_value="id#app2"),
@@ -317,7 +333,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_sps = {"app1": sp1, "app2": sp2}
         mock_run_concurrent_deployments.side_effect = [
             (
-                ["id#app1", "id#app2"],
+                ["app1", "app2"],
                 [
                     DeploymentResult(
                         manager=MagicMock(spec=AppManager),
@@ -353,13 +369,15 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_user_pack.assumed_role_arn,
             [
                 StackDeploymentRequest(
-                    stack_name="id#app1",
+                    project_name="id",
+                    stack_name="app1",
                     iac=b"iac1",
                     pulumi_config={"key": "value"},
                     deployment_id="deploy_id",
                 ),
                 StackDeploymentRequest(
-                    stack_name="id#app2",
+                    project_name="id",
+                    stack_name="app2",
                     iac=b"iac2",
                     pulumi_config={"key2": "value2"},
                     deployment_id="deploy_id",
@@ -399,8 +417,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.UserApp")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
+    @patch("src.deployer.deploy.get_ses_client")
+    @patch("src.deployer.deploy.send_email")
     async def test_deploy_pack(
         self,
+        mock_send_email,
+        mock_get_ses_client,
         mock_temp_dir,
         mock_common_stack,
         mock_user_app,
@@ -429,9 +451,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_deploy_common_stack.return_value = manager
         mock_temp_dir.return_value = MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
+        mock_get_ses_client.return_value = MagicMock()
 
         # Act
-        await deploy_pack(pack_id="id", sps=mock_sps, deployment_id="deploy_id")
+        await deploy_pack(
+            pack_id="id", sps=mock_sps, deployment_id="deploy_id", email="email"
+        )
 
         # Assert
         mock_get_iac_storage.assert_called_once()
@@ -457,4 +482,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         mock_deploy_applications.assert_called_once_with(
             user_pack, mock_iac_storage, mock_sps, "deploy_id", Path("/tmp")
+        )
+        mock_send_email.assert_called_once_with(
+            mock_get_ses_client.return_value, "email", mock_sps.keys()
         )

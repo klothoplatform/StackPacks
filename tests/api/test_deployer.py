@@ -10,36 +10,37 @@ from src.stack_pack import StackPack
 
 
 class TestRoutes(aiounittest.AsyncTestCase):
+    @patch("src.api.deployer.get_email")
     @patch("src.api.deployer.get_user_id")
-    @patch("src.api.deployer.Worker")
+    @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.get_stack_packs")
     @patch("src.api.deployer.uuid")
     async def test_install(
         self,
         mock_uuid,
         mock_get_stack_packs,
-        mock_worker,
+        mock_bg,
         mock_get_user_id,
+        mock_get_email,
     ):
         # Setup mock objects
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
+        mock_get_email.return_value = "users_email"
 
-        worker = MagicMock()
-        mock_worker.return_value = worker
         sp = MagicMock(spec=StackPack)
         mock_get_stack_packs.return_value = {"a": sp}
 
         response = await install(
             MagicMock(),
+            mock_bg,
         )
 
         # Assert calls
         mock_get_user_id.assert_called_once()
-        mock_worker.assert_called_once_with(
-            target=deploy_pack, args=("user_id", {"a": sp}, "deployment_id")
+        mock_bg.add_task.assert_called_once_with(
+            deploy_pack, "user_id", {"a": sp}, "deployment_id", "users_email"
         )
-        worker.start.assert_called_once()
 
         # Assert response
         self.assertEqual(response.status_code, 201)
@@ -49,31 +50,25 @@ class TestRoutes(aiounittest.AsyncTestCase):
         )
 
     @patch("src.api.deployer.get_user_id")
-    @patch("src.api.deployer.Worker")
+    @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
     async def test_tear_down(
         self,
         mock_uuid,
-        mock_worker,
+        mock_bg,
         mock_get_user_id,
     ):
         # Setup mock objects
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
 
-        worker = MagicMock()
-        mock_worker.return_value = worker
-
-        response = await tear_down(
-            MagicMock(),
-        )
+        response = await tear_down(MagicMock(), mock_bg)
 
         # Assert calls
         mock_get_user_id.assert_called_once()
-        mock_worker.assert_called_once_with(
-            target=tear_down_pack, args=("user_id", "deployment_id")
+        mock_bg.add_task.assert_called_once_with(
+            tear_down_pack, "user_id", "deployment_id"
         )
-        worker.start.assert_called_once()
 
         # Assert response
         self.assertEqual(response.status_code, 201)

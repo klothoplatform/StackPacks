@@ -7,7 +7,7 @@ from aiomultiprocess import Pool
 from pulumi import automation as auto
 from pydantic import BaseModel
 
-from src.dependencies.injection import get_iac_storage
+from src.dependencies.injection import get_iac_storage, get_ses_client
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -23,6 +23,7 @@ from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.aws.ses import send_email
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
@@ -36,6 +37,7 @@ class DeploymentResult:
 
 
 class StackDeploymentRequest(BaseModel):
+    project_name: str
     stack_name: str
     iac: bytes
     pulumi_config: dict[str, str]
@@ -48,7 +50,8 @@ PROJECT_NAME = "StackPack"
 async def build_and_deploy(
     region: str,
     assume_role_arn: str,
-    app: str,
+    project_name: str,
+    app_name: str,
     user: str,
     iac: bytes,
     pulumi_config: dict[str, str],
@@ -56,8 +59,8 @@ async def build_and_deploy(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
-        project_name=PROJECT_NAME,
-        name=PulumiStack.sanitize_stack_name(app),
+        project_name=project_name,
+        name=PulumiStack.sanitize_stack_name(app_name),
         status=DeploymentStatus.IN_PROGRESS.value,
         status_reason="Deployment in progress",
         created_by=user,
@@ -125,6 +128,7 @@ async def run_concurrent_deployments(
                 args=(
                     region,
                     assume_role_arn,
+                    stack.project_name,
                     stack.stack_name,
                     user,
                     stack.iac,
@@ -159,7 +163,8 @@ async def deploy_common_stack(
         user_pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                stack_name=common_pack.app_id,
+                project_name=common_pack.get_pack_id(),
+                stack_name=common_pack.get_app_name(),
                 iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
@@ -219,13 +224,14 @@ async def deploy_applications(
         if name == UserPack.COMMON_APP_NAME:
             continue
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
-        apps[app.app_id] = app
+        apps[app.get_app_name()] = app
         iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         sp = sps[app.get_app_name()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
         deployment_stacks.append(
             StackDeploymentRequest(
-                stack_name=app.app_id,
+                project_name=app.get_pack_id(),
+                stack_name=app.get_app_name(),
                 iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
@@ -252,9 +258,7 @@ async def deploy_applications(
 
 
 async def deploy_pack(
-    pack_id: str,
-    sps: dict[str, StackPack],
-    deployment_id: str,
+    pack_id: str, sps: dict[str, StackPack], deployment_id: str, email: str | None
 ):
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
@@ -297,3 +301,5 @@ async def deploy_pack(
 
         logger.info(f"Deploying app stacks")
         await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
+        if email is not None:
+            send_email(get_ses_client(), email, sps.keys())

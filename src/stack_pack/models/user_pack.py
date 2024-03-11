@@ -65,7 +65,8 @@ class UserPack(Model):
                 )
         if app is None:
             app = UserApp(
-                app_id=UserPack.COMMON_APP_NAME,
+                # This has to be a composite key so we can correlate the app with the pack
+                app_id=UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME),
                 version=1,
                 created_by=self.created_by,
                 created_at=datetime.datetime.now(),
@@ -119,6 +120,7 @@ class UserPack(Model):
             if version is not None:
                 try:
                     app = UserApp.get(UserApp.composite_key(self.id, name), version)
+                    app.configuration = config
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
                         latest_version = UserApp.get_latest_version_with_status(
@@ -135,7 +137,8 @@ class UserPack(Model):
                     )
             if app is None:
                 app = UserApp(
-                    app_id=name,
+                    # This has to be a composite key so we can correlate the app with the pack
+                    app_id=UserApp.composite_key(self.id, name),
                     version=1,
                     created_by=self.created_by,
                     created_at=datetime.datetime.now(),
@@ -148,12 +151,21 @@ class UserPack(Model):
 
         # Run the packs in parallel and only store the iac if we are incrementing the version
         tasks = []
+        common_stack = CommonStack([sp for k, sp in stack_packs.items()])
         for app in apps:
             subdir = Path(tmp_dir) / app.get_app_name()
             subdir.mkdir(exist_ok=True)
+            sp = stack_packs[app.get_app_name()]
+            # Extend the base resources to the stack pack in case they are used in the stack pack
+            for id, properties in common_stack.base.resources.items():
+                import_constraints = [
+                    c["node"] for c in imports if c["operator"] == "import"
+                ]
+                if id not in import_constraints:
+                    sp.base.resources.update({id: properties})
             tasks.append(
                 app.run_app(
-                    stack_packs[app.get_app_name()],
+                    sp,
                     str(subdir.absolute()),
                     iac_storage,
                     imports,
