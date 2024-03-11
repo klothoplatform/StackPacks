@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
-from pynamodb.attributes import JSONAttribute, UnicodeAttribute, UTCDateTimeAttribute
+from pynamodb.attributes import (
+    BooleanAttribute,
+    JSONAttribute,
+    UnicodeAttribute,
+    UTCDateTimeAttribute,
+)
 from pynamodb.exceptions import DoesNotExist
 from pynamodb.models import Model
 
@@ -30,13 +35,12 @@ class UserPack(Model):
     owner: str = UnicodeAttribute()
     region: str = UnicodeAttribute(null=True)
     assumed_role_arn: str = UnicodeAttribute(null=True)
-    # Configuration is a dictionary where the keys are the oss package
-    # and the value is another dictionary of the key value configurations for that oss package
     apps: dict[str, int] = JSONAttribute()
     created_by: str = UnicodeAttribute()
     created_at: datetime.datetime = UTCDateTimeAttribute(
         default=datetime.datetime.now()
     )
+    tear_down_in_progress: bool = BooleanAttribute(default=False)
 
     async def run_base(
         self,
@@ -110,7 +114,7 @@ class UserPack(Model):
         apps: List[UserApp] = []
         invalid_stacks = []
         for name, config in config.items():
-            if name is UserPack.COMMON_APP_NAME:
+            if name == UserPack.COMMON_APP_NAME:
                 continue
             if name not in stack_packs:
                 invalid_stacks.append(name)
