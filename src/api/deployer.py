@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from src.auth.token import get_email, get_user_id
@@ -57,12 +57,9 @@ async def install_app(
 
     user_pack = UserPack.get(user_id)
     if user_pack.tear_down_in_progress:
-        return JSONResponse(
+        return HTTPException(
             status_code=400,
-            content={
-                "message": "Tear down in progress",
-                "deployment_id": deployment_id,
-            },
+            detail="Tear down in progress",
         )
     app = UserApp.get_latest_version(UserApp.composite_key(user_id, app_name))
 
@@ -114,10 +111,15 @@ async def tear_down_app(
         UserApp.composite_key(user_id, app_name)
     )
 
-    if len(user_pack.apps) == 2 and set(user_pack.apps.keys()) == {
-        UserPack.COMMON_APP_NAME,
-        app_name,
-    }:
+    if (
+        len(user_pack.apps) < 2
+        or len(user_pack.apps) == 2
+        and set(user_pack.apps.keys())
+        == {
+            UserPack.COMMON_APP_NAME,
+            app_name,
+        }
+    ):
         user_pack.update(actions=[UserPack.tear_down_in_progress.set(True)])
 
     background_tasks.add_task(tear_down_single, user_pack, app, deployment_id)

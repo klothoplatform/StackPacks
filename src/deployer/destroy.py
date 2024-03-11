@@ -206,17 +206,20 @@ async def destroy_applications(
         )
 
 
-async def tear_down_app(
-    pack: UserPack, app: UserApp, deployment_id: str, tmp_dir: Path
+async def tear_down_user_app(
+    pack: UserPack,
+    app: UserApp,
+    iac_storage: IacStorage,
+    deployment_id: str,
+    tmp_dir: Path,
 ):
     logger.info(f"Tearing down app {app.app_id}")
-    iac_storage = get_iac_storage()
     _, results = await run_concurrent_destroys(
         pack.region,
         pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                project_name=app.get_pack_id(),
+                project_name=pack.id,
                 stack_name=app.get_app_name(),
                 iac=iac_storage.get_iac(pack.id, app.get_app_name(), app.version),
                 pulumi_config={},
@@ -241,13 +244,14 @@ async def tear_down_single(pack: UserPack, app: UserApp, deployment_id: str):
     iac_storage = get_iac_storage()
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
-        await tear_down_app(pack, app, deployment_id, tmp_dir)
+        await tear_down_user_app(pack, app, iac_storage, deployment_id, tmp_dir)
         common_pack = UserApp.get_latest_version_with_status(
             UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
         )
         await destroy_common_stack(
             pack, common_pack, iac_storage, deployment_id, tmp_dir
         )
+        pack.update(actions=[UserPack.tear_down_in_progress.set(False)])
 
 
 async def tear_down_pack(
@@ -277,3 +281,4 @@ async def tear_down_pack(
         await destroy_common_stack(
             user_pack, common_pack, iac_storage, deployment_id, tmp_dir
         )
+        user_pack.update(actions=[UserPack.tear_down_in_progress.set(False)])

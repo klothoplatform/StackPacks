@@ -272,7 +272,7 @@ async def deploy_app(
         pack.assumed_role_arn,
         [
             StackDeploymentRequest(
-                project_name=app.get_pack_id(),
+                project_name=pack.id,
                 stack_name=app.get_app_name(),
                 iac=iac,
                 pulumi_config=pulumi_config,
