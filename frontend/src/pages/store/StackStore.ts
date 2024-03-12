@@ -16,6 +16,11 @@ import { updateStack } from "../../api/UpdateStack.ts";
 import type { CreateStackResponse } from "../../api/CreateStack.ts";
 import { createStack } from "../../api/CreateStack.ts";
 import { merge } from "ts-deepmerge";
+import type { UpdateAppResponse } from "../../api/UpdateApp.ts";
+import { updateApp } from "../../api/UpdateApp.ts";
+import { installApp } from "../../api/InstallApp.ts";
+import { tearDownApp } from "../../api/TearDownApp.ts";
+import { removeApp } from "../../api/RemoveApp.ts";
 
 export interface StackStoreState {
   userStack?: UserStack;
@@ -24,21 +29,28 @@ export interface StackStoreState {
 }
 
 export interface StackStoreBase extends StackStoreState {
-  getStack: () => Promise<UserStack>;
-  getUserStack: (refresh?: boolean) => Promise<UserStack>;
+  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
   createOrUpdateStack: (
     stack: StackModification,
   ) => Promise<CreateStackResponse | UpdateStackResponse>;
-  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
-  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
-  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
-  installStack: () => Promise<void>;
-  tearDownStack: () => Promise<void>;
-  resetStackState: () => void;
   getAppTemplates: (
     appIds: string[],
     refresh?: boolean,
   ) => Promise<AppTemplate[]>;
+  getStack: () => Promise<UserStack>;
+  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
+  getUserStack: (refresh?: boolean) => Promise<UserStack>;
+  installApp: (appId: string) => Promise<string>;
+  installStack: () => Promise<void>;
+  removeApp: (appId: string) => Promise<void>;
+  resetStackState: () => void;
+  tearDownApp: (appId: string) => Promise<string>;
+  tearDownStack: () => Promise<void>;
+  updateApp: (
+    appId: string,
+    configuration: Record<string, any>,
+  ) => Promise<UpdateAppResponse>;
+  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
 }
 
 const initialState: () => StackStoreState = () => ({
@@ -155,5 +167,38 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   ): Promise<AppTemplate[]> => {
     const appTemplates = await get().getStackPacks(refresh);
     return appIds.map((id) => appTemplates.get(id));
+  },
+  installApp: async (appId: string) => {
+    const idToken = await get().getIdToken();
+    return await installApp({ idToken, appId });
+  },
+  tearDownApp: async (appId: string) => {
+    const idToken = await get().getIdToken();
+    return await tearDownApp({ idToken, appId });
+  },
+  updateApp: async (appId: string, configuration: Record<string, any>) => {
+    const idToken = await get().getIdToken();
+    const response = await updateApp({ appId, configuration, idToken });
+    set(
+      {
+        userStack: response.stack,
+        userStackPolicy: response.policy,
+      },
+      false,
+      "updateApp",
+    );
+    return response;
+  },
+  removeApp: async (appId: string) => {
+    const idToken = await get().getIdToken();
+    const response = await removeApp({ idToken, appId });
+    set(
+      {
+        userStack: response.stack,
+        userStackPolicy: response.policy,
+      },
+      false,
+      "removeApp",
+    );
   },
 });
