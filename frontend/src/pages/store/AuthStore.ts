@@ -12,6 +12,7 @@ export interface AuthStoreState {
   redirectedPostLogin: boolean;
   user?: User;
   isLoggingIn: boolean;
+  _refresh_result?: Promise<{ idToken: string; expiresAt: number }>;
 }
 
 export interface AuthStoreBase extends AuthStoreState {
@@ -57,8 +58,10 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
         console.log("no auth0");
         return { idToken: "", expiresAt: 0 };
       }
-      const response = await auth0.getAccessTokenSilently({
-        detailedResponse: true,
+      const refreshId = crypto.randomUUID().toString();
+
+      set({ _refresh_id: refreshId }, false, "getIdToken/refresh");
+      await auth0.getAccessTokenSilently({
         cacheMode: "off",
       });
       const claims = await auth0.getIdTokenClaims();
@@ -68,14 +71,23 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
       }
       console.log("refreshed token");
       return {
-        idToken: response.id_token,
+        idToken: claims.__raw,
         expiresAt: claims.exp ?? 0,
       };
     };
+    if (get()._refresh_result) {
+      return (await get()._refresh_result).idToken;
+    }
 
     try {
-      const { idToken, expiresAt } = await refresh();
-      set({ currentIdToken: { idToken, expiresAt } }, false, "getIdToken");
+      const result = refresh();
+      set({ _refresh_result: result }, false, "getIdToken:refreshing");
+      const { idToken, expiresAt } = await result;
+      set(
+        { currentIdToken: { idToken, expiresAt } },
+        false,
+        "getIdToken:refreshed",
+      );
     } catch (e) {
       throw new Error("User session has expired. Please log in again.");
     }

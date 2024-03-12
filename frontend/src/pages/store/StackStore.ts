@@ -98,7 +98,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       Object.entries(stack.configuration).forEach(([key, value]) => {
         if (value === undefined || Object.keys(value).length === 0) {
           stack.configuration[key] =
-            userStack.stack_packs[key].configuration ??
+            userStack.stack_packs[key]?.configuration ??
             defaultConfiguration[key] ??
             stack.configuration[key];
         }

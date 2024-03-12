@@ -1,4 +1,5 @@
 import type { FC, PropsWithChildren } from "react";
+import { useEffect } from "react";
 import React from "react";
 import type { Step } from "./StepperContext";
 import { StepperContext } from "./StepperContext";
@@ -8,27 +9,33 @@ export const StepperProvider: FC<
     onGoBack?: (step: Step) => void;
     onGoForwards?: (step: Step) => void;
     activeStep?: number;
+    steps?: Step[];
   }>
-> = ({ children, onGoBack, onGoForwards, activeStep }) => {
+> = ({ children, onGoBack, onGoForwards, activeStep, steps }) => {
   const [currentStep, setCurrentStep] = React.useState(activeStep || 0);
-  const [steps, setSteps] = React.useState<Step[]>([]);
+  const [_steps, setSteps] = React.useState<Step[]>(steps || []);
+
+  useEffect(() => {
+    setSteps(steps || []);
+  }, [steps]);
+
   const goForwards = () => {
     const nextStep =
-      currentStep + 1 >= steps.length ? steps.length - 1 : currentStep + 1;
+      currentStep + 1 >= _steps.length ? _steps.length - 1 : currentStep + 1;
     setCurrentStep(nextStep);
-    onGoForwards?.(steps[nextStep]);
+    onGoForwards?.(_steps[nextStep]);
   };
 
   const goBack = () => {
     const previousStep = currentStep - 1 < 0 ? 0 : currentStep - 1;
     setCurrentStep(previousStep);
-    onGoBack?.(steps[previousStep]);
+    onGoBack?.(_steps[previousStep]);
   };
   const goToStep = (step: number | string) => {
     if (typeof step === "string") {
-      step = steps.findIndex((s) => s.id === step);
+      step = _steps.findIndex((s) => s.id === step);
     }
-    if (step < 0 || step >= steps.length) {
+    if (step < 0 || step >= _steps.length) {
       throw new Error("Invalid step");
     }
     setCurrentStep(step);
@@ -39,7 +46,7 @@ export const StepperProvider: FC<
     goForwards,
     goBack,
     goToStep,
-    steps,
+    steps: _steps,
     setSteps,
   };
 

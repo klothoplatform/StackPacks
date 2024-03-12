@@ -13,6 +13,7 @@ export interface DynamicSection {
   title: string;
   propertyMap: Map<string, Property[]>;
   defaultOpened?: boolean;
+  flat?: boolean;
 }
 
 interface DynamicConfigFormProps {
@@ -36,6 +37,23 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
     >
       <div className="size-fit min-h-0 w-full pb-2 [&>*:not(:last-child)]:mb-2">
         {sections?.map((section, index) => {
+          if (section.flat) {
+            return [...section.propertyMap.entries()].map(
+              ([stackPackId, properties], index) => {
+                if (properties.length === 0) {
+                  return null;
+                }
+                return (
+                  <ConfigGroup
+                    key={index}
+                    stackPackId={stackPackId}
+                    fields={properties}
+                  />
+                );
+              },
+            );
+          }
+
           return (
             <ConfigSection
               key={index}

@@ -36,9 +36,9 @@ black-check:
 	pipenv run black --check .
 
 reset-backend:
-	docker compose down --volumes --remove-orphans; \
-	rm -rf ./docker/dynamodb
-	mkdir -p ./docker/dynamodb
+	docker compose down --volumes --remove-orphans;\
+	rm -rf ./docker/dynamodb;\
+	mkdir -p ./docker/dynamodb;\
 	docker compose up -d
 
 clean-local:

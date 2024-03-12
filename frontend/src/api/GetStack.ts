@@ -3,6 +3,7 @@ import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import type { UserStack } from "../shared/models/UserStack.ts";
+import { parseStack } from "../shared/models/UserStack.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export async function getStack(idToken: string): Promise<UserStack> {
@@ -37,9 +38,4 @@ export async function getStack(idToken: string): Promise<UserStack> {
     status: response.status,
   });
   return parseStack(response.data);
-}
-
-function parseStack(data: any): UserStack {
-  delete data?.stack_packs?.common;
-  return data;
 }

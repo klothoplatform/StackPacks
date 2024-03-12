@@ -33,7 +33,8 @@ const sidebarConfig = [
 ];
 
 function UserDashboardPage() {
-  const { isAuthenticated, user, addError } = useApplicationStore();
+  const { isAuthenticated, user, getUserStack, getStackPacks, userStack } =
+    useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,8 +46,28 @@ function UserDashboardPage() {
     if (!isAuthenticated || isLoaded) {
       return;
     }
-    setIsLoaded(true);
-  }, [isAuthenticated, isLoaded]);
+
+    (async () => {
+      try {
+        await Promise.all([getUserStack(true), getStackPacks(true)]);
+        setIsLoaded(true);
+      } catch (error) {
+        trackError(
+          new UIError({
+            message: "error loading user stack",
+            errorId: "UserDashboardPage:useEffect:getUserStack",
+            cause: error,
+          }),
+        );
+      }
+    })();
+  }, [getStackPacks, getUserStack, isAuthenticated, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && !Object.keys(userStack?.stack_packs ?? {}).length) {
+      navigate("./add-apps");
+    }
+  }, [isLoaded, navigate, userStack]);
 
   return (
     <div
@@ -93,7 +114,7 @@ function UserDashboardPage() {
           </Sidebar>
           <div className="flex size-full flex-row justify-center overflow-hidden">
             <div className="flex size-full grow flex-col gap-6 p-6">
-              <Outlet />
+              {isLoaded && <Outlet />}
             </div>
           </div>
         </div>

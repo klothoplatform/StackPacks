@@ -6,6 +6,7 @@ import type {
   StackModification,
   UserStack,
 } from "../shared/models/UserStack.ts";
+import { parseStack } from "../shared/models/UserStack.ts";
 import { analytics } from "../shared/analytics.ts";
 
 export interface UpdateStackRequest {
@@ -47,5 +48,8 @@ export async function updateStack(
       stackPacks: Object.keys(request.stack?.configuration || {}),
     },
   });
-  return response.data as UpdateStackResponse;
+  return {
+    stack: parseStack(response.data.stack),
+    policy: response.data.policy,
+  };
 }

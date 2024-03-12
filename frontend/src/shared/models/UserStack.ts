@@ -19,10 +19,43 @@ import {
   type MapProperty,
 } from "../configuration-properties.ts";
 import { isCollection } from "yaml";
+import type { AppTemplate } from "./AppTemplate.ts";
+import { resolveAppTemplates } from "./AppTemplate.ts";
+
+export enum AppStatus {
+  New = "NEW",
+  Installing = "INSTALLING",
+  Installed = "INSTALLED",
+  Updating = "UPDATING",
+  InstallFailed = "INSTALL_FAILED",
+  UpdateFailed = "UPDATE_FAILED",
+  Uninstalling = "UNINSTALLING",
+  UninstallFailed = "UNINSTALL_FAILED",
+  Uninstalled = "UNINSTALLED",
+  Unknown = "UNKNOWN",
+}
+
+const lifecycleStatuses: Record<AppStatus, string> = {
+  [AppStatus.New]: "New",
+  [AppStatus.Installing]: "Installing",
+  [AppStatus.Installed]: "Installed",
+  [AppStatus.Updating]: "Updating",
+  [AppStatus.InstallFailed]: "Install Failed",
+  [AppStatus.UpdateFailed]: "Update Failed",
+  [AppStatus.Uninstalling]: "Uninstalling",
+  [AppStatus.UninstallFailed]: "Uninstall Failed",
+  [AppStatus.Uninstalled]: "Uninstalled",
+  [AppStatus.Unknown]: "Unknown",
+};
+
+export function toAppStatusString(status: AppStatus) {
+  return lifecycleStatuses[status];
+}
 
 export interface UserStack {
   assumed_role_arn?: string;
   assumed_role_external_id?: string;
+  policy: string;
   created_at: number;
   created_by: string;
   id: string;
@@ -38,7 +71,7 @@ export interface ApplicationDeployment {
   created_by: string;
   iac_stack_composite_key?: string;
   last_deployed_version?: number;
-  status?: string;
+  status: AppStatus;
   status_reason?: string;
   version: string;
 }
@@ -227,4 +260,41 @@ export function isStackDeployed(userStack: UserStack) {
     return false;
   }
   return Object.values(userStack.stack_packs).some((app) => app.status);
+}
+
+export function parseStack(data: any): UserStack {
+  delete data?.stack_packs?.common;
+  return data;
+}
+
+export function formStateToAppConfig(
+  data: Record<string, any>,
+  stackPacks: Map<string, AppTemplate>,
+) {
+  const packs = [
+    ...new Set(
+      resolveAppTemplates(
+        Object.keys(data)
+          .map((f) => (f.includes("#") ? f.split("#")[0] : undefined))
+          .filter((f) => f !== undefined),
+        stackPacks,
+      ),
+    ),
+  ];
+  return Object.fromEntries(
+    packs.map((pack) => [
+      pack.id,
+      resolveConfigFromFormState(
+        Object.fromEntries(
+          Object.entries(data)
+            .filter(([key]) => key.startsWith(pack.id + "#"))
+            .map(([key, value]) => [
+              key.includes("#") ? key.split("#")[1] : key,
+              value,
+            ]),
+        ),
+        Object.values(pack.configuration),
+      ),
+    ]),
+  );
 }
