@@ -7,9 +7,11 @@ from src.deployer.deploy import (
     DeploymentResult,
     StackDeploymentRequest,
     build_and_deploy,
+    deploy_app,
     deploy_applications,
     deploy_common_stack,
     deploy_pack,
+    deploy_single,
     rerun_pack_with_live_state,
     run_concurrent_deployments,
 )
@@ -409,6 +411,131 @@ class TestDeploy(aiounittest.AsyncTestCase):
             ]
         )
 
+    @patch("src.deployer.deploy.run_concurrent_deployments")
+    async def test_deploy_app(
+        self,
+        mock_run_concurrent_deployments,
+    ):
+        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        app = MagicMock(
+            spec=UserApp, get_app_name=MagicMock(return_value="app1"), version=1
+        )
+        sp = MagicMock(
+            spec=StackPack, get_pulumi_configs=MagicMock(return_value={"key": "value"})
+        )
+        iac_storage = MagicMock(spec=IacStorage)
+        deployment_id = "deployment_id"
+        tmp_dir = Path("/tmp")
+        iac_storage.get_iac.return_value = b"iac"
+
+        mock_run_concurrent_deployments.return_value = (
+            ["app1"],
+            [
+                DeploymentResult(
+                    manager=MagicMock(spec=AppManager),
+                    status=DeploymentStatus.SUCCEEDED,
+                    reason="Success",
+                    stack=MagicMock(spec=PulumiStack),
+                )
+            ],
+        )
+
+        await deploy_app(pack, app, sp, iac_storage, deployment_id, tmp_dir)
+
+        iac_storage.get_iac.assert_called_once_with(
+            pack.id, app.get_app_name(), app.version
+        )
+        sp.get_pulumi_configs.assert_called_once_with(app.get_configurations())
+        mock_run_concurrent_deployments.assert_called_once_with(
+            pack.region,
+            pack.assumed_role_arn,
+            [
+                StackDeploymentRequest(
+                    project_name=pack.id,
+                    stack_name=app.get_app_name(),
+                    iac=iac_storage.get_iac.return_value,
+                    pulumi_config=sp.get_pulumi_configs.return_value,
+                    deployment_id=deployment_id,
+                )
+            ],
+            pack.id,
+            tmp_dir,
+        )
+        app.update.assert_called_once_with(
+            actions=[
+                UserApp.status.set(DeploymentStatus.SUCCEEDED.value),
+                UserApp.status_reason.set("Success"),
+                UserApp.iac_stack_composite_key.set(
+                    mock_run_concurrent_deployments.return_value[1][
+                        0
+                    ].stack.composite_key.return_value
+                ),
+            ]
+        )
+
+    @patch("src.deployer.deploy.deploy_app")
+    @patch("src.deployer.deploy.deploy_common_stack")
+    @patch("src.deployer.deploy.get_iac_storage")
+    @patch.object(UserApp, "get")
+    @patch("src.deployer.deploy.CommonStack")
+    @patch("src.deployer.deploy.TempDir")
+    @patch("src.deployer.deploy.get_ses_client")
+    @patch("src.deployer.deploy.send_email")
+    @patch("src.deployer.deploy.get_stack_packs")
+    async def test_deploy_single(
+        self,
+        mock_get_stack_packs,
+        mock_send_email,
+        mock_get_ses_client,
+        mock_temp_dir,
+        mock_common_stack,
+        mock_user_app,
+        mock_get_iac_storage,
+        mock_deploy_common_stack,
+        mock_deploy_app,
+    ):
+        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        app = MagicMock(spec=UserApp, get_app_name=MagicMock(return_value="app1"))
+        deployment_id = "deployment_id"
+        email = "email"
+
+        sp1 = MagicMock(spec=StackPack)
+        mock_sps = {"app1": sp1}
+        mock_get_stack_packs.return_value = mock_sps
+        iac_storage = mock_get_iac_storage.return_value
+        common_stack = mock_common_stack.return_value
+        common_app = mock_user_app.return_value
+        mock_temp_dir.return_value.__enter__.return_value = "/tmp"
+        live_state = MagicMock(
+            spec=LiveState, to_constraints=MagicMock(return_value=["constraint1"])
+        )
+        manager = MagicMock(
+            spec=AppManager, read_deployed_state=AsyncMock(return_value=live_state)
+        )
+        mock_deploy_common_stack.return_value = manager
+
+        await deploy_single(pack, app, deployment_id, email)
+
+        mock_get_stack_packs.assert_called_once()
+        mock_get_iac_storage.assert_called_once()
+        mock_common_stack.assert_called_once_with([sp1])
+        mock_user_app.assert_called_once_with("id#common", 1)
+        mock_temp_dir.return_value.__enter__.assert_called_once()
+        mock_deploy_common_stack.assert_called_once_with(
+            pack, common_app, common_stack, iac_storage, deployment_id, Path("/tmp")
+        )
+        manager.read_deployed_state.assert_called_once()
+        app.run_app.assert_called_once_with(
+            mock_sps.get("app1"), Path("/tmp"), iac_storage, ["constraint1"]
+        )
+        mock_deploy_app.assert_called_once_with(
+            pack, app, mock_sps.get("app1"), iac_storage, deployment_id, Path("/tmp")
+        )
+        mock_get_ses_client.assert_called_once()
+        mock_send_email.assert_called_once_with(
+            mock_get_ses_client.return_value, email, mock_sps.keys()
+        )
+
     @patch("src.deployer.deploy.deploy_applications")
     @patch("src.deployer.deploy.rerun_pack_with_live_state")
     @patch("src.deployer.deploy.deploy_common_stack")
@@ -438,7 +565,9 @@ class TestDeploy(aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_iac_storage = mock_get_iac_storage.return_value
-        user_pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        user_pack = MagicMock(
+            spec=UserPack, id="id", apps={"common": 1}, tear_down_in_progress=False
+        )
         mock_user_pack.get.return_value = user_pack
         mock_common_pack = MagicMock(spec=UserApp)
         mock_user_app.get.return_value = mock_common_pack
@@ -486,3 +615,48 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_send_email.assert_called_once_with(
             mock_get_ses_client.return_value, "email", mock_sps.keys()
         )
+
+    @patch("src.deployer.deploy.deploy_applications")
+    @patch("src.deployer.deploy.rerun_pack_with_live_state")
+    @patch("src.deployer.deploy.deploy_common_stack")
+    @patch("src.deployer.deploy.get_iac_storage")
+    @patch("src.deployer.deploy.UserPack")
+    @patch("src.deployer.deploy.UserApp")
+    @patch("src.deployer.deploy.CommonStack")
+    @patch("src.deployer.deploy.send_email")
+    async def test_deploy_pack_blocks_if_teardown_ongoing(
+        self,
+        mock_send_email,
+        mock_common_stack,
+        mock_user_app,
+        mock_user_pack,
+        mock_get_iac_storage,
+        mock_deploy_common_stack,
+        mock_rerun_pack_with_live_state,
+        mock_deploy_applications,
+    ):
+        mock_user_pack.COMMON_APP_NAME = UserPack.COMMON_APP_NAME
+        mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
+        # Arrange
+        sp1 = MagicMock(spec=StackPack)
+        mock_sps = {"app1": sp1}
+        user_pack = MagicMock(
+            spec=UserPack, id="id", apps={"common": 1}, tear_down_in_progress=True
+        )
+        mock_user_pack.get.return_value = user_pack
+
+        # Act
+        with self.assertRaises(ValueError):
+            await deploy_pack(
+                pack_id="id", sps=mock_sps, deployment_id="deploy_id", email="email"
+            )
+
+            # Assert
+            mock_get_iac_storage.assert_called_once()
+            mock_user_pack.get.assert_called_once_with("id")
+            mock_user_app.get.assert_not_called()
+            mock_common_stack.assert_called_once_with([sp1])
+            mock_deploy_common_stack.assert_not_called()
+            mock_rerun_pack_with_live_state.assert_not_called()
+            mock_deploy_applications.assert_not_called()
+            mock_send_email.assert_not_called()
