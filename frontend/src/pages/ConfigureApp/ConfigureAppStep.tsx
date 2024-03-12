@@ -8,7 +8,6 @@ import {
   formStateToAppConfig,
   toFormState,
 } from "../../shared/models/UserStack.ts";
-import type { UpdateStackResponse } from "../../api/UpdateStack.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { UIError } from "../../shared/errors.ts";
 import { DynamicConfigForm } from "../../components/config/DynamicConfigForm.tsx";
@@ -31,7 +30,7 @@ export const ConfigureAppStep: FC<
 export const ConfigureAppForm: FC<{
   appId: string;
   stepperProps: StepperNavigatorProps;
-}> = ({ stepperProps, appId }) => {
+}> = ({ appId }) => {
   const { userStack, stackPacks } = useApplicationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -54,7 +53,7 @@ export const ConfigureAppForm: FC<{
 
   const { isDirty } = methods.formState;
 
-  const { updateStack, addError, installStack } = useApplicationStore();
+  const { updateStack, addError, installApp } = useApplicationStore();
 
   const onSubmit = methods.handleSubmit(async (data) => {
     setIsSubmitting(true);
@@ -62,9 +61,8 @@ export const ConfigureAppForm: FC<{
     try {
       const configuration = formStateToAppConfig(data, stackPacks);
       console.log(configuration);
-      let updatedStack: UpdateStackResponse;
       try {
-        updatedStack = await updateStack({ configuration });
+        await updateStack({ configuration });
       } catch (e) {
         addError(
           new UIError({
@@ -77,7 +75,7 @@ export const ConfigureAppForm: FC<{
       }
 
       try {
-        await installStack();
+        await installApp(appId);
       } catch (e) {
         addError(
           new UIError({
