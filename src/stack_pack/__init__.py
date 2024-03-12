@@ -194,6 +194,7 @@ class StackPack(BaseModel):
     )  # Default is None because it is set outside of the model
     name: str
     version: str = Field(default="0.0.1")
+    description: str = Field(default="")
     requires: list[BaseRequirements] = Field(default_factory=list)
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)

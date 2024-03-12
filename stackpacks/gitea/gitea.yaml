@@ -1,4 +1,5 @@
 name: Gitea
+description: Painless self-hosted all-in-one software development service
 version: '1.0.0'
 requires:
   - network

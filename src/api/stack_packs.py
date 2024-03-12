@@ -146,6 +146,7 @@ async def list_stackpacks():
             "id": spid,
             "name": sp.name,
             "version": sp.version,
+            "description": sp.description,
             "configuration": {
                 k: config_to_dict(cfg) for k, cfg in sp.configuration.items()
             },
