@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import { useEffect } from "react";
 import React, { useState } from "react";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import { UIError } from "../../../shared/errors.ts";
@@ -22,10 +23,10 @@ import type {
   ApplicationDeployment,
   AppStatus,
 } from "../../../shared/models/UserStack.ts";
-import { hasDeploymentInProgress } from "../../../shared/models/UserStack.ts";
-import { AppDeploymentStatus } from "../../../shared/models/UserStack.ts";
 import {
+  AppDeploymentStatus,
   AppLifecycleStatus,
+  hasDeploymentInProgress,
   toAppStatusString,
 } from "../../../shared/models/UserStack.ts";
 import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
@@ -43,23 +44,48 @@ import { AppLogo } from "../../../components/AppLogo.tsx";
 import { useInterval } from "usehooks-ts";
 import { CollapsibleSection } from "../../../components/CollapsibleSection.tsx";
 import { IoRefresh } from "react-icons/io5";
+import { SlRefresh } from "react-icons/sl";
 
 export const YourStackPane: FC = () => {
   const { userStack, getUserStack, userStackPolicy, stackPacks } =
     useApplicationStore();
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const { mode } = useThemeMode();
   const AWSLogo = mode === "dark" ? AWSLogoDark : AWSLogoLight;
-
   const navigate = useNavigate();
+  const [refreshInterval, setRefreshInterval] = useState(30 * 1000);
+
+  useDocumentTitle("StackSnap - Your Stack");
+
+  useEffect(() => {
+    if (hasDeploymentInProgress(userStack)) {
+      setRefreshInterval(8 * 1000);
+    } else {
+      setRefreshInterval(30 * 1000);
+    }
+  }, [userStack]);
 
   useInterval(async () => {
     if (hasDeploymentInProgress(userStack)) {
-      await getUserStack(true);
+      setIsRefreshing(true);
+      try {
+        await getUserStack(true);
+      } finally {
+        setIsRefreshing(false);
+      }
     }
-  }, 8000);
+  }, refreshInterval);
 
-  useDocumentTitle("StackSnap - Your Stack");
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await getUserStack(true);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div className="flex size-full flex-col gap-4 overflow-y-auto pr-4">
@@ -69,12 +95,18 @@ export const YourStackPane: FC = () => {
           <StackActions />
         </div>
         <Button
+          title={"Refresh Stack"}
           size={"xs"}
           color={mode}
+          disabled={isRefreshing}
           outline
-          onClick={async () => await getUserStack(true)}
+          onClick={onRefresh}
         >
-          <IoRefresh />
+          <SlRefresh
+            className={classNames({
+              "animate-spin": isRefreshing,
+            })}
+          />
         </Button>
       </div>
       <div className="flex flex-col gap-1">
