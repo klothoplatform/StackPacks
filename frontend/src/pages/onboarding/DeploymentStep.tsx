@@ -80,6 +80,10 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
     navigate("/user/dashboard");
   };
 
+  const canSelectRegion =
+    !userStack.region ||
+    !Object.values(userStack.stack_packs).some((a) => a.status);
+
   return (
     <Card className={"min-h-[50vh] w-full p-4"}>
       <div className={"flex size-full flex-col dark:text-white"}>
@@ -92,7 +96,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
             Deploy your stack
           </h3>
           <div className="flex size-full flex-col gap-6 overflow-y-auto pt-4">
-            {!userStack.region && (
+            {canSelectRegion && (
               <>
                 <InstructionalStep title={"Step 1"}>
                   <div className={"flex flex-col gap-4"}>
@@ -150,7 +154,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                 </InstructionalStep>
               </>
             )}
-            {userStack.region && (
+            {!canSelectRegion && (
               <>
                 <p>
                   Your new apps will be deployed to the{" "}

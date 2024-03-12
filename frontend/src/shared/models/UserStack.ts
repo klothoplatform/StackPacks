@@ -22,7 +22,13 @@ import { isCollection } from "yaml";
 import type { AppTemplate } from "./AppTemplate.ts";
 import { resolveAppTemplates } from "./AppTemplate.ts";
 
-export enum AppStatus {
+export enum AppDeploymentStatus {
+  Failed = "FAILED",
+  InProgress = "IN_PROGRESS",
+  Succeeded = "SUCCEEDED",
+}
+
+export enum AppLifecycleStatus {
   New = "NEW",
   Installing = "INSTALLING",
   Installed = "INSTALLED",
@@ -35,20 +41,25 @@ export enum AppStatus {
   Unknown = "UNKNOWN",
 }
 
+export type AppStatus = AppLifecycleStatus & AppDeploymentStatus;
+
 const lifecycleStatuses: Record<AppStatus, string> = {
-  [AppStatus.New]: "New",
-  [AppStatus.Installing]: "Installing",
-  [AppStatus.Installed]: "Installed",
-  [AppStatus.Updating]: "Updating",
-  [AppStatus.InstallFailed]: "Install Failed",
-  [AppStatus.UpdateFailed]: "Update Failed",
-  [AppStatus.Uninstalling]: "Uninstalling",
-  [AppStatus.UninstallFailed]: "Uninstall Failed",
-  [AppStatus.Uninstalled]: "Uninstalled",
-  [AppStatus.Unknown]: "Unknown",
+  [AppLifecycleStatus.New]: "New",
+  [AppLifecycleStatus.Installing]: "Installing",
+  [AppLifecycleStatus.Installed]: "Installed",
+  [AppLifecycleStatus.Updating]: "Updating",
+  [AppLifecycleStatus.InstallFailed]: "Install Failed",
+  [AppLifecycleStatus.UpdateFailed]: "Update Failed",
+  [AppLifecycleStatus.Uninstalling]: "Uninstalling",
+  [AppLifecycleStatus.UninstallFailed]: "Uninstall Failed",
+  [AppLifecycleStatus.Uninstalled]: "Uninstalled",
+  [AppLifecycleStatus.Unknown]: "Unknown",
+  [AppDeploymentStatus.Failed]: "Failed",
+  [AppDeploymentStatus.InProgress]: "In Progress",
+  [AppDeploymentStatus.Succeeded]: "Succeeded",
 };
 
-export function toAppStatusString(status: AppStatus) {
+export function toAppStatusString(status: AppLifecycleStatus) {
   return lifecycleStatuses[status];
 }
 
@@ -296,5 +307,17 @@ export function formStateToAppConfig(
         Object.values(pack.configuration),
       ),
     ]),
+  );
+}
+
+export function hasDeploymentInProgress(userStack: UserStack) {
+  if (!userStack?.stack_packs) {
+    return false;
+  }
+
+  return Object.values(userStack.stack_packs).some(
+    (app) =>
+      app.status === AppLifecycleStatus.Installing ||
+      app.status === AppDeploymentStatus.InProgress,
   );
 }

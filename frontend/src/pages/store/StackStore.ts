@@ -4,6 +4,7 @@ import type {
   StackModification,
   UserStack,
 } from "../../shared/models/UserStack.ts";
+import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
 import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
 import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
 import { getStack } from "../../api/GetStack.ts";
@@ -155,7 +156,27 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   },
   installStack: async () => {
     const idToken = await get().getIdToken();
-    return await installStack(idToken);
+    const response = await installStack(idToken);
+    const userStack = get().userStack;
+    set(
+      {
+        userStack: {
+          ...userStack,
+          stack_packs: Object.fromEntries(
+            Object.keys(userStack?.stack_packs ?? {}).map((appId) => [
+              appId,
+              {
+                ...userStack.stack_packs[appId],
+                status: AppLifecycleStatus.Installing,
+              },
+            ]),
+          ),
+        },
+      },
+      false,
+      "installStack:init",
+    );
+    return response;
   },
   tearDownStack: async () => {
     const idToken = await get().getIdToken();
@@ -169,10 +190,45 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     return appIds.map((id) => appTemplates.get(id));
   },
   installApp: async (appId: string) => {
+    const userStack = await get().getUserStack();
+    const currentStatus = userStack?.stack_packs[appId]?.status;
+    const newStatus =
+      currentStatus === AppLifecycleStatus.Installed
+        ? AppLifecycleStatus.Updating
+        : AppLifecycleStatus.Installing;
+    set(
+      {
+        userStack: {
+          ...get().userStack,
+          stack_packs: {
+            ...get().userStack?.stack_packs,
+            [appId]: { ...userStack.stack_packs[appId], status: newStatus },
+          },
+        },
+      },
+      false,
+      "installApp:init",
+    );
     const idToken = await get().getIdToken();
     return await installApp({ idToken, appId });
   },
   tearDownApp: async (appId: string) => {
+    set(
+      {
+        userStack: {
+          ...get().userStack,
+          stack_packs: {
+            ...get().userStack?.stack_packs,
+            [appId]: {
+              ...get().userStack?.stack_packs[appId],
+              status: AppLifecycleStatus.Uninstalling,
+            },
+          },
+        },
+      },
+      false,
+      "tearDownApp:init",
+    );
     const idToken = await get().getIdToken();
     return await tearDownApp({ idToken, appId });
   },

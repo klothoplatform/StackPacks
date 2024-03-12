@@ -98,8 +98,8 @@ function UserDashboardPage() {
             />
           </div>
         </HeaderNavBar>
-        <div className={"flex size-full"}>
-          <Sidebar>
+        <div className={"flex size-full overflow-hidden"}>
+          <Sidebar className={"z-5"}>
             <SidebarItemGroup>
               {sidebarConfig.map((item) => (
                 <SidebarItem
@@ -112,10 +112,8 @@ function UserDashboardPage() {
               ))}
             </SidebarItemGroup>
           </Sidebar>
-          <div className="flex size-full flex-row justify-center overflow-hidden">
-            <div className="flex size-full grow flex-col gap-6 p-6">
-              {isLoaded && <Outlet />}
-            </div>
+          <div className="flex size-full grow flex-col gap-6 overflow-hidden p-6">
+            {isLoaded && <Outlet />}
           </div>
         </div>
         <ErrorOverlay />

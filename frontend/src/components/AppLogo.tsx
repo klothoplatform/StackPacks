@@ -31,6 +31,9 @@ export const AppLogo: FC<
   ImgHTMLAttributes<any> & { appId: string; mode?: string }
 > = ({ appId, mode, className, ...rest }) => {
   let mapping = LogoMappings[appId];
+  if (!mapping) {
+    return null;
+  }
   if (typeof mapping === "string") {
     mapping = { filePath: mapping, darkPath: mapping };
   }

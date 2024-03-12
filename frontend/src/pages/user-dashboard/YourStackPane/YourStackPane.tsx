@@ -14,29 +14,38 @@ import {
   AiOutlineQuestionCircle,
 } from "react-icons/ai";
 import classNames from "classnames";
-import type { AppTemplate } from "../../../shared/models/AppTemplate.ts";
 import { resolveAppTemplates } from "../../../shared/models/AppTemplate.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../../hooks/useClickedOutside.ts";
-import type { ApplicationDeployment } from "../../../shared/models/UserStack.ts";
-import { toAppStatusString } from "../../../shared/models/UserStack.ts";
-import { AppStatus } from "../../../shared/models/UserStack.ts";
+import type {
+  ApplicationDeployment,
+  AppStatus,
+} from "../../../shared/models/UserStack.ts";
+import { hasDeploymentInProgress } from "../../../shared/models/UserStack.ts";
+import { AppDeploymentStatus } from "../../../shared/models/UserStack.ts";
+import {
+  AppLifecycleStatus,
+  toAppStatusString,
+} from "../../../shared/models/UserStack.ts";
 import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
 import AWSLogoDark from "/images/aws_logo_white.png";
 import {
   outlineBadge,
   outlineOnlyBadge,
 } from "../../../shared/custom-themes.ts";
-import { RiUninstallFill } from "react-icons/ri";
+import { RiInstallFill, RiUninstallFill } from "react-icons/ri";
 import UninstallAppModal from "./UninstallAppModal.tsx";
 import { ConfirmationModal } from "../../../components/ConfirmationModal.tsx";
 import UninstallAllModal from "./UninstallAllModal.tsx";
 import { HiMiniCog6Tooth } from "react-icons/hi2";
 import { AppLogo } from "../../../components/AppLogo.tsx";
+import { useInterval } from "usehooks-ts";
+import { CollapsibleSection } from "../../../components/CollapsibleSection.tsx";
+import { IoRefresh } from "react-icons/io5";
 
 export const YourStackPane: FC = () => {
-  const { userStack, addError, getUserStack, getStackPacks } =
+  const { userStack, getUserStack, userStackPolicy, stackPacks } =
     useApplicationStore();
 
   const { mode } = useThemeMode();
@@ -44,15 +53,29 @@ export const YourStackPane: FC = () => {
 
   const navigate = useNavigate();
 
-  const [stackPacks] = useState(new Map<string, AppTemplate>());
+  useInterval(async () => {
+    if (hasDeploymentInProgress(userStack)) {
+      await getUserStack(true);
+    }
+  }, 8000);
 
   useDocumentTitle("StackSnap - Your Stack");
 
   return (
-    <div className="flex size-full flex-col gap-4 overflow-auto pr-4">
-      <div className={"flex h-fit gap-1 py-1"}>
-        <h2 className={"font-md text-xl"}>Your Stack</h2>
-        <StackActions />
+    <div className="flex size-full flex-col gap-4 overflow-y-auto pr-4">
+      <div className={"flex size-full justify-between py-1"}>
+        <div className={"flex h-fit gap-1"}>
+          <h2 className={"font-md text-xl"}>Your Stack</h2>
+          <StackActions />
+        </div>
+        <Button
+          size={"xs"}
+          color={mode}
+          outline
+          onClick={async () => await getUserStack(true)}
+        >
+          <IoRefresh />
+        </Button>
       </div>
       <div className="flex flex-col gap-1">
         <h3 className={"font-md text-lg"}>Environment Details</h3>
@@ -64,6 +87,26 @@ export const YourStackPane: FC = () => {
             </li>
             <li>
               <span>Region: {userStack?.region}</span>
+            </li>
+            <li>
+              <span>Deployment Role ARN: {userStack?.assumed_role_arn}</span>
+            </li>
+            <li>
+              <CollapsibleSection
+                size={"xs"}
+                collapsedText={"Show deployment policy"}
+                collapsed
+                expandedText={"Hide"}
+                color={mode}
+              >
+                <Card
+                  className={
+                    "max-h-80 overflow-auto whitespace-pre-wrap p-2 font-mono text-xs dark:text-gray-200"
+                  }
+                >
+                  {userStack?.policy || userStackPolicy}
+                </Card>
+              </CollapsibleSection>
             </li>
           </ul>
         </Card>
@@ -86,7 +129,8 @@ export const YourStackPane: FC = () => {
                 const name =
                   resolveAppTemplates([appTemplateId], stackPacks)[0]?.name ??
                   appTemplateId;
-                const status = appDeployment.status ?? AppStatus.Unknown;
+                const status =
+                  appDeployment.status ?? AppLifecycleStatus.Uninstalled;
                 const app = { ...appDeployment, name, status };
                 return <AppCard key={index} app={app} />;
               },
@@ -98,57 +142,73 @@ export const YourStackPane: FC = () => {
   );
 };
 
-const statusStyles = {
-  [AppStatus.Installing]: {
+type AppStatusBadgeStyle = {
+  color: string;
+  icon?: FC;
+  pulse?: boolean;
+};
+
+const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
+  [AppLifecycleStatus.Installing]: {
     color: "yellow",
     icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
     pulse: true,
   },
-  [AppStatus.Installed]: {
+  [AppLifecycleStatus.Installed]: {
     color: "green",
     icon: AiOutlineCheckCircle,
   },
-  [AppStatus.InstallFailed]: {
+  [AppLifecycleStatus.InstallFailed]: {
     color: "red",
     icon: AiOutlineExclamationCircle,
   },
-  [AppStatus.Updating]: {
+  [AppLifecycleStatus.Updating]: {
     color: "green",
     icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
     pulse: true,
   },
-  [AppStatus.UpdateFailed]: {
+  [AppLifecycleStatus.UpdateFailed]: {
     color: "red",
     icon: AiOutlineExclamationCircle,
   },
-  [AppStatus.Uninstalling]: {
+  [AppLifecycleStatus.Uninstalling]: {
     color: "yellow",
     icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
     pulse: true,
   },
-  [AppStatus.UninstallFailed]: {
+  [AppLifecycleStatus.UninstallFailed]: {
     color: "red",
     icon: AiOutlineExclamationCircle,
   },
-  [AppStatus.Uninstalled]: {
-    color: "green",
-    icon: AiOutlineCheckCircle,
+  [AppLifecycleStatus.Uninstalled]: {
+    color: "gray",
   },
-  [AppStatus.Unknown]: {
+  [AppLifecycleStatus.Unknown]: {
     color: "gray",
     icon: AiOutlineQuestionCircle,
   },
-  [AppStatus.New]: {
+  [AppLifecycleStatus.New]: {
     color: "blue",
-    icon: null,
+  },
+  [AppDeploymentStatus.Failed]: {
+    color: "red",
+    icon: AiOutlineExclamationCircle,
+  },
+  [AppDeploymentStatus.InProgress]: {
+    color: "yellow",
+    icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
+    pulse: true,
+  },
+  [AppDeploymentStatus.Succeeded]: {
+    color: "green",
+    icon: AiOutlineCheckCircle,
   },
   default: {
     color: "gray",
-    icon: null,
   },
 };
 
-const AppStatusBadge: FC<{ rtl?: boolean; status: AppStatus }> = ({
+const AppStatusBadge: FC<{ rtl?: boolean; status: AppLifecycleStatus }> = ({
   rtl,
   status,
 }) => {
@@ -211,6 +271,22 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
           );
         })}
       </ul>
+      {!!app.status_reason && (
+        <CollapsibleSection
+          size={"xs"}
+          collapsedText={"Show reason"}
+          expandedText={"Hide reason"}
+          color={app.status === AppDeploymentStatus.Failed ? "red" : mode}
+        >
+          <Card className="flex max-h-80 flex-col gap-2 overflow-auto whitespace-pre-wrap p-2">
+            <div
+              className={"size-full py-2 font-mono text-xs dark:text-gray-200"}
+            >
+              {app.status_reason}
+            </div>
+          </Card>
+        </CollapsibleSection>
+      )}
     </Card>
   );
 };
@@ -224,7 +300,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
   const navigate = useNavigate();
   const [showUninstallModal, setShowUninstallModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const { updateStack, userStack, addError } = useApplicationStore();
+  const { removeApp, addError, installApp } = useApplicationStore();
 
   // handle tooltip visibility
   const [actionsTooltipDisabled, setActionsTooltipDisabled] = useState(true);
@@ -235,22 +311,26 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
 
   const onRemoveApp = async () => {
     try {
-      const updatedConfig = Object.fromEntries(
-        Object.entries(userStack.stack_packs).map(([appId, app]) => [
-          appId,
-          app.configuration,
-        ]),
-      );
-      delete updatedConfig[app.app_id.split("#")[1]];
-      delete updatedConfig.common;
-      await updateStack({
-        configuration: updatedConfig,
-      });
+      await removeApp(app.app_id.split("#")[1]);
     } catch (e) {
       addError(
         new UIError({
           errorId: "OnRemoveApp",
           message: `Removing ${app.name} failed!`,
+          cause: e,
+        }),
+      );
+    }
+  };
+
+  const onInstallApp = async () => {
+    try {
+      await installApp(app.app_id.split("#")[1]);
+    } catch (e) {
+      addError(
+        new UIError({
+          errorId: "OnInstallApp",
+          message: `Installing ${app.name} failed!`,
           cause: e,
         }),
       );
@@ -292,6 +372,25 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
               >
                 View Logs
               </Dropdown.Item>
+              <Dropdown.Divider />
+              {!isInstalled(app) && !isBusy(app) && (
+                <Dropdown.Item
+                  disabled={isBusy(app)}
+                  icon={RiInstallFill}
+                  onClick={onInstallApp}
+                >
+                  Install {app.name}
+                </Dropdown.Item>
+              )}
+              {isInstalled(app) && (
+                <Dropdown.Item
+                  disabled={isBusy(app)}
+                  icon={IoRefresh}
+                  onClick={() => onInstallApp()}
+                >
+                  Redeploy {app.name}
+                </Dropdown.Item>
+              )}
               {isInstalled(app) && (
                 <Dropdown.Item
                   disabled={isBusy(app)}
@@ -303,7 +402,6 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
               {!isInstalled(app) && !isBusy(app) && (
                 <Dropdown.Item
                   icon={AiFillDelete}
-                  color={"red"}
                   onClick={() => setShowRemoveModal(true)}
                 >{`Remove ${app.name}`}</Dropdown.Item>
               )}
@@ -314,7 +412,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
       {showUninstallModal && (
         <UninstallAppModal
           onClose={() => setShowUninstallModal(false)}
-          id={app.app_id}
+          id={app.app_id.split("#")[1]}
           name={app.name}
         />
       )}
@@ -334,7 +432,11 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
 };
 
 const StackActions: FC = () => {
+  const { installStack, userStack } = useApplicationStore();
   const [showUninstallAllModal, setShowUninstallAllModal] = useState(false);
+
+  const canTriggerStackAction =
+    userStack && !hasDeploymentInProgress(userStack);
 
   return (
     <>
@@ -352,6 +454,14 @@ const StackActions: FC = () => {
         inline
       >
         <Dropdown.Item
+          disabled={!canTriggerStackAction}
+          icon={IoRefresh}
+          onClick={async () => await installStack()}
+        >
+          Redeploy All Apps
+        </Dropdown.Item>
+        <Dropdown.Item
+          disabled={!canTriggerStackAction}
           icon={RiUninstallFill}
           onClick={() => setShowUninstallAllModal(true)}
         >
@@ -366,20 +476,29 @@ const StackActions: FC = () => {
 };
 
 function isInstalled(app: ApplicationDeployment) {
-  return [
-    AppStatus.Installing,
-    AppStatus.InstallFailed,
-    AppStatus.UpdateFailed,
-    AppStatus.Installed,
-    AppStatus.UninstallFailed,
-    AppStatus.Updating,
-  ].includes(app.status);
+  return (
+    app.status &&
+    [
+      AppLifecycleStatus.Installing,
+      AppLifecycleStatus.InstallFailed,
+      AppLifecycleStatus.UpdateFailed,
+      AppLifecycleStatus.Installed,
+      AppLifecycleStatus.UninstallFailed,
+      AppLifecycleStatus.Updating,
+      AppDeploymentStatus.Succeeded,
+      AppDeploymentStatus.Failed,
+    ].includes(app.status)
+  );
 }
 
 function isBusy(app: ApplicationDeployment) {
-  return [
-    AppStatus.Installing,
-    AppStatus.Uninstalling,
-    AppStatus.Updating,
-  ].includes(app.status);
+  return (
+    app.status &&
+    [
+      AppLifecycleStatus.Installing,
+      AppLifecycleStatus.Uninstalling,
+      AppLifecycleStatus.Updating,
+      AppDeploymentStatus.InProgress,
+    ].includes(app.status)
+  );
 }

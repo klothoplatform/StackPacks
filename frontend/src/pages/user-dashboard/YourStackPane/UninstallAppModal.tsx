@@ -32,14 +32,14 @@ export default function UninstallAppModal({
     formState: { errors },
   } = useForm<UninstallAppFormState>();
 
-  const { addError, tearDownStack, getUserStack } = useApplicationStore();
+  const { addError, tearDownApp, getUserStack } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const onSubmit = async () => {
     let success = false;
     setIsSubmitting(true);
     try {
-      await tearDownStack();
+      await tearDownApp(id);
       success = true;
     } catch (e: any) {
       addError(
