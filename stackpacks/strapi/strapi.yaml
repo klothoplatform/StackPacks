@@ -1,0 +1,105 @@
+name: strapi
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:strapi:
+      BaseImage: elestio/strapi-production
+      Dockerfile: Dockerfile
+    aws:ecs_service:strapi-service:
+      HealthCheckGracePeriodSeconds: 300
+      LoadBalancers[0]:
+        ContainerPort: 1337
+        ContainerName: strapi-task
+      TaskDefinition: aws:ecs_task_definition:strapi-task
+    aws:ecs_task_definition:strapi-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:strapi
+        PortMappings[0]:
+          ContainerPort: 1337
+          HostPort: 1337
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: DATABASE_CLIENT
+          Value: postgres
+        - Name: DATABASE_HOST 
+          Value: aws:rds_instance:strapi-db#Host
+        - Name: DATABASE_PORT 
+          Value: aws:rds_instance:strapi-db#Port
+        - Name: DATABASE_NAME 
+          Value: aws:rds_instance:strapi-db#DatabaseName
+        - Name: DATABASE_USERNAME 
+          Value: aws:rds_instance:strapi-db#Username
+        - Name: DATABASE_PASSWORD 
+          Value: aws:rds_instance:strapi-db#Password
+    aws:target_group:strapi-tg:
+      Port: 1337
+      Protocol: HTTP
+      HealthCheck:
+        UnhealthyThreshold: 4
+        Matcher: 200-399
+    aws:load_balancer_listener:strapi-lb:strapi-listener:
+      LoadBalancer: aws:load_balancer:strapi-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:strapi-tg
+    aws:load_balancer:strapi-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:rds_instance:strapi-db:
+    aws:cloudfront_distribution:strapi-cf:
+  edges:
+    aws:cloudfront_distribution:strapi-cf -> aws:load_balancer:strapi-lb:
+    aws:load_balancer:strapi-lb -> aws:ecs_service:strapi-service:
+    aws:load_balancer:strapi-lb -> aws:load_balancer_listener:strapi-lb:strapi-listener:
+    aws:load_balancer_listener:strapi-lb:strapi-listener -> aws:target_group:strapi-tg:
+    aws:target_group:strapi-tg -> aws:ecs_service:strapi-service:
+    aws:ecs_service:strapi-service -> aws:rds_instance:strapi-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the gitea service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the gitea service
+    type: number
+    default: 2048
+    validation:
+      minValue: 2048
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Gitea database
+    type: string
+    default: giteauser
+    pulumi_key: klo:strapi-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Gitea database
+    type: string
+    pulumi_key: klo:strapi-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
