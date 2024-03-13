@@ -214,7 +214,7 @@ const ecs_service_0_ecs_service_0 = (() => {
             "ecs_service_0-ecs_service_0",
             {
                 build: {
-                    context: ".",
+                    context: "..",
                     dockerfile: "Dockerfile",
                     platform: "linux/amd64",
                 },
