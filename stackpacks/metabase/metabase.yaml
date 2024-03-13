@@ -1,4 +1,4 @@
-name: metabase
+name: Metabase
 description: Platform for data visualization and business intelligence
 version: '1.0.0'
 requires:
