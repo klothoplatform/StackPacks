@@ -1,4 +1,4 @@
-PHONY: run test-backend black
+PHONY: run test-backend black start clean-local test-frontend reset-backend
 
 engineCliPath := $(shell command -v engine)
 ifdef engineCliPath
@@ -44,3 +44,9 @@ reset-backend:
 clean-local:
 	rm -rf tmp/*
 	rm -rf deployments/*/
+
+frontend/node_modules: frontend/package.json frontend/package-lock.json
+	npm --prefix frontend ci
+
+start: frontend/node_modules
+	npm --prefix frontend run start

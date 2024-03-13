@@ -22,6 +22,7 @@ import { updateApp } from "../../api/UpdateApp.ts";
 import { installApp } from "../../api/InstallApp.ts";
 import { tearDownApp } from "../../api/TearDownApp.ts";
 import { removeApp } from "../../api/RemoveApp.ts";
+import { deployLogs } from "../../api/DeployLogs.ts";
 
 export interface StackStoreState {
   userStack?: UserStack;
@@ -34,6 +35,7 @@ export interface StackStoreBase extends StackStoreState {
   createOrUpdateStack: (
     stack: StackModification,
   ) => Promise<CreateStackResponse | UpdateStackResponse>;
+  deployLogs: (deploy_id: string, app_id: string) => Promise<EventSource>;
   getAppTemplates: (
     appIds: string[],
     refresh?: boolean,
@@ -42,11 +44,11 @@ export interface StackStoreBase extends StackStoreState {
   getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
   getUserStack: (refresh?: boolean) => Promise<UserStack>;
   installApp: (appId: string) => Promise<string>;
-  installStack: () => Promise<void>;
+  installStack: () => Promise<string>;
   removeApp: (appId: string) => Promise<void>;
   resetStackState: () => void;
   tearDownApp: (appId: string) => Promise<string>;
-  tearDownStack: () => Promise<void>;
+  tearDownStack: () => Promise<string>;
   updateApp: (
     appId: string,
     configuration: Record<string, any>,
@@ -181,6 +183,10 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   tearDownStack: async () => {
     const idToken = await get().getIdToken();
     return await tearDownStack(idToken);
+  },
+  deployLogs: async (deploy_id, app_id) => {
+    const idToken = await get().getIdToken();
+    return deployLogs(idToken, deploy_id, app_id);
   },
   getAppTemplates: async (
     appIds: string[],

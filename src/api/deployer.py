@@ -130,14 +130,28 @@ async def tear_down_app(
     )
 
 
-@router.get("/api/install/{deploy_id}/{app_id}/logs")
+@router.get("/api/logs/{deploy_id}/{app_id}")
 async def stream_deployment_logs(request: Request, deploy_id: str, app_id: str):
     user_id = await get_user_id(request)
     deploy_dir = DeploymentDir(user_id, deploy_id)
-    app_key = UserApp.composite_key(user_id, app_id)
-    log = deploy_dir.get_log(PulumiStack.sanitize_stack_name(app_key))
+    log = deploy_dir.get_log(PulumiStack.sanitize_stack_name(app_id))
+
+    if request.headers.get("accept") == "text/event-stream":
+
+        async def tail():
+            async for line in log.tail():
+                yield f"data: {line}\n\n"
+            print("sending done")
+            yield f"event: done\ndata: done\n\n"
+
+        return StreamingResponse(
+            tail(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-buffer"},
+        )
+
     return StreamingResponse(
         log.tail(),
-        media_type="text/event-stream",
+        media_type="text/plain",
         headers={"Cache-Control": "no-buffer"},
     )

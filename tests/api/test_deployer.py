@@ -282,7 +282,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_deploy_dir_ctor.assert_called_once_with("user_id", "deployment_id")
-        mock_deploy_dir.get_log.assert_called_once_with("user_id_app_id")
+        mock_deploy_dir.get_log.assert_called_once_with("app_id")
         mock_deploy_log.tail.assert_called_once()
 
         # Assert response
