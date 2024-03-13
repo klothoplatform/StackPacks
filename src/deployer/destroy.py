@@ -165,12 +165,10 @@ async def destroy_common_stack(
     common_pack.transition_status(
         results[0].status, DeploymentAction.DESTROY, results[0].reason
     )
+    actions = [UserApp.deployments.add({deployment_id})]
     if results[0].status == DeploymentStatus.SUCCEEDED:
-        common_pack.update(
-            actions=[
-                UserApp.iac_stack_composite_key.set(None),
-            ]
-        )
+        actions.append(UserApp.iac_stack_composite_key.set(None))
+    common_pack.update(actions=actions)
 
 
 async def destroy_applications(
@@ -187,12 +185,12 @@ async def destroy_applications(
         app = UserApp.get_latest_deployed_version(
             UserApp.composite_key(user_pack.id, name)
         )
-        app.transition_status(
-            DeploymentStatus.IN_PROGRESS, DeploymentAction.DESTROY, "Tearing down"
-        )
         if app == None:
             # this would mean that nothing has been deployed
             continue
+        app.transition_status(
+            DeploymentStatus.IN_PROGRESS, DeploymentAction.DESTROY, "Tearing down"
+        )
         apps[app.get_app_name()] = app
         try:
             iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
@@ -226,12 +224,10 @@ async def destroy_applications(
         result = results[i]
         success = success and result.status == DeploymentStatus.SUCCEEDED
         app.transition_status(result.status, DeploymentAction.DESTROY, result.reason)
+        actions = [UserApp.deployments.add({deployment_id})]
         if results[0].status == DeploymentStatus.SUCCEEDED:
-            app.update(
-                actions=[
-                    UserApp.iac_stack_composite_key.set(None),
-                ]
-            )
+            actions.append(UserApp.iac_stack_composite_key.set(None))
+        app.update(actions=actions)
     return success
 
 
@@ -243,6 +239,7 @@ async def tear_down_user_app(
     tmp_dir: Path,
 ):
     logger.info(f"Tearing down app {app.app_id}")
+    app.update(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)])
     _, results = await run_concurrent_destroys(
         pack.region,
         pack.assumed_role_arn,
@@ -260,13 +257,11 @@ async def tear_down_user_app(
     )
 
     result = results[0]
-    app.update(
-        actions=[
-            UserApp.status.set(result.status.value),
-            UserApp.status_reason.set(result.reason),
-            UserApp.iac_stack_composite_key.set(None),
-        ]
-    )
+    app.transition_status(result.status, DeploymentAction.DESTROY, result.reason)
+    actions = [UserApp.deployments.add({deployment_id})]
+    if results[0].status == DeploymentStatus.SUCCEEDED:
+        actions.append(UserApp.iac_stack_composite_key.set(None))
+    app.update(actions=actions)
 
 
 async def tear_down_single(pack: UserPack, app: UserApp, deployment_id: str):

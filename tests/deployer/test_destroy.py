@@ -318,6 +318,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_common_pack.update.assert_called_once_with(
             actions=[
+                UserApp.deployments.add({"deploy_id"}),
                 UserApp.iac_stack_composite_key.set(None),
             ]
         )
@@ -326,6 +327,82 @@ class TestDestroy(aiounittest.AsyncTestCase):
             [
                 call(DeploymentStatus.IN_PROGRESS, ANY, "Tearing down"),
                 call(DeploymentStatus.SUCCEEDED, ANY, "Success"),
+            ],
+        )
+
+    @patch("src.deployer.destroy.run_concurrent_destroys")
+    async def test_destroy_common_stack_failed_deployment(
+        self, mock_run_concurrent_destroys
+    ):
+        # Arrange
+        mock_user_pack = MagicMock(spec=UserPack, id="id")
+        mock_common_pack = MagicMock(
+            spec=UserApp,
+            app_id="id#common",
+            version="1",
+            get_pack_id=MagicMock(return_value="id"),
+            get_app_name=MagicMock(return_value="app1"),
+            configuration={"key": "value"},
+            update=MagicMock(),
+            transition_status=MagicMock(),
+        )
+        mock_pulumi_stack = MagicMock(spec=PulumiStack)
+        mock_iac_storage = MagicMock(spec=IacStorage, get_iac=Mock(return_value=b"iac"))
+        mock_manager = MagicMock()
+        mock_run_concurrent_destroys.return_value = (
+            ["common"],
+            [
+                DeploymentResult(
+                    manager=mock_manager,
+                    status=DeploymentStatus.FAILED,
+                    reason="fail",
+                    stack=mock_pulumi_stack,
+                )
+            ],
+        )
+
+        # Act
+        await destroy_common_stack(
+            mock_user_pack,
+            mock_common_pack,
+            mock_iac_storage,
+            "deploy_id",
+            Path("/tmp"),
+        )
+
+        # Assert
+        mock_iac_storage.get_iac.assert_called_once_with(
+            mock_user_pack.id, mock_common_pack.get_app_name(), mock_common_pack.version
+        )
+        mock_run_concurrent_destroys.assert_called_once_with(
+            mock_user_pack.region,
+            mock_user_pack.assumed_role_arn,
+            [
+                StackDeploymentRequest(
+                    project_name="id",
+                    stack_name="app1",
+                    iac=b"iac",
+                    pulumi_config={},
+                    deployment_id="deploy_id",
+                )
+            ],
+            mock_user_pack.id,
+            Path("/tmp"),
+        )
+        mock_common_pack.update.assert_called_once_with(
+            actions=[
+                UserApp.deployments.add({"deploy_id"}),
+            ]
+        )
+        self.assertEqual(
+            mock_common_pack.transition_status.mock_calls,
+            [
+                call(
+                    DeploymentStatus.IN_PROGRESS,
+                    DeploymentAction.DESTROY,
+                    "Tearing down",
+                ),
+                call(DeploymentStatus.FAILED, DeploymentAction.DESTROY, "fail"),
             ],
         )
 
@@ -413,6 +490,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_app_1.update.assert_called_once_with(
             actions=[
+                mock_user_app.deployments.add({"deploy_id"}),
                 mock_user_app.iac_stack_composite_key.set(
                     mock_run_concurrent_destroys.return_value[1][
                         0
@@ -429,6 +507,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_app_2.update.assert_called_once_with(
             actions=[
+                mock_user_app.deployments.add({"deploy_id"}),
                 mock_user_app.iac_stack_composite_key.set(
                     mock_run_concurrent_destroys.return_value[1][
                         0
@@ -490,12 +569,77 @@ class TestDestroy(aiounittest.AsyncTestCase):
             pack.id,
             tmp_dir,
         )
-        app.update.assert_called_once_with(
-            actions=[
-                UserApp.status.set(DeploymentStatus.SUCCEEDED.value),
-                UserApp.status_reason.set("Success"),
-                UserApp.iac_stack_composite_key.set(None),
-            ]
+        self.assertEqual(
+            app.update.mock_calls,
+            [
+                call(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)]),
+                call(
+                    actions=[
+                        UserApp.deployments.add({deployment_id}),
+                        UserApp.iac_stack_composite_key.set(None),
+                    ]
+                ),
+            ],
+        )
+        app.transition_status.assert_called_once_with(
+            DeploymentStatus.SUCCEEDED, DeploymentAction.DESTROY, "Success"
+        )
+
+    @patch("src.deployer.destroy.run_concurrent_destroys")
+    async def test_tear_down_app_failure(
+        self,
+        mock_run_concurrent_deployments,
+    ):
+        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        app = MagicMock(
+            spec=UserApp, get_app_name=MagicMock(return_value="app1"), version=1
+        )
+        iac_storage = MagicMock(spec=IacStorage)
+        deployment_id = "deployment_id"
+        tmp_dir = Path("/tmp")
+        iac_storage.get_iac.return_value = b"iac"
+
+        mock_run_concurrent_deployments.return_value = (
+            ["app1"],
+            [
+                DeploymentResult(
+                    manager=MagicMock(spec=AppManager),
+                    status=DeploymentStatus.FAILED,
+                    reason="fail",
+                    stack=MagicMock(spec=PulumiStack),
+                )
+            ],
+        )
+
+        await tear_down_user_app(pack, app, iac_storage, deployment_id, tmp_dir)
+
+        iac_storage.get_iac.assert_called_once_with(
+            pack.id, app.get_app_name(), app.version
+        )
+        mock_run_concurrent_deployments.assert_called_once_with(
+            pack.region,
+            pack.assumed_role_arn,
+            [
+                StackDeploymentRequest(
+                    project_name=pack.id,
+                    stack_name=app.get_app_name.return_value,
+                    iac=iac_storage.get_iac.return_value,
+                    pulumi_config={},
+                    deployment_id=deployment_id,
+                )
+            ],
+            pack.id,
+            tmp_dir,
+        )
+        self.assertEqual(
+            app.update.mock_calls,
+            [
+                call(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)]),
+                call(actions=[UserApp.deployments.add({deployment_id})]),
+            ],
+        )
+        app.transition_status.assert_called_once_with(
+            DeploymentStatus.FAILED, DeploymentAction.DESTROY, "fail"
         )
 
     @patch("src.deployer.destroy.get_iac_storage")

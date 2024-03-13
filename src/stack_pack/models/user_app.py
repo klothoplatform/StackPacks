@@ -10,6 +10,7 @@ from pynamodb.attributes import (
     JSONAttribute,
     NumberAttribute,
     UnicodeAttribute,
+    UnicodeSetAttribute,
     UTCDateTimeAttribute,
 )
 from pynamodb.models import Model
@@ -56,7 +57,7 @@ class UserApp(Model):
     created_at: datetime.datetime = UTCDateTimeAttribute(
         default=datetime.datetime.now()
     )
-    deployments: list[str] = JSONAttribute(null=True)
+    deployments: list[str] = UnicodeSetAttribute(null=True)
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
@@ -92,7 +93,7 @@ class UserApp(Model):
             case DeploymentAction.DEPLOY:
                 match status:
                     case DeploymentStatus.IN_PROGRESS:
-                        if self.get_latest_deployed_version() is None:
+                        if self.get_latest_deployed_version(self.app_id) is None:
                             new_status = AppLifecycleStatus.INSTALLING.value
                         else:
                             new_status = AppLifecycleStatus.UPDATING.value
@@ -111,6 +112,9 @@ class UserApp(Model):
                         new_status = AppLifecycleStatus.UNINSTALLED.value
                     case DeploymentStatus.FAILED:
                         new_status = AppLifecycleStatus.UNINSTALL_FAILED.value
+
+        if new_status is None:
+            raise ValueError(f"Invalid status transition: {self.status} -> {status}")
         self.update(
             actions=[UserApp.status.set(new_status), UserApp.status_reason.set(reason)]
         )
@@ -177,9 +181,15 @@ class UserApp(Model):
             scan_index_forward=False,  # Sort in descending order
             limit=1,  # Only retrieve the first item
         )
-        return next(
+        result = next(
             iter(results), None
         )  # Return the first item or None if there are no items
+        if result:
+            return (
+                result
+                if result.status is not AppLifecycleStatus.UNINSTALLED.value
+                else None
+            )
 
     @staticmethod
     def composite_key(pack_id, app_name):
