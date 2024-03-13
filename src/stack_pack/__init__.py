@@ -247,5 +247,5 @@ def get_stack_packs() -> dict[str, StackPack]:
         except Exception as e:
             raise ValueError(f"Failed to parse {dir.name}") from e
         sp.id = dir.name
-        sps[dir.name] = sp
+        sps[sp.name] = sp
     return sps

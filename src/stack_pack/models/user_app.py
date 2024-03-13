@@ -1,5 +1,6 @@
 import datetime
 import os
+from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
@@ -13,7 +14,7 @@ from pynamodb.attributes import (
 )
 from pynamodb.models import Model
 
-from src.deployer.models.deployment import PulumiStack
+from src.deployer.models.deployment import DeploymentAction, DeploymentStatus
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
@@ -25,6 +26,20 @@ from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.compress import zip_directory_recurse
 from src.util.logging import logger
+
+
+class AppLifecycleStatus(Enum):
+    NEW = "New"
+    PENDING = "PENDING"
+    INSTALLING = "INSTALLING"
+    INSTALLED = "INSTALLED"
+    UPDATING = "UPDATING"
+    INSTALL_FAILED = "INSTALL_FAILED"
+    UPDATE_FAILED = "UPDATE_FAILED"
+    UNINSTALLING = "UNINSTALLING"
+    UNINSTALL_FAILED = "UNINSTALL_FAILED"
+    UNINSTALLED = "UNINSTALLED"
+    UNKNOWN = "UNKNOWN"
 
 
 class UserApp(Model):
@@ -41,18 +56,13 @@ class UserApp(Model):
     created_at: datetime.datetime = UTCDateTimeAttribute(
         default=datetime.datetime.now()
     )
-    status: str = UnicodeAttribute(null=True)
+    deployments: list[str] = JSONAttribute(null=True)
+    status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
 
     def to_user_app(self):
-        pulumi_stack = None
-        if self.iac_stack_composite_key:
-            hash_key, range_key = PulumiStack.split_composite_key(
-                self.iac_stack_composite_key
-            )
-            pulumi_stack = PulumiStack.get(hash_key=hash_key, range_key=range_key)
-        latest_deployed_version = UserApp.get_latest_version_with_status(self.app_id)
+        latest_deployed_version = UserApp.get_latest_deployed_version(self.app_id)
         return AppModel(
             app_id=self.app_id,
             version=self.version,
@@ -62,8 +72,47 @@ class UserApp(Model):
             last_deployed_version=(
                 latest_deployed_version.version if latest_deployed_version else None
             ),
-            status=pulumi_stack.status if pulumi_stack else None,
-            status_reason=pulumi_stack.status_reason if pulumi_stack else None,
+            status=self.status if self.status else latest_deployed_version.status,
+            status_reason=(
+                self.status_reason
+                if self.status_reason
+                else (
+                    latest_deployed_version.status_reason
+                    if latest_deployed_version
+                    else None
+                )
+            ),
+        )
+
+    def transition_status(
+        self, status: DeploymentStatus, action: DeploymentAction, reason: str
+    ):
+        new_status = None
+        match action:
+            case DeploymentAction.DEPLOY:
+                match status:
+                    case DeploymentStatus.IN_PROGRESS:
+                        if self.get_latest_deployed_version() is None:
+                            new_status = AppLifecycleStatus.INSTALLING.value
+                        else:
+                            new_status = AppLifecycleStatus.UPDATING.value
+                    case DeploymentStatus.SUCCEEDED:
+                        new_status = AppLifecycleStatus.INSTALLED.value
+                    case DeploymentStatus.FAILED:
+                        if self.status == AppLifecycleStatus.NEW.value:
+                            new_status = AppLifecycleStatus.INSTALL_FAILED.value
+                        else:
+                            new_status = AppLifecycleStatus.UPDATE_FAILED.value
+            case DeploymentAction.DESTROY:
+                match status:
+                    case DeploymentStatus.IN_PROGRESS:
+                        new_status = AppLifecycleStatus.UNINSTALLING.value
+                    case DeploymentStatus.SUCCEEDED:
+                        new_status = AppLifecycleStatus.UNINSTALLED.value
+                    case DeploymentStatus.FAILED:
+                        new_status = AppLifecycleStatus.UNINSTALL_FAILED.value
+        self.update(
+            actions=[UserApp.status.set(new_status), UserApp.status_reason.set(reason)]
         )
 
     def get_app_name(self):
@@ -121,10 +170,10 @@ class UserApp(Model):
         )  # Return the first item or None if there are no items
 
     @classmethod
-    def get_latest_version_with_status(cls, app_id: str):
+    def get_latest_deployed_version(cls, app_id: str):
         results = cls.query(
             app_id,
-            filter_condition=UserApp.status.exists(),  # Only include items where status is not null
+            filter_condition=UserApp.deployments.exists(),  # Only include items where status is not null
             scan_index_forward=False,  # Sort in descending order
             limit=1,  # Only retrieve the first item
         )
