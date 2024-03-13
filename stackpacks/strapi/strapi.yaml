@@ -1,4 +1,5 @@
 name: strapi
+description: Node.js Headless CMS to build customisable APIs
 version: '1.0.0'
 requires:
   - network
@@ -67,7 +68,7 @@ base:
 configuration:
   CPU: # This is an example of a value used in the base config
     name: CPU
-    description: The amount of CPU to allocate to the gitea service
+    description: The amount of CPU to allocate to the strapi service
     type: number
     default: 256
     validation:
@@ -76,7 +77,7 @@ configuration:
 
   Memory:
     name: Memory
-    description: The amount of Memory to allocate to the gitea service
+    description: The amount of Memory to allocate to the strapi service
     type: number
     default: 2048
     validation:
@@ -85,9 +86,9 @@ configuration:
 
   DBUsername:
     name: Database Username
-    description: The username to use for the Gitea database
+    description: The username to use for the strapi database
     type: string
-    default: giteauser
+    default: strapiuser
     pulumi_key: klo:strapi-db-username
     validation:
       minLength: 1
@@ -96,7 +97,7 @@ configuration:
 
   DBPassword:
     name: Database Password
-    description: The password to use for the Gitea database
+    description: The password to use for the strapi database
     type: string
     pulumi_key: klo:strapi-db-password
     secret: true

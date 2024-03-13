@@ -1,4 +1,5 @@
 name: Small Testing SP
+description: A small testing stackpack
 version: '1.0.0'
 
 base:

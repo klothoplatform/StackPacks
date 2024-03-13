@@ -1,4 +1,5 @@
-name: Gitness
+name: gitness
+description: Development platform with code hosting and automated DevOps pipelines
 version: '1.0.0'
 requires:
   - network
@@ -60,7 +61,7 @@ base:
 configuration:
   CPU: # This is an example of a value used in the base config
     name: CPU
-    description: The amount of CPU to allocate to the gitea service
+    description: The amount of CPU to allocate to the gitness service
     type: number
     default: 512
     validation:
@@ -69,7 +70,7 @@ configuration:
 
   Memory:
     name: Memory
-    description: The amount of Memory to allocate to the gitea service
+    description: The amount of Memory to allocate to the gitness service
     type: number
     default: 2048
     validation:
@@ -78,9 +79,9 @@ configuration:
 
   DBUsername:
     name: Database Username
-    description: The username to use for the Gitea database
+    description: The username to use for the gitness database
     type: string
-    default: giteauser
+    default: gitnessuser
     pulumi_key: klo:gitness-db-username
     validation:
       minLength: 1
@@ -89,7 +90,7 @@ configuration:
 
   DBPassword:
     name: Database Password
-    description: The password to use for the Gitea database
+    description: The password to use for the gitness database
     type: string
     pulumi_key: klo:gitness-db-password
     secret: true

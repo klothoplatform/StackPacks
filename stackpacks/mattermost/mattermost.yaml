@@ -1,6 +1,6 @@
 name: Mattermost
 version: '1.0.0'
-
+description: Enterprise communication platform for developers
 requires:
   - network
   - ecs

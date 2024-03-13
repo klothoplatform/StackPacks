@@ -1,6 +1,6 @@
-name: Mattermost
+name: tooljet
+description: Low-code framework for internal tools
 version: '1.0.0'
-
 requires:
   - network
   - ecs
@@ -82,7 +82,7 @@ base:
 configuration:
   CPU: # This is an example of a value used in the base config
     name: CPU
-    description: The amount of CPU to allocate to the Mattermost service
+    description: The amount of CPU to allocate to the Tooljet service
     type: number
     default: 1024
     validation:
@@ -91,7 +91,7 @@ configuration:
 
   Memory:
     name: Memory
-    description: The amount of Memory to allocate to the Mattermost service
+    description: The amount of Memory to allocate to the Tooljet service
     type: number
     default: 3072
     validation:
@@ -100,9 +100,9 @@ configuration:
 
   DBUsername:
     name: Database Username
-    description: The username to use for the Mattermost database
+    description: The username to use for the Tooljet database
     type: string
-    default: mattermostuser
+    default: tooljetuser
     pulumi_key: klo:tooljet-db-username
     validation:
       minLength: 1
@@ -110,7 +110,7 @@ configuration:
 
   DBPassword:
     name: Database Password
-    description: The password to use for the Mattermost database
+    description: The password to use for the Tooljet database
     type: string
     pulumi_key: klo:tooljet-db-password
     secret: true

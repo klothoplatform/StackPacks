@@ -1,4 +1,5 @@
-name: Gitea
+name: gitea
+description: Self-hosted Git service
 version: '1.0.0'
 requires:
   - network
