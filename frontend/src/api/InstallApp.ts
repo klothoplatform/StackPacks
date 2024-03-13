@@ -38,5 +38,5 @@ export async function installApp({
     appId: appId,
   });
 
-  return response.data;
+  return response.data.deployment_id;
 }

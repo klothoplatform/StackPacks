@@ -75,7 +75,8 @@ export const ConfigureAppForm: FC<{
       }
 
       try {
-        await installApp(appId);
+        const deployId = await installApp(appId);
+        navigate(`/user/dashboard/deploy/${deployId}`);
       } catch (e) {
         addError(
           new UIError({

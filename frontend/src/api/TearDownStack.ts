@@ -4,7 +4,7 @@ import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
 
-export async function tearDownStack(idToken: string) {
+export async function tearDownStack(idToken: string): Promise<string> {
   let response: AxiosResponse;
   try {
     response = await axios.post("/api/tear_down", {
@@ -12,6 +12,8 @@ export async function tearDownStack(idToken: string) {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
     });
+
+    return response.data.deployment_id;
   } catch (e: any) {
     const error = new ApiError({
       errorId: "TearDownStack",
@@ -23,9 +25,9 @@ export async function tearDownStack(idToken: string) {
     });
     trackError(error);
     throw error;
+  } finally {
+    analytics.track("TearDownStack", {
+      status: response.status,
+    });
   }
-
-  analytics.track("TearDownStack", {
-    status: response.status,
-  });
 }

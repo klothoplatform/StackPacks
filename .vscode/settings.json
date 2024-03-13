@@ -14,4 +14,7 @@
     "--profile",
     "black"
   ],
+  "eslint.workingDirectories": [
+    "./frontend"
+  ],
 }

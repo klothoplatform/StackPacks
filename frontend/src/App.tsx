@@ -12,8 +12,8 @@ import { Auth0ProviderWithNavigate } from "./auth/Auth0ProviderWithNavigate.tsx"
 import FallbackPage from "./pages/FallbackPage.tsx";
 import UserDashboardPage from "./pages/user-dashboard/UserDashboardPage.tsx";
 import { YourStackPane } from "./pages/user-dashboard/YourStackPane/YourStackPane.tsx";
-import { DeploymentLogsPane } from "./pages/user-dashboard/DeploymentLogsPane.tsx";
-import { DeploymentLogViewerPane } from "./pages/user-dashboard/DeploymentLogViewerPane.tsx";
+import { DeploymentPane } from "./pages/user-dashboard/DeploymentPane.tsx";
+import { DeploymentViewerPane } from "./pages/user-dashboard/DeploymentViewerPane.tsx";
 import { ConfigureAppPage } from "./pages/ConfigureApp/ConfigureAppPage.tsx";
 import { AddAppsPage } from "./pages/AddAppsPage.tsx";
 
@@ -71,15 +71,19 @@ const AppRouter: FC = function () {
               ],
             },
             {
-              path: "deployment-logs",
+              path: "deploy",
               children: [
                 {
-                  element: <DeploymentLogsPane />,
+                  element: <DeploymentPane />,
                   index: true,
                 },
                 {
-                  path: ":runId",
-                  element: <DeploymentLogViewerPane />,
+                  path: ":deployId",
+                  element: <DeploymentViewerPane />,
+                },
+                {
+                  path: ":deployId/app/:appId",
+                  element: <DeploymentViewerPane />,
                 },
               ],
             },

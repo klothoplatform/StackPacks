@@ -22,12 +22,12 @@ const sidebarConfig = [
   },
   {
     id: "deployment-logs",
-    url: "/user/dashboard/deployment-logs",
+    url: "/user/dashboard/deploy",
     title: "Deployment Logs",
   },
   {
     id: "latest-logs",
-    url: "/user/dashboard/deployment-logs/latest",
+    url: "/user/dashboard/deploy/latest",
     title: "Latest Logs",
   },
 ];

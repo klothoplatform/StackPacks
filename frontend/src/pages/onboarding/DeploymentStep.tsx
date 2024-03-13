@@ -65,7 +65,9 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
       await updateStack({
         region: data.region,
       });
-      await installStack();
+      const deployId = await installStack();
+      setDeploymentState("installed");
+      navigate(`/user/dashboard/deploy/${deployId}`);
     } catch (e) {
       addError(
         new UIError({
@@ -76,8 +78,6 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
       setDeploymentState("failed");
       return;
     }
-    setDeploymentState("installed");
-    navigate("/user/dashboard");
   };
 
   const canSelectRegion =

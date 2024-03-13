@@ -109,7 +109,7 @@ export const ChooseAppsStep: FC<
     // load stack packs
     (async () => {
       const stackPacks = await getStackPacks();
-      console.log(stackPacks);
+      console.log("ChooseAppsSetp.getStackPacks", stackPacks);
       setApps(
         [...stackPacks.values()].filter(
           (app) => !excludedApps?.includes(app.id),
@@ -141,7 +141,7 @@ export const ChooseAppsStep: FC<
   const canProgress = isLoaded && (selectedApps?.length ?? 0) > 0;
 
   const completeStep = async (state: ChooseAppsFormState) => {
-    console.log(state);
+    console.log("completeStep", { state });
     if (!canProgress) {
       return;
     }

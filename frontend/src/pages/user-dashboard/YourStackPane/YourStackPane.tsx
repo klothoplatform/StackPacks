@@ -355,9 +355,12 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
     }
   };
 
+  const [deployId, setDeployId] = useState<string | null>(null);
+
   const onInstallApp = async () => {
     try {
-      await installApp(app.app_id.split("#")[1]);
+      const deployId = await installApp(app.app_id.split("#")[1]);
+      setDeployId(deployId);
     } catch (e) {
       addError(
         new UIError({
@@ -399,7 +402,11 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
               <Dropdown.Item
                 icon={AiFillEye}
                 onClick={() => {
-                  navigate("./deployment-logs");
+                  if (deployId) {
+                    navigate(`/user/dashboard/deploy/${deployId}`);
+                  } else {
+                    navigate(`/user/dashboard/deploy/latest`);
+                  }
                 }}
               >
                 View Logs
