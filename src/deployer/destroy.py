@@ -239,7 +239,9 @@ async def tear_down_user_app(
     tmp_dir: Path,
 ):
     logger.info(f"Tearing down app {app.app_id}")
-    app.update(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)])
+    app.transition_status(
+        DeploymentStatus.IN_PROGRESS, DeploymentAction.DESTROY, "Tearing down"
+    )
     _, results = await run_concurrent_destroys(
         pack.region,
         pack.assumed_role_arn,

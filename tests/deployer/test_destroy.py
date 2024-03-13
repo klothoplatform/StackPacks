@@ -572,7 +572,6 @@ class TestDestroy(aiounittest.AsyncTestCase):
         self.assertEqual(
             app.update.mock_calls,
             [
-                call(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)]),
                 call(
                     actions=[
                         UserApp.deployments.add({deployment_id}),
@@ -581,8 +580,16 @@ class TestDestroy(aiounittest.AsyncTestCase):
                 ),
             ],
         )
-        app.transition_status.assert_called_once_with(
-            DeploymentStatus.SUCCEEDED, DeploymentAction.DESTROY, "Success"
+        self.assertEqual(
+            app.transition_status.mock_calls,
+            [
+                call(
+                    DeploymentStatus.IN_PROGRESS,
+                    DeploymentAction.DESTROY,
+                    "Tearing down",
+                ),
+                call(DeploymentStatus.SUCCEEDED, DeploymentAction.DESTROY, "Success"),
+            ],
         )
 
     @patch("src.deployer.destroy.run_concurrent_destroys")
@@ -634,12 +641,19 @@ class TestDestroy(aiounittest.AsyncTestCase):
         self.assertEqual(
             app.update.mock_calls,
             [
-                call(actions=[UserApp.status.set(AppLifecycleStatus.PENDING.value)]),
                 call(actions=[UserApp.deployments.add({deployment_id})]),
             ],
         )
-        app.transition_status.assert_called_once_with(
-            DeploymentStatus.FAILED, DeploymentAction.DESTROY, "fail"
+        self.assertEqual(
+            app.transition_status.mock_calls,
+            [
+                call(
+                    DeploymentStatus.IN_PROGRESS,
+                    DeploymentAction.DESTROY,
+                    "Tearing down",
+                ),
+                call(DeploymentStatus.FAILED, DeploymentAction.DESTROY, "fail"),
+            ],
         )
 
     @patch("src.deployer.destroy.get_iac_storage")
