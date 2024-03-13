@@ -117,7 +117,7 @@ jobs:
         shell: bash
       - name: build frontend
         run: |
-          make install-frontend
+          make frontend/node_modules
           make build-frontend-${STAGE}
         env:
           CI: false
