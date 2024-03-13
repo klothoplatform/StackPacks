@@ -2,6 +2,7 @@ import os
 
 import boto3
 
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack.storage.iac_storage import IacStorage
 
 if os.getenv("IAC_BUCKET", None) is None:
@@ -20,8 +21,18 @@ def get_ses_client():
 
 
 def create_iac_bucket():
-    return s3_resource.Bucket(os.environ.get("IAC_BUCKET", "iac-store"))
+    return s3_resource.Bucket(os.environ.get("IAC_STORE_BUCKET_NAME", "iac-store"))
 
 
 def get_iac_storage():
     return IacStorage(create_iac_bucket())
+
+
+def create_binary_bucket():
+    return s3_resource.Bucket(
+        os.environ.get("STACK_SNAP_BINARIES_BUCKET_NAME", "binary-store")
+    )
+
+
+def get_binary_storage():
+    return BinaryStorage(create_binary_bucket())

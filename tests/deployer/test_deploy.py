@@ -510,6 +510,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
 
     @patch("src.deployer.deploy.deploy_app")
     @patch("src.deployer.deploy.get_iac_storage")
+    @patch("src.deployer.deploy.get_binary_storage")
     @patch.object(UserApp, "get")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
@@ -524,6 +525,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_temp_dir,
         mock_common_stack,
         mock_user_app,
+        mock_get_binary_storage,
         mock_get_iac_storage,
         mock_deploy_app,
     ):
@@ -536,6 +538,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_sps = {"app1": sp1}
         mock_get_stack_packs.return_value = mock_sps
         iac_storage = mock_get_iac_storage.return_value
+        binary_storage = mock_get_binary_storage.return_value
         common_stack = mock_common_stack.return_value
         common_app = mock_user_app.return_value
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
@@ -568,7 +571,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         manager.read_deployed_state.assert_called_once()
         app.run_app.assert_called_once_with(
-            mock_sps.get("app1"), Path("/tmp"), iac_storage, ["constraint1"]
+            mock_sps.get("app1"),
+            Path("/tmp"),
+            iac_storage,
+            binary_storage,
+            ["constraint1"],
         )
         mock_get_ses_client.assert_called_once()
         mock_send_email.assert_called_once_with(

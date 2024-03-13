@@ -21,6 +21,7 @@ from src.deployer.models.deployment import (
     Deployment,
     PulumiStack,
 )
+from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
@@ -50,7 +51,7 @@ class AppLifecycleStatus(Enum):
 
 class UserApp(Model):
     class Meta:
-        table_name = "UserApps"
+        table_name = os.environ.get("USERAPPS_TABLE_NAME", "UserApps")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
 
@@ -156,10 +157,12 @@ class UserApp(Model):
         stack_pack: StackPack,
         dir: str,
         iac_storage: IacStorage | None,
+        binary_storage: BinaryStorage | None,
         imports: list[any] = [],
     ) -> Policy:
         constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
+        binary_storage.ensure_binary(Binary.ENGINE)
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(
                 constraints=constraints,
@@ -167,6 +170,7 @@ class UserApp(Model):
             )
         )
         if iac_storage:
+            binary_storage.ensure_binary(Binary.IAC)
             await export_iac(
                 ExportIacRequest(
                     input_graph=engine_result.resources_yaml,

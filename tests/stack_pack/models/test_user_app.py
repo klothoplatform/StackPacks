@@ -1,8 +1,9 @@
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 import aiounittest
 
+from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
 from src.stack_pack import StackPack
@@ -120,6 +121,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
             spec=StackPack, to_constraints=MagicMock(return_value=["constraint1"])
         )
         mock_iac_storage = MagicMock(spec=IacStorage)
+        mock_binary_storage = MagicMock(spec=BinaryStorage)
         mock_run_engine.return_value = MagicMock(
             resources_yaml="resources_yaml",
             policy='{"Version": "2012-10-17","Statement": []}',
@@ -128,7 +130,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
         mock_zip.return_value = b"zip_content"
         # Act
         policy = await mock_user_app.run_app(
-            mock_stack_pack, "dir", mock_iac_storage, imports
+            mock_stack_pack, "dir", mock_iac_storage, mock_binary_storage, imports
         )
 
         # Assert
@@ -145,6 +147,12 @@ class TestUserApp(aiounittest.AsyncTestCase):
         mock_zip.assert_called_once_with(ANY, "dir")
         mock_iac_storage.write_iac.assert_called_once_with(
             "id", "app", 1, b"zip_content"
+        )
+        mock_binary_storage.ensure_binary.assert_has_calls(
+            [
+                call(Binary.ENGINE),
+                call(Binary.IAC),
+            ]
         )
         self.assertEqual(
             policy.__str__(), '{\n    "Version": "2012-10-17",\n    "Statement": []\n}'

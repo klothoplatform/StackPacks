@@ -14,6 +14,7 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import DoesNotExist
 from pynamodb.models import Model
 
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import ConfigValues, StackPack
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, AppModel, UserApp
@@ -27,7 +28,7 @@ class UserPack(Model):
     COMMON_APP_NAME = "common"
 
     class Meta:
-        table_name = "UserPacks"
+        table_name = os.environ.get("USERPACKS_TABLE_NAME", "UserPacks")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
 
@@ -47,6 +48,7 @@ class UserPack(Model):
         stack_packs: List[StackPack],
         config: ConfigValues,
         iac_storage: IacStorage,
+        binary_storage: BinaryStorage,
         tmp_dir: str,
         dry_run: bool = False,
     ) -> Policy:
@@ -80,7 +82,9 @@ class UserPack(Model):
         # Run the packs in parallel and only store the iac if we are incrementing the version
         subdir = Path(tmp_dir) / app.get_app_name()
         subdir.mkdir(exist_ok=True)
-        policy = await app.run_app(base_stack, str(subdir.absolute()), iac_storage)
+        policy = await app.run_app(
+            base_stack, str(subdir.absolute()), iac_storage, binary_storage
+        )
 
         if not dry_run:
             app.save()
@@ -93,6 +97,7 @@ class UserPack(Model):
         config: dict[str, ConfigValues],
         tmp_dir: str,
         iac_storage: IacStorage = None,
+        binary_storage: BinaryStorage = None,
         increment_versions: bool = True,
         imports: list[any] = [],
     ) -> Policy:
@@ -172,6 +177,7 @@ class UserPack(Model):
                     sp,
                     str(subdir.absolute()),
                     iac_storage,
+                    binary_storage,
                     imports,
                 )
             )
