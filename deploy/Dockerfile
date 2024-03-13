@@ -15,15 +15,4 @@ RUN pip3 install -r requirements.txt
 RUN mkdir ./src
 COPY ./src ./src
 
-ENTRYPOINT [ "gunicorn" ]
-CMD [ \
-  "--timeout", \
-  "0", \
-  "-w", \
-  "9", \
-  "-k", \
-  "uvicorn.workers.UvicornWorker", \
-  "-b", \
-  "0.0.0.0:80", \
-  "src.main:app", \
-  ]
+ENTRYPOINT [ "gunicorn", "--timeout", "0", "-w", "9", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:80", "src.main:app" ]
