@@ -78,7 +78,6 @@ jobs:
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
-          FGA_STORE_ID: ${{ secrets.FGA_STORE_ID }}
         with:
           command: refresh
           work-dir: "./deploy"
@@ -109,7 +108,6 @@ jobs:
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
-          FGA_STORE_ID: ${{ secrets.FGA_STORE_ID }}
       - name: Get Pulumi Outputs
         id: pulumi-outputs
         run: |
@@ -162,4 +160,3 @@ jobs:
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
-          FGA_STORE_ID: ${{ secrets.FGA_STORE_ID }}

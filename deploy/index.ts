@@ -44,7 +44,7 @@ const pulumistacks = new aws.dynamodb.Table(
         {
             attributes: [
     {
-        name: "id",
+        name: "project_name",
         type: "S"
     },
     {
@@ -66,7 +66,7 @@ const userapps = new aws.dynamodb.Table(
         {
             attributes: [
     {
-        name: "id",
+        name: "app_id",
         type: "S"
     },
     {
@@ -192,7 +192,7 @@ const ecs_service_0_ecs_service_0 = (() => {
             `${"ecs_service_0-ecs_service_0"}-base`,
             {
                 build: {
-                    context: ".",
+                    context: "..",
                     dockerfile: "Dockerfile",
                     platform: "linux/amd64",
                 },
