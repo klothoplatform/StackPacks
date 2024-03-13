@@ -19,10 +19,54 @@ import {
   type MapProperty,
 } from "../configuration-properties.ts";
 import { isCollection } from "yaml";
+import type { AppTemplate } from "./AppTemplate.ts";
+import { resolveAppTemplates } from "./AppTemplate.ts";
+
+export enum AppDeploymentStatus {
+  Failed = "FAILED",
+  InProgress = "IN_PROGRESS",
+  Succeeded = "SUCCEEDED",
+}
+
+export enum AppLifecycleStatus {
+  New = "NEW",
+  Installing = "INSTALLING",
+  Installed = "INSTALLED",
+  Updating = "UPDATING",
+  InstallFailed = "INSTALL_FAILED",
+  UpdateFailed = "UPDATE_FAILED",
+  Uninstalling = "UNINSTALLING",
+  UninstallFailed = "UNINSTALL_FAILED",
+  Uninstalled = "UNINSTALLED",
+  Unknown = "UNKNOWN",
+}
+
+export type AppStatus = AppLifecycleStatus & AppDeploymentStatus;
+
+const lifecycleStatuses: Record<AppStatus, string> = {
+  [AppLifecycleStatus.New]: "New",
+  [AppLifecycleStatus.Installing]: "Installing",
+  [AppLifecycleStatus.Installed]: "Installed",
+  [AppLifecycleStatus.Updating]: "Updating",
+  [AppLifecycleStatus.InstallFailed]: "Install Failed",
+  [AppLifecycleStatus.UpdateFailed]: "Update Failed",
+  [AppLifecycleStatus.Uninstalling]: "Uninstalling",
+  [AppLifecycleStatus.UninstallFailed]: "Uninstall Failed",
+  [AppLifecycleStatus.Uninstalled]: "Uninstalled",
+  [AppLifecycleStatus.Unknown]: "Unknown",
+  [AppDeploymentStatus.Failed]: "Failed",
+  [AppDeploymentStatus.InProgress]: "In Progress",
+  [AppDeploymentStatus.Succeeded]: "Succeeded",
+};
+
+export function toAppStatusString(status: AppLifecycleStatus) {
+  return lifecycleStatuses[status];
+}
 
 export interface UserStack {
   assumed_role_arn?: string;
   assumed_role_external_id?: string;
+  policy: string;
   created_at: number;
   created_by: string;
   id: string;
@@ -38,7 +82,7 @@ export interface ApplicationDeployment {
   created_by: string;
   iac_stack_composite_key?: string;
   last_deployed_version?: number;
-  status?: string;
+  status: AppStatus;
   status_reason?: string;
   version: string;
 }
@@ -227,4 +271,53 @@ export function isStackDeployed(userStack: UserStack) {
     return false;
   }
   return Object.values(userStack.stack_packs).some((app) => app.status);
+}
+
+export function parseStack(data: any): UserStack {
+  delete data?.stack_packs?.common;
+  return data;
+}
+
+export function formStateToAppConfig(
+  data: Record<string, any>,
+  stackPacks: Map<string, AppTemplate>,
+) {
+  const packs = [
+    ...new Set(
+      resolveAppTemplates(
+        Object.keys(data)
+          .map((f) => (f.includes("#") ? f.split("#")[0] : undefined))
+          .filter((f) => f !== undefined),
+        stackPacks,
+      ),
+    ),
+  ];
+  return Object.fromEntries(
+    packs.map((pack) => [
+      pack.id,
+      resolveConfigFromFormState(
+        Object.fromEntries(
+          Object.entries(data)
+            .filter(([key]) => key.startsWith(pack.id + "#"))
+            .map(([key, value]) => [
+              key.includes("#") ? key.split("#")[1] : key,
+              value,
+            ]),
+        ),
+        Object.values(pack.configuration),
+      ),
+    ]),
+  );
+}
+
+export function hasDeploymentInProgress(userStack: UserStack) {
+  if (!userStack?.stack_packs) {
+    return false;
+  }
+
+  return Object.values(userStack.stack_packs).some(
+    (app) =>
+      app.status === AppLifecycleStatus.Installing ||
+      app.status === AppDeploymentStatus.InProgress,
+  );
 }

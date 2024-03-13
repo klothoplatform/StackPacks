@@ -1,7 +1,7 @@
-# StackPacks
+# stacksnap
 
 <!-- TOC -->
-* [StackPacks](#stackpacks)
+* [stacksnap](#stacksnap)
   * [Development](#development)
     * [WSL2](#wsl2)
   * [Format](#format)

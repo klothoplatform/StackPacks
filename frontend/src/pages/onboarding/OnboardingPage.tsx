@@ -52,11 +52,7 @@ function OnboardingPage() {
   const { isAuthenticated, user, addError } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const {
-    getUserStack,
-    updateOnboardingWorkflowState,
-    onboardingWorkflowState: { selectedStackPacks },
-  } = useApplicationStore();
+  const { getUserStack, updateOnboardingWorkflowState } = useApplicationStore();
   const navigate = useNavigate();
   const [canOnboard, setCanOnboard] = useState(false);
 
@@ -86,18 +82,14 @@ function OnboardingPage() {
   }, [isAuthenticated, isLoaded, getUserStack, navigate, addError]);
 
   useEffectOnMount(() => {
-    if (selectedStackPacks.length > 0) {
-      setSearchParams({ selectedApps: selectedStackPacks.join(",") });
-    } else {
-      const queryApps = searchParams
-        .get("selectedApps")
-        ?.split(",")
-        ?.filter((qa) => qa);
-      if (queryApps?.length > 0) {
-        updateOnboardingWorkflowState({
-          selectedStackPacks: queryApps,
-        });
-      }
+    const queryApps = searchParams
+      .get("selectedApps")
+      ?.split(",")
+      ?.filter((qa) => qa);
+    if (queryApps?.length > 0) {
+      updateOnboardingWorkflowState({
+        selectedStackPacks: queryApps,
+      });
     }
   });
 
@@ -132,7 +124,7 @@ function OnboardingPage() {
         </HeaderNavBar>
         {canOnboard && (
           <div className="flex size-full flex-row justify-center overflow-hidden">
-            <div className="flex size-full max-w-[1000px] grow flex-col gap-6 p-6">
+            <div className="flex size-full max-w-[1400px] grow flex-col gap-6 p-6">
               <StepperProvider
                 onGoBack={(step) =>
                   navigate(
@@ -175,7 +167,7 @@ const OnboardingWorkflow: React.FC = () => {
 
   const stepTitle = steps.find((s) => s.id === stepParam)?.title;
   useDocumentTitle(
-    "StackPacks - Onboarding" + (stepTitle ? ` - ${stepTitle}` : ""),
+    "StackSnap - Onboarding" + (stepTitle ? ` - ${stepTitle}` : ""),
   );
 
   useEffect(() => {

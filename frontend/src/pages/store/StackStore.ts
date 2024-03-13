@@ -4,6 +4,7 @@ import type {
   StackModification,
   UserStack,
 } from "../../shared/models/UserStack.ts";
+import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
 import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
 import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
 import { getStack } from "../../api/GetStack.ts";
@@ -16,6 +17,12 @@ import { updateStack } from "../../api/UpdateStack.ts";
 import type { CreateStackResponse } from "../../api/CreateStack.ts";
 import { createStack } from "../../api/CreateStack.ts";
 import { merge } from "ts-deepmerge";
+import type { UpdateAppResponse } from "../../api/UpdateApp.ts";
+import { updateApp } from "../../api/UpdateApp.ts";
+import { installApp } from "../../api/InstallApp.ts";
+import { tearDownApp } from "../../api/TearDownApp.ts";
+import { removeApp } from "../../api/RemoveApp.ts";
+import { deployLogs } from "../../api/DeployLogs.ts";
 
 export interface StackStoreState {
   userStack?: UserStack;
@@ -24,21 +31,29 @@ export interface StackStoreState {
 }
 
 export interface StackStoreBase extends StackStoreState {
-  getStack: () => Promise<UserStack>;
-  getUserStack: (refresh?: boolean) => Promise<UserStack>;
+  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
   createOrUpdateStack: (
     stack: StackModification,
   ) => Promise<CreateStackResponse | UpdateStackResponse>;
-  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
-  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
-  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
-  installStack: () => Promise<void>;
-  tearDownStack: () => Promise<void>;
-  resetStackState: () => void;
+  deployLogs: (deploy_id: string, app_id: string) => Promise<EventSource>;
   getAppTemplates: (
     appIds: string[],
     refresh?: boolean,
   ) => Promise<AppTemplate[]>;
+  getStack: () => Promise<UserStack>;
+  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
+  getUserStack: (refresh?: boolean) => Promise<UserStack>;
+  installApp: (appId: string) => Promise<string>;
+  installStack: () => Promise<string>;
+  removeApp: (appId: string) => Promise<void>;
+  resetStackState: () => void;
+  tearDownApp: (appId: string) => Promise<string>;
+  tearDownStack: () => Promise<string>;
+  updateApp: (
+    appId: string,
+    configuration: Record<string, any>,
+  ) => Promise<UpdateAppResponse>;
+  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
 }
 
 const initialState: () => StackStoreState = () => ({
@@ -98,7 +113,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       Object.entries(stack.configuration).forEach(([key, value]) => {
         if (value === undefined || Object.keys(value).length === 0) {
           stack.configuration[key] =
-            userStack.stack_packs[key].configuration ??
+            userStack.stack_packs[key]?.configuration ??
             defaultConfiguration[key] ??
             stack.configuration[key];
         }
@@ -143,11 +158,35 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   },
   installStack: async () => {
     const idToken = await get().getIdToken();
-    return await installStack(idToken);
+    const response = await installStack(idToken);
+    const userStack = get().userStack;
+    set(
+      {
+        userStack: {
+          ...userStack,
+          stack_packs: Object.fromEntries(
+            Object.keys(userStack?.stack_packs ?? {}).map((appId) => [
+              appId,
+              {
+                ...userStack.stack_packs[appId],
+                status: AppLifecycleStatus.Installing,
+              },
+            ]),
+          ),
+        },
+      },
+      false,
+      "installStack:init",
+    );
+    return response;
   },
   tearDownStack: async () => {
     const idToken = await get().getIdToken();
     return await tearDownStack(idToken);
+  },
+  deployLogs: async (deploy_id, app_id) => {
+    const idToken = await get().getIdToken();
+    return deployLogs(idToken, deploy_id, app_id);
   },
   getAppTemplates: async (
     appIds: string[],
@@ -155,5 +194,73 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   ): Promise<AppTemplate[]> => {
     const appTemplates = await get().getStackPacks(refresh);
     return appIds.map((id) => appTemplates.get(id));
+  },
+  installApp: async (appId: string) => {
+    const userStack = await get().getUserStack();
+    const currentStatus = userStack?.stack_packs[appId]?.status;
+    const newStatus =
+      currentStatus === AppLifecycleStatus.Installed
+        ? AppLifecycleStatus.Updating
+        : AppLifecycleStatus.Installing;
+    set(
+      {
+        userStack: {
+          ...get().userStack,
+          stack_packs: {
+            ...get().userStack?.stack_packs,
+            [appId]: { ...userStack.stack_packs[appId], status: newStatus },
+          },
+        },
+      },
+      false,
+      "installApp:init",
+    );
+    const idToken = await get().getIdToken();
+    return await installApp({ idToken, appId });
+  },
+  tearDownApp: async (appId: string) => {
+    set(
+      {
+        userStack: {
+          ...get().userStack,
+          stack_packs: {
+            ...get().userStack?.stack_packs,
+            [appId]: {
+              ...get().userStack?.stack_packs[appId],
+              status: AppLifecycleStatus.Uninstalling,
+            },
+          },
+        },
+      },
+      false,
+      "tearDownApp:init",
+    );
+    const idToken = await get().getIdToken();
+    return await tearDownApp({ idToken, appId });
+  },
+  updateApp: async (appId: string, configuration: Record<string, any>) => {
+    const idToken = await get().getIdToken();
+    const response = await updateApp({ appId, configuration, idToken });
+    set(
+      {
+        userStack: response.stack,
+        userStackPolicy: response.policy,
+      },
+      false,
+      "updateApp",
+    );
+    return response;
+  },
+  removeApp: async (appId: string) => {
+    const idToken = await get().getIdToken();
+    const response = await removeApp({ idToken, appId });
+    set(
+      {
+        userStack: response.stack,
+        userStackPolicy: response.policy,
+      },
+      false,
+      "removeApp",
+    );
   },
 });

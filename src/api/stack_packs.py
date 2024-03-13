@@ -7,6 +7,7 @@ from pynamodb.exceptions import DoesNotExist
 from src.auth.token import get_user_id
 from src.dependencies.injection import get_iac_storage
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
+from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
 from src.util.aws.iam import Policy
 from src.util.logging import logger
@@ -145,6 +146,7 @@ async def list_stackpacks():
             "id": spid,
             "name": sp.name,
             "version": sp.version,
+            "description": sp.description,
             "configuration": {
                 k: config_to_dict(cfg) for k, cfg in sp.configuration.items()
             },
@@ -152,3 +154,95 @@ async def list_stackpacks():
         for spid, sp in sps.items()
         if not spid.startswith("test_")
     }
+
+
+class AppRequest(BaseModel):
+    configuration: ConfigValues
+
+
+@router.post("/api/stack/{app_name}")
+async def add_app(
+    request: Request,
+    app_name: str,
+    body: AppRequest,
+) -> StackResponse:
+    policy: Policy = None
+    user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id)
+    configuration: dict[str, ConfigValues] = {app_name: body.configuration}
+
+    if user_pack.apps.get(app_name, None) is not None:
+        return HTTPException(
+            status_code=400,
+            detail="App already exists in stack, use PATCH to update",
+        )
+
+    for app, version in user_pack.apps.items():
+        if app == UserPack.COMMON_APP_NAME:
+            continue
+        user_app = UserApp.get(UserApp.composite_key(user_pack.id, app), version)
+        configuration[app] = user_app.get_configurations()
+    with TempDir() as tmp_dir:
+        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        common_policy = await user_pack.run_base(
+            list(get_stack_packs().values()), {}, get_iac_storage(), tmp_dir
+        )
+        policy.combine(common_policy)
+        user_pack.save()
+        return StackResponse(stack=user_pack.to_user_stack(), policy=str(policy))
+
+
+@router.patch("/api/stack/{app_name}")
+async def update_app(
+    request: Request,
+    app_name: str,
+    body: AppRequest,
+) -> StackResponse:
+    policy: Policy = None
+    user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id)
+    configuration: dict[str, ConfigValues] = {app_name: body.configuration}
+    for app, version in user_pack.apps.items():
+        if app == app_name or app == UserPack.COMMON_APP_NAME:
+            continue
+        user_app = UserApp.get(UserApp.composite_key(user_pack.id, app), version)
+        configuration[app] = user_app.get_configurations()
+
+    with TempDir() as tmp_dir:
+        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        common_policy = await user_pack.run_base(
+            list(get_stack_packs().values()), {}, get_iac_storage(), tmp_dir
+        )
+        policy.combine(common_policy)
+        user_pack.save()
+        return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
+
+
+@router.delete("/api/stack/{app_name}")
+async def remove_app(
+    request: Request,
+    app_name: str,
+):
+    policy: Policy = None
+    user_id = await get_user_id(request)
+    user_pack = UserPack.get(user_id)
+    user_pack.apps.pop(app_name)
+    configuration: dict[str, ConfigValues] = {}
+    for app, version in user_pack.apps.items():
+        if app == app_name:
+            continue
+        user_app = UserApp.get(UserApp.composite_key(user_pack.id, app), version)
+        configuration[app] = user_app.get_configurations()
+
+    if len(configuration) == 0 or (
+        len(configuration) == 1
+        and configuration.get(UserPack.COMMON_APP_NAME, None) is not None
+    ):
+        user_pack.apps = {}
+        user_pack.save()
+        return StackResponse(stack=user_pack.to_user_stack())
+
+    with TempDir() as tmp_dir:
+        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        user_pack.save()
+        return StackResponse(stack=user_pack.to_user_stack(), policy=str(policy))

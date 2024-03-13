@@ -1,6 +1,7 @@
 name: Gitness
 description: Development platform with code hosting and automated DevOps pipelines
 version: '1.0.0'
+description: Open-source code hosting & pipeline engine
 requires:
   - network
   - ecs

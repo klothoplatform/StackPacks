@@ -93,6 +93,7 @@ class DeployLogHandler(FileSystemEventHandler):
         self.messages = asyncio.Queue()
         self.complete = False
         self.file = None
+        self.sent = 0
 
     def on_any_event(self, event):
         line_count = 0
@@ -104,7 +105,7 @@ class DeployLogHandler(FileSystemEventHandler):
                 break
             else:
                 self.messages.put_nowait(line)
-        logger.info("Read %d lines from log", line_count)
+        logger.debug("Read %d lines from log", line_count)
 
     def __aiter__(self):
         return self
@@ -114,7 +115,11 @@ class DeployLogHandler(FileSystemEventHandler):
         for line in self.file.readlines():
             if line == DeployLog.END_MESSAGE:
                 self.complete = True
-                logger.info("Log already complete")
+                logger.info(
+                    "Log %s already complete with %d lines",
+                    self.log.path,
+                    self.messages.qsize(),
+                )
                 break
             else:
                 self.messages.put_nowait(line)
@@ -127,7 +132,7 @@ class DeployLogHandler(FileSystemEventHandler):
     async def __anext__(self):
         if self.file is None:
             # Poll for file creation
-            for attempt in range(60 * 10):  # wait up to 10 minutes
+            for attempt in range(60 * 2):  # wait up to 2 minutes
                 if self.log.path.exists():
                     break
                 await asyncio.sleep(1)
@@ -138,6 +143,9 @@ class DeployLogHandler(FileSystemEventHandler):
             self.setup_file()
 
         if self.complete and self.messages.empty():
+            logger.debug(
+                "Log %s complete (%d messages), stopping", self.log.path, self.sent
+            )
             raise StopAsyncIteration
 
         try:
@@ -145,8 +153,12 @@ class DeployLogHandler(FileSystemEventHandler):
                 self.messages.get(),
                 timeout=60 * 10,
             )
+            self.sent += 1
             return line
         except TimeoutError:
             if self.complete and self.messages.empty():
+                logger.debug(
+                    "Log %s complete (%d messages), stopping", self.log.path, self.sent
+                )
                 raise StopAsyncIteration
             raise

@@ -22,18 +22,19 @@ const sidebarConfig = [
   },
   {
     id: "deployment-logs",
-    url: "/user/dashboard/deployment-logs",
+    url: "/user/dashboard/deploy",
     title: "Deployment Logs",
   },
   {
     id: "latest-logs",
-    url: "/user/dashboard/deployment-logs/latest",
+    url: "/user/dashboard/deploy/latest",
     title: "Latest Logs",
   },
 ];
 
 function UserDashboardPage() {
-  const { isAuthenticated, user, addError } = useApplicationStore();
+  const { isAuthenticated, user, getUserStack, getStackPacks, userStack } =
+    useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,8 +46,28 @@ function UserDashboardPage() {
     if (!isAuthenticated || isLoaded) {
       return;
     }
-    setIsLoaded(true);
-  }, [isAuthenticated, isLoaded]);
+
+    (async () => {
+      try {
+        await Promise.all([getUserStack(true), getStackPacks(true)]);
+        setIsLoaded(true);
+      } catch (error) {
+        trackError(
+          new UIError({
+            message: "error loading user stack",
+            errorId: "UserDashboardPage:useEffect:getUserStack",
+            cause: error,
+          }),
+        );
+      }
+    })();
+  }, [getStackPacks, getUserStack, isAuthenticated, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && !Object.keys(userStack?.stack_packs ?? {}).length) {
+      navigate("./add-apps");
+    }
+  }, [isLoaded, navigate, userStack]);
 
   return (
     <div
@@ -77,8 +98,8 @@ function UserDashboardPage() {
             />
           </div>
         </HeaderNavBar>
-        <div className={"flex size-full"}>
-          <Sidebar>
+        <div className={"flex size-full overflow-hidden"}>
+          <Sidebar className={"z-5"}>
             <SidebarItemGroup>
               {sidebarConfig.map((item) => (
                 <SidebarItem
@@ -91,10 +112,8 @@ function UserDashboardPage() {
               ))}
             </SidebarItemGroup>
           </Sidebar>
-          <div className="flex size-full flex-row justify-center overflow-hidden">
-            <div className="flex size-full grow flex-col gap-6 p-6">
-              <Outlet />
-            </div>
+          <div className="flex size-full grow flex-col gap-6 overflow-hidden p-6">
+            {isLoaded && <Outlet />}
           </div>
         </div>
         <ErrorOverlay />

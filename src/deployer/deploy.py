@@ -18,7 +18,7 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
-from src.stack_pack import ConfigValues, StackPack
+from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack
@@ -257,6 +257,70 @@ async def deploy_applications(
         )
 
 
+async def deploy_app(
+    pack: UserPack,
+    app: UserApp,
+    stack_pack: StackPack,
+    iac_storage: IacStorage,
+    deployment_id: str,
+    tmp_dir: Path,
+):
+    iac = iac_storage.get_iac(pack.id, app.get_app_name(), app.version)
+    pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
+    _, results = await run_concurrent_deployments(
+        pack.region,
+        pack.assumed_role_arn,
+        [
+            StackDeploymentRequest(
+                project_name=pack.id,
+                stack_name=app.get_app_name(),
+                iac=iac,
+                pulumi_config=pulumi_config,
+                deployment_id=deployment_id,
+            )
+        ],
+        pack.id,
+        tmp_dir,
+    )
+
+    result = results[0]
+    app.update(
+        actions=[
+            UserApp.status.set(result.status.value),
+            UserApp.status_reason.set(result.reason),
+            UserApp.iac_stack_composite_key.set(result.stack.composite_key()),
+        ]
+    )
+
+
+async def deploy_single(
+    pack: UserPack, app: UserApp, deployment_id: str, email: str = None
+):
+    sps = get_stack_packs()
+    iac_storage = get_iac_storage()
+    stack_pack = sps[app.get_app_name()]
+    common_stack = CommonStack(list(sps.values()))
+    common_app = UserApp.get(
+        UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
+        pack.apps[UserPack.COMMON_APP_NAME],
+    )
+    with TempDir() as tmp_dir_str:
+        tmp_dir = Path(tmp_dir_str)
+        manager = await deploy_common_stack(
+            pack, common_app, common_stack, iac_storage, deployment_id, tmp_dir
+        )
+        live_state = await manager.read_deployed_state()
+        _ = await app.run_app(
+            stack_pack,
+            tmp_dir,
+            iac_storage,
+            live_state.to_constraints(common_stack, common_app.get_configurations()),
+        )
+        await deploy_app(pack, app, stack_pack, iac_storage, deployment_id, tmp_dir)
+        if email is not None:
+            send_email(get_ses_client(), email, sps.keys())
+
+
 async def deploy_pack(
     pack_id: str, sps: dict[str, StackPack], deployment_id: str, email: str | None
 ):
@@ -266,6 +330,8 @@ async def deploy_pack(
         logger.info(f"Deploying pack {pack_id}")
         iac_storage = get_iac_storage()
         user_pack = UserPack.get(pack_id)
+        if user_pack.tear_down_in_progress:
+            raise ValueError("Pack is currently being torn down")
 
         common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
         if common_version == 0:

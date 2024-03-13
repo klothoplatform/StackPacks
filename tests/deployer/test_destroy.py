@@ -11,6 +11,8 @@ from src.deployer.destroy import (
     run_concurrent_destroys,
     run_destroy,
     tear_down_pack,
+    tear_down_single,
+    tear_down_user_app,
 )
 from src.deployer.models.deployment import DeploymentStatus, PulumiStack
 from src.deployer.pulumi.manager import AppManager
@@ -330,6 +332,95 @@ class TestDestroy(aiounittest.AsyncTestCase):
             ]
         )
 
+    @patch("src.deployer.destroy.run_concurrent_destroys")
+    async def test_tear_down_app(
+        self,
+        mock_run_concurrent_deployments,
+    ):
+        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        app = MagicMock(
+            spec=UserApp, get_app_name=MagicMock(return_value="app1"), version=1
+        )
+        iac_storage = MagicMock(spec=IacStorage)
+        deployment_id = "deployment_id"
+        tmp_dir = Path("/tmp")
+        iac_storage.get_iac.return_value = b"iac"
+
+        mock_run_concurrent_deployments.return_value = (
+            ["app1"],
+            [
+                DeploymentResult(
+                    manager=MagicMock(spec=AppManager),
+                    status=DeploymentStatus.SUCCEEDED,
+                    reason="Success",
+                    stack=MagicMock(spec=PulumiStack),
+                )
+            ],
+        )
+
+        await tear_down_user_app(pack, app, iac_storage, deployment_id, tmp_dir)
+
+        iac_storage.get_iac.assert_called_once_with(
+            pack.id, app.get_app_name(), app.version
+        )
+        mock_run_concurrent_deployments.assert_called_once_with(
+            pack.region,
+            pack.assumed_role_arn,
+            [
+                StackDeploymentRequest(
+                    project_name=pack.id,
+                    stack_name=app.get_app_name.return_value,
+                    iac=iac_storage.get_iac.return_value,
+                    pulumi_config={},
+                    deployment_id=deployment_id,
+                )
+            ],
+            pack.id,
+            tmp_dir,
+        )
+        app.update.assert_called_once_with(
+            actions=[
+                UserApp.status.set(DeploymentStatus.SUCCEEDED.value),
+                UserApp.status_reason.set("Success"),
+                UserApp.iac_stack_composite_key.set(None),
+            ]
+        )
+
+    @patch("src.deployer.destroy.get_iac_storage")
+    @patch("src.deployer.destroy.tear_down_user_app")
+    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch("src.deployer.destroy.destroy_common_stack")
+    @patch("src.deployer.destroy.TempDir")
+    async def test_tear_down_single(
+        self,
+        mock_tmp_dir,
+        mock_destroy_common_stack,
+        mock_get_latest_version_with_status,
+        mock_tear_down_app,
+        mock_get_iac_storage,
+    ):
+        pack = MagicMock(spec=UserPack, id="id")
+        app = MagicMock(spec=UserApp, app_id="id#app", version=1)
+        deployment_id = "deployment_id"
+        iac_storage = mock_get_iac_storage.return_value
+        mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
+        common_app = mock_get_latest_version_with_status.return_value
+
+        await tear_down_single(pack, app, deployment_id)
+
+        mock_get_iac_storage.assert_called_once()
+        mock_tmp_dir.assert_called_once()
+        mock_tear_down_app.assert_called_once_with(
+            pack, app, iac_storage, deployment_id, Path("/tmp")
+        )
+        mock_get_latest_version_with_status.assert_called_once_with("id#common")
+        mock_destroy_common_stack.assert_called_once_with(
+            pack, common_app, iac_storage, deployment_id, Path("/tmp")
+        )
+        pack.update.assert_called_once_with(
+            actions=[UserPack.tear_down_in_progress.set(False)]
+        )
+
     @patch("src.deployer.destroy.destroy_applications")
     @patch("src.deployer.destroy.destroy_common_stack")
     @patch("src.deployer.destroy.get_iac_storage")
@@ -373,3 +464,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             "deploy_id",
             Path("/tmp"),
         )
+        user_pack.update.calls = [
+            call(actions=[user_pack.tear_down_in_progress.set(True)]),
+            call(actions=[user_pack.tear_down_in_progress.set(False)]),
+        ]

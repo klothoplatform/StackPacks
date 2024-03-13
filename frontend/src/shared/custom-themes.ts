@@ -34,8 +34,6 @@ export const OutlinedAlert: CustomFlowbiteTheme["alert"] = {
 export const outlineBadge: CustomFlowbiteTheme["badge"] = {
   root: {
     color: {
-      default:
-        "text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-400 border border-gray-500",
       success:
         "text-green-800 bg-green-100 dark:bg-gray-700 dark:text-green-400 border border-green-400",
       warning:
@@ -60,6 +58,29 @@ export const outlineBadge: CustomFlowbiteTheme["badge"] = {
       cyan: "text-cyan-800 bg-cyan-100 dark:bg-gray-700 dark:text-cyan-400 border border-cyan-400",
       gray: "text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 border border-gray-600",
       teal: "text-teal-800 bg-teal-100 dark:bg-gray-700 dark:text-teal-400 border border-teal-400",
+    },
+  },
+};
+
+export const outlineOnlyBadge: CustomFlowbiteTheme["badge"] = {
+  root: {
+    color: {
+      success: "text-green-800 dark:text-green-400 border border-green-400",
+      warning: "text-yellow-800 dark:text-yellow-300 border border-yellow-300",
+      failure: "text-red-800 dark:text-red-400 border border-red-400",
+      info: "text-cyan-800 dark:text-cyan-400 border border-cyan-400",
+      dark: "text-gray-800 dark:text-gray-300 border border-gray-600",
+      light: "text-gray-800 dark:text-gray-400 border border-gray-500",
+      blue: "text-blue-800 dark:text-blue-400 border border-blue-400",
+      indigo: "text-indigo-800 dark:text-indigo-400 border border-indigo-400",
+      purple: "text-purple-800 dark:text-purple-400 border border-purple-400",
+      pink: "text-pink-800 dark:text-pink-400 border border-pink-400",
+      yellow: "text-yellow-800 dark:text-yellow-300 border border-yellow-300",
+      green: "text-green-800 dark:text-green-400 border border-green-400",
+      red: "text-red-800 dark:text-red-400 border border-red-400",
+      cyan: "text-cyan-800 dark:text-cyan-400 border border-cyan-400",
+      gray: "text-gray-800 dark:text-gray-300 border border-gray-600",
+      teal: "text-teal-800 dark:text-teal-400 border border-teal-400",
     },
   },
 };

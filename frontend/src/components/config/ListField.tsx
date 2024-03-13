@@ -87,6 +87,7 @@ export const ListField: FC<ListProps> = ({
           {fields.map((formField, index) => {
             return (
               <PrimitiveListItem
+                field={field}
                 key={formField.id}
                 index={index}
                 qualifiedFieldName={`${qualifiedFieldId}[${index}]`}
@@ -159,6 +160,7 @@ export const ListField: FC<ListProps> = ({
 };
 
 const PrimitiveListItem: FC<{
+  field: Property;
   index: number;
   qualifiedFieldName: string;
   type: PrimitiveTypes;
@@ -168,6 +170,7 @@ const PrimitiveListItem: FC<{
   remove: (index: number) => void;
 }> = ({
   index,
+  field,
   qualifiedFieldName,
   type,
   allowedValues,
@@ -242,6 +245,7 @@ const PrimitiveListItem: FC<{
           disabled={disabled}
           required={required}
           error={error}
+          field={field}
         />
       );
       break;

@@ -1,28 +1,24 @@
 import type { ChangeEvent, FC } from "react";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import type { StepperNavigatorProps } from "../../components/Stepper";
 import type { CustomFlowbiteTheme, TabsRef } from "flowbite-react";
-import { Button, Card, Tabs, TextInput } from "flowbite-react";
+import { Button, Card, Tabs, TextInput, useThemeMode } from "flowbite-react";
 import classNames from "classnames";
 import { HiSearch } from "react-icons/hi";
-import { MdGridView, MdTableRows } from "react-icons/md";
+import { MdCheckCircle, MdGridView, MdTableRows } from "react-icons/md";
 import { SelectableCard } from "../../components/SelectableCard.tsx";
 import { PiStackFill } from "react-icons/pi";
 import { FormProvider, useForm } from "react-hook-form";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
-import { SiWebpack } from "react-icons/si";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { useSearchParams } from "react-router-dom";
 import { UIError } from "../../shared/errors.ts";
 import { AiOutlineLoading } from "react-icons/ai";
 import { setEquals } from "../../shared/object-util.ts";
+import { AppLogo } from "../../components/AppLogo.tsx";
+import { useScreenSize } from "../../hooks/useScreenSize.ts";
+import { AppChooserContext } from "../../context/AppChooserContext.ts";
 
 export enum AppChooserLayout {
   List,
@@ -58,10 +54,13 @@ export interface ChooseAppsFormState {
   selectedApps: string[];
 }
 
-export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
+export const ChooseAppsStep: FC<
+  StepperNavigatorProps & {
+    excludedApps?: string[];
+  }
+> = ({ excludedApps, ...props }) => {
   const {
     stackPacks,
-    onboardingWorkflowState: { selectedStackPacks },
     updateOnboardingWorkflowState,
     getStackPacks,
     createOrUpdateStack,
@@ -69,17 +68,18 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
     userStack,
   } = useApplicationStore();
 
-  const [apps, setApps] = useState<AppTemplate[]>([...stackPacks.values()]);
+  const [apps, setApps] = useState<AppTemplate[]>(
+    [...stackPacks.values()].filter((app) => !excludedApps?.includes(app.id)),
+  );
   const [selectedApps, setSelectedApps] = useState<string[]>(
-    userStack ? Object.keys(userStack.stack_packs) : selectedStackPacks,
+    userStack
+      ? Object.keys(userStack.stack_packs)?.filter(
+          (app) => !excludedApps?.includes(app),
+        )
+      : [],
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    // this effect is primarily for picking up onboarding session resets triggered by OnboardingPage.
-    setSelectedApps(selectedStackPacks);
-  }, [selectedStackPacks]);
 
   const methods = useForm<ChooseAppsFormState>({
     defaultValues: {
@@ -89,29 +89,32 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
   const { isValid } = methods.formState;
 
   useEffect(() => {
-    if (
-      !isLoaded ||
-      (isLoaded && !userStack) ||
-      setEquals(
-        new Set(selectedStackPacks),
-        new Set(Object.keys(userStack.stack_packs)),
-      )
-    ) {
+    setApps((old) => old.filter((app) => !excludedApps?.includes(app.id)));
+  }, [excludedApps]);
+
+  useEffect(() => {
+    if (!isLoaded || (isLoaded && !userStack)) {
       return;
     }
     setSelectedApps(
       userStack.stack_packs
-        ? Object.keys(userStack.stack_packs)
-        : selectedStackPacks,
+        ? Object.keys(userStack.stack_packs).filter(
+            (app) => !excludedApps?.includes(app),
+          )
+        : [],
     );
-  }, [userStack, selectedStackPacks, isLoaded]);
+  }, [userStack, isLoaded, excludedApps]);
 
   useEffectOnMount(() => {
     // load stack packs
     (async () => {
       const stackPacks = await getStackPacks();
-      console.log(stackPacks);
-      setApps([...stackPacks.values()]);
+      console.log("ChooseAppsSetp.getStackPacks", stackPacks);
+      setApps(
+        [...stackPacks.values()].filter(
+          (app) => !excludedApps?.includes(app.id),
+        ),
+      );
     })();
 
     // register form fields
@@ -138,7 +141,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
   const canProgress = isLoaded && (selectedApps?.length ?? 0) > 0;
 
   const completeStep = async (state: ChooseAppsFormState) => {
-    console.log(state);
+    console.log("completeStep", { state });
     if (!canProgress) {
       return;
     }
@@ -188,7 +191,7 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
   };
 
   return (
-    <ChooseAppsContext.Provider
+    <AppChooserContext.Provider
       value={{ apps, setApps, selectedApps, setSelectedApps }}
     >
       <FormProvider {...methods}>
@@ -227,31 +230,44 @@ export const ChooseAppsStep: FC<StepperNavigatorProps> = (props) => {
           </div>
         </Card>
       </FormProvider>
-    </ChooseAppsContext.Provider>
+    </AppChooserContext.Provider>
   );
 };
 
-const AppChooserComposite: FC = () => {
-  const [layout, setLayout] = useState(AppChooserLayout.Grid);
-  const { apps, selectedApps, setSelectedApps } = useAppChooser();
+export const AppChooserComposite: FC = () => {
+  const { apps } = useAppChooser();
   const [filteredApps, setFilteredApps] = useState<AppTemplate[]>([...apps]);
+  const { isXSmallScreen } = useScreenSize();
+  const [selectedLayout, setSelectedLayout] = useState<AppChooserLayout>(
+    AppChooserLayout.Grid,
+  );
 
   useEffect(() => {
     setFilteredApps(apps);
   }, [apps]);
 
   return (
-    <div className="flex size-full flex-col gap-8 overflow-hidden">
+    <div className="flex size-full flex-col gap-2 overflow-hidden">
       <div className="mb-2 flex w-full items-center justify-between gap-2 px-2">
         <div className={"flex w-full justify-center p-1"}>
           <AppSearch apps={apps} onFilter={(fa) => setFilteredApps(fa)} />
-          {/*<div className={"w-fit min-w-fit"}>*/}
-          {/*  <AppChooserLayoutSelector onChange={setLayout} layout={layout} />*/}
-          {/*</div>*/}
         </div>
       </div>
       <div className="mx-auto h-fit max-h-full w-full overflow-y-auto">
-        <AppChooser apps={filteredApps} layout={layout} />
+        <div className={"ml-auto w-fit min-w-fit"}>
+          <AppChooserLayoutSelector
+            onChange={(layout) => setSelectedLayout(layout)}
+            layout={selectedLayout}
+          />
+        </div>
+        <AppChooser
+          apps={filteredApps}
+          layout={
+            isXSmallScreen || filteredApps.length < 3
+              ? AppChooserLayout.List
+              : selectedLayout
+          }
+        />
       </div>
     </div>
   );
@@ -282,8 +298,16 @@ const AppChooserLayoutSelector: FC<{
         ref={tabsRef}
         onActiveTabChange={onSetActiveTab}
       >
-        <Tabs.Item icon={MdTableRows} title="" />
-        <Tabs.Item icon={MdGridView} title="" />
+        <Tabs.Item
+          icon={MdTableRows}
+          title=""
+          active={layout === AppChooserLayout.List}
+        />
+        <Tabs.Item
+          icon={MdGridView}
+          title=""
+          active={layout === AppChooserLayout.Grid}
+        />
       </Tabs>
     </div>
   );
@@ -295,7 +319,6 @@ const AppChooser: FC<{
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
   const [_, setSearchParams] = useSearchParams();
-
   const onClick = (app: AppTemplate, selected: boolean) => {
     const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
@@ -304,35 +327,35 @@ const AppChooser: FC<{
     } else if (!selected && alreadySelected) {
       updatedSelection = updatedSelection.filter((a) => a !== app.id);
     }
-    setSearchParams({ selectedApps: updatedSelection.join(",") });
-    console.log(updatedSelection);
+    setSearchParams((prev) => ({
+      ...Object.fromEntries(prev.entries()),
+      selectedApps: updatedSelection.join(","),
+    }));
     setSelectedApps(updatedSelection);
   };
 
   return (
     <div
-      className={classNames(
-        "flex w-full max-h-full h-fit gap-2 justify-center",
-        {
-          "flex-wrap": layout === AppChooserLayout.Grid,
-          "flex-col": layout === AppChooserLayout.List,
-        },
-      )}
+      className={classNames("flex w-full max-h-full h-fit", {
+        "flex-wrap": layout === AppChooserLayout.Grid,
+        "flex-col items-center": layout === AppChooserLayout.List,
+      })}
     >
       {apps.map((app, index) => (
         <div
           key={index}
-          className={classNames("h-32 mx-1 my-0.5", {
+          className={classNames("my-0.5", {
             "w-1/3": layout === AppChooserLayout.Grid,
-            "w-full": layout === AppChooserLayout.List,
+            "w-full max-w-[50rem]": layout === AppChooserLayout.List,
           })}
         >
-          <AppChooserItem
-            app={app}
-            layout={layout}
-            onClick={onClick}
-            selected={!!selectedApps.some((a) => a === app.id)}
-          />
+          <div className={"p-1"}>
+            <AppChooserItem
+              app={app}
+              onClick={onClick}
+              selected={!!selectedApps.some((a) => a === app.id)}
+            />
+          </div>
         </div>
       ))}
     </div>
@@ -341,10 +364,11 @@ const AppChooser: FC<{
 
 const AppChooserItem: FC<{
   app: AppTemplate;
-  layout: AppChooserLayout;
   onClick?: (app: AppTemplate, selected: boolean) => void;
   selected?: boolean;
-}> = ({ app, onClick, layout, selected }) => {
+}> = ({ app, onClick, selected }) => {
+  const { mode } = useThemeMode();
+
   const onSelect = () => {
     onClick?.(app, true);
   };
@@ -352,25 +376,56 @@ const AppChooserItem: FC<{
     onClick?.(app, false);
   };
 
-  // TODO: figure out where to pull this from
-  const Icon = SiWebpack;
-
   return (
     <SelectableCard
-      className="size-full p-4"
       onSelect={onSelect}
       onDeselect={onDeselect}
+      outline
       selected={selected}
     >
-      <div className="flex items-center gap-4">
-        <div className="flex items-center">
-          <div className="flex size-10 items-center justify-center">
-            <Icon size={30} />
+      <div className="h-fit w-full px-2 pt-2">
+        <div className="flex size-full flex-col gap-4">
+          <div className="flex w-full items-center gap-4">
+            <div className="flex items-center">
+              <div className="flex size-10 items-center justify-center">
+                <AppLogo mode={mode} appId={app.id} />
+              </div>
+            </div>
+            <div className="flex w-full flex-col overflow-hidden">
+              <div className="flex justify-between">
+                <span
+                  title={app.name}
+                  className="lg:text-md w-fit overflow-hidden text-ellipsis text-sm font-normal"
+                >
+                  {app.name}
+                </span>
+                {selected && (
+                  <MdCheckCircle
+                    className={"text-primary-700 dark:text-primary-400"}
+                  />
+                )}
+              </div>
+              <span
+                title={app.description}
+                className="line-clamp-2 h-8 overflow-hidden text-ellipsis text-xs font-light leading-tight text-gray-600 dark:text-gray-400"
+              >
+                {app.description}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-normal">{app.name}</span>
-          <span className="text-xs font-light">{app.description}</span>
+        <div className="flex justify-end py-2">
+          <Button
+            size="xs"
+            color={mode}
+            className="w-fit"
+            onClick={(e) => {
+              window.open(`https://klo.dev/stacksnap/apps/${app.id}`, "_blank");
+              e.stopPropagation();
+            }}
+          >
+            Details
+          </Button>
         </div>
       </div>
     </SelectableCard>
@@ -402,7 +457,7 @@ const AppSearch: FC<{
     <TextInput
       icon={HiSearch}
       type="search"
-      placeholder="Search for an application"
+      placeholder="Search for an application by name"
       required
       size={32}
       onChange={handleInputChange}
@@ -410,22 +465,8 @@ const AppSearch: FC<{
   );
 };
 
-type ChooseAppsContextProps = {
-  apps: AppTemplate[];
-  setApps: (apps: AppTemplate[]) => void;
-  selectedApps: string[];
-  setSelectedApps: (apps: string[]) => void;
-};
-
-const ChooseAppsContext = createContext<ChooseAppsContextProps>({
-  apps: [],
-  setApps: () => {},
-  selectedApps: [],
-  setSelectedApps: () => {},
-});
-
 const useAppChooser = () => {
-  const context = useContext(ChooseAppsContext);
+  const context = useContext(AppChooserContext);
   if (!context) {
     throw new Error("useAppChooser must be used within a ChooseAppsStep");
   }

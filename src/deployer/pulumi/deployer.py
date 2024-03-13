@@ -35,14 +35,16 @@ class AppDeployer:
                 return DeploymentStatus.FAILED, str(e)
 
     async def destroy_and_remove_stack(self) -> Tuple[DeploymentStatus, str]:
-        try:
-            with self.deploy_log.on_output() as on_output:
+        with self.deploy_log.on_output() as on_output:
+            try:
                 self.stack.destroy(on_output=on_output)
-            logger.info(f"Removing stack {self.stack.name}")
-            self.stack.workspace.remove_stack(self.stack.name)
-            return DeploymentStatus.SUCCEEDED, "Stack removed successfully."
-        except Exception as e:
-            logger.error(f"Destroy of stack, {self.stack.name}, failed.", exc_info=True)
-            logger.info(f"Refreshing stack {self.stack.name}")
-            self.stack.refresh(on_output=on_output)
-            return DeploymentStatus.FAILED, str(e)
+                logger.info(f"Removing stack {self.stack.name}")
+                self.stack.workspace.remove_stack(self.stack.name)
+                return DeploymentStatus.SUCCEEDED, "Stack removed successfully."
+            except Exception as e:
+                logger.error(
+                    f"Destroy of stack, {self.stack.name}, failed.", exc_info=True
+                )
+                logger.info(f"Refreshing stack {self.stack.name}")
+                self.stack.refresh(on_output=on_output)
+                return DeploymentStatus.FAILED, str(e)

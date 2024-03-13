@@ -1,4 +1,4 @@
-PHONY: run test-backend black
+PHONY: run test-backend black start clean-local test-frontend reset-backend
 
 engineCliPath := $(shell command -v engine)
 ifdef engineCliPath
@@ -36,11 +36,17 @@ black-check:
 	pipenv run black --check .
 
 reset-backend:
-	docker compose down --volumes --remove-orphans; \
-	rm -rf ./docker/dynamodb
-	mkdir -p ./docker/dynamodb
+	docker compose down --volumes --remove-orphans;\
+	rm -rf ./docker/dynamodb;\
+	mkdir -p ./docker/dynamodb;\
 	docker compose up -d
 
 clean-local:
 	rm -rf tmp/*
 	rm -rf deployments/*/
+
+frontend/node_modules: frontend/package.json frontend/package-lock.json
+	npm --prefix frontend ci
+
+start: frontend/node_modules
+	npm --prefix frontend run start
