@@ -1,16 +1,16 @@
-import gitea from "/images/logos/gitea.svg";
-import mattermost from "/images/logos/mattermost.svg";
+import Gitea from "/images/logos/gitea.svg";
+import Mattermost from "/images/logos/mattermost.svg";
 import mattermostDark from "/images/logos/mattermost-dark.svg";
-import gitness from "/images/logos/gitness.svg";
-import gitnessDark from "/images/logos/gitness-dark.svg";
-import tooljet from "/images/logos/tooljet.svg";
+import Gitness from "/images/logos/gitness.svg";
+import GitnessDark from "/images/logos/gitness-dark.svg";
+import ToolJet from "/images/logos/tooljet.svg";
 import type { FC, ImgHTMLAttributes } from "react";
 import { twMerge } from "tw-merge";
-import metabase from "/images/logos/metabase.svg";
-import strapi from "/images/logos/strapi.svg";
-import supertokens from "/images/logos/supertokens.svg";
-import supertokensDark from "/images/logos/supertokens-dark.svg";
-import typesense from "/images/logos/typesense.png";
+import Metabase from "/images/logos/metabase.svg";
+import Strapi from "/images/logos/strapi.svg";
+import Supertokens from "/images/logos/supertokens.svg";
+import SupertokensDark from "/images/logos/supertokens-dark.svg";
+import Typesense from "/images/logos/typesense.png";
 
 export interface LogoMapping {
   filePath: string;
@@ -19,24 +19,24 @@ export interface LogoMapping {
 }
 
 const LogoMappings: Record<string, string | LogoMapping> = {
-  gitea,
-  gitness: {
-    filePath: gitness,
-    darkPath: gitnessDark,
+  Gitea,
+  Gitness: {
+    filePath: Gitness,
+    darkPath: GitnessDark,
     className: "h-8",
   },
-  mattermost: {
-    filePath: mattermost,
+  Mattermost: {
+    filePath: Mattermost,
     darkPath: mattermostDark,
   },
-  tooljet,
-  metabase,
-  strapi,
-  supertokens: {
-    filePath: supertokens,
-    darkPath: supertokensDark,
+  ToolJet,
+  Metabase,
+  Strapi,
+  Supertokens: {
+    filePath: Supertokens,
+    darkPath: SupertokensDark,
   },
-  typesense,
+  Typesense,
 };
 
 export const AppLogo: FC<

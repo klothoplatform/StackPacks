@@ -89,7 +89,7 @@ export const YourStackPane: FC = () => {
 
   return (
     <div className="flex size-full flex-col gap-4 overflow-y-auto pr-4">
-      <div className={"flex size-full justify-between py-1"}>
+      <div className={"flex h-fit w-full justify-between py-1"}>
         <div className={"flex h-fit gap-1"}>
           <h2 className={"font-md text-xl"}>Your Stack</h2>
           <StackActions />
@@ -234,6 +234,10 @@ const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
   [AppDeploymentStatus.Succeeded]: {
     color: "green",
     icon: AiOutlineCheckCircle,
+  },
+  [AppDeploymentStatus.Pending]: {
+    color: "blue",
+    pulse: true,
   },
   default: {
     color: "gray",

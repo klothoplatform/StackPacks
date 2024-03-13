@@ -1,4 +1,4 @@
-import { Button, Checkbox, Label, Modal, TextInput } from "flowbite-react";
+import { Button, Label, Modal, TextInput } from "flowbite-react";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { AiOutlineLoading } from "react-icons/ai";
@@ -117,16 +117,16 @@ export default function UninstallAllModal({
                 helperText={errors.confirmation?.message}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox {...register("removeFromStack")} id="removeFromStack" />
-              <Label htmlFor="removeFromStack">Remove from stack</Label>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                <i>
-                  (This will remove all apps and their configuration from your
-                  stack.)
-                </i>
-              </span>
-            </div>
+            {/*<div className="flex items-center gap-2">*/}
+            {/*  <Checkbox {...register("removeFromStack")} id="removeFromStack" />*/}
+            {/*  <Label htmlFor="removeFromStack">Remove from stack</Label>*/}
+            {/*  <span className="text-xs text-gray-400 dark:text-gray-500">*/}
+            {/*    <i>*/}
+            {/*      (This will remove all apps and their configuration from your*/}
+            {/*      stack.)*/}
+            {/*    </i>*/}
+            {/*  </span>*/}
+            {/*</div>*/}
           </div>
         </Modal.Body>
         <Modal.Footer>

@@ -4,6 +4,7 @@ import type {
   StackModification,
   UserStack,
 } from "../../shared/models/UserStack.ts";
+import { AppDeploymentStatus } from "../../shared/models/UserStack.ts";
 import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
 import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
 import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
@@ -169,7 +170,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
               appId,
               {
                 ...userStack.stack_packs[appId],
-                status: AppLifecycleStatus.Installing,
+                status: AppDeploymentStatus.Pending,
               },
             ]),
           ),
@@ -197,18 +198,16 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   },
   installApp: async (appId: string) => {
     const userStack = await get().getUserStack();
-    const currentStatus = userStack?.stack_packs[appId]?.status;
-    const newStatus =
-      currentStatus === AppLifecycleStatus.Installed
-        ? AppLifecycleStatus.Updating
-        : AppLifecycleStatus.Installing;
     set(
       {
         userStack: {
           ...get().userStack,
           stack_packs: {
             ...get().userStack?.stack_packs,
-            [appId]: { ...userStack.stack_packs[appId], status: newStatus },
+            [appId]: {
+              ...userStack.stack_packs[appId],
+              status: AppDeploymentStatus.Pending,
+            },
           },
         },
       },

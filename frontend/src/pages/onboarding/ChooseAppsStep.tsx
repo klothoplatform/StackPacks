@@ -20,7 +20,7 @@ import { AppLogo } from "../../components/AppLogo.tsx";
 import { useScreenSize } from "../../hooks/useScreenSize.ts";
 import { AppChooserContext } from "../../context/AppChooserContext.ts";
 
-export enum AppChooserLayout {
+enum AppChooserLayout {
   List,
   Grid,
 }

@@ -26,6 +26,7 @@ export enum AppDeploymentStatus {
   Failed = "FAILED",
   InProgress = "IN_PROGRESS",
   Succeeded = "SUCCEEDED",
+  Pending = "PENDING",
 }
 
 export enum AppLifecycleStatus {
@@ -59,8 +60,15 @@ const lifecycleStatuses: Record<AppStatus, string> = {
   [AppDeploymentStatus.Succeeded]: "Succeeded",
 };
 
+const deploymentStatuses: Record<AppDeploymentStatus, string> = {
+  [AppDeploymentStatus.Failed]: "Failed",
+  [AppDeploymentStatus.InProgress]: "In Progress",
+  [AppDeploymentStatus.Succeeded]: "Succeeded",
+  [AppDeploymentStatus.Pending]: "Pending",
+};
+
 export function toAppStatusString(status: AppLifecycleStatus) {
-  return lifecycleStatuses[status];
+  return lifecycleStatuses[status] || deploymentStatuses[status];
 }
 
 export interface UserStack {
@@ -310,14 +318,20 @@ export function formStateToAppConfig(
   );
 }
 
+const inProgressStatuses = new Set([
+  AppDeploymentStatus.InProgress,
+  AppDeploymentStatus.Pending,
+  AppLifecycleStatus.Installing,
+  AppLifecycleStatus.Updating,
+  AppLifecycleStatus.Uninstalling,
+]);
+
 export function hasDeploymentInProgress(userStack: UserStack) {
   if (!userStack?.stack_packs) {
     return false;
   }
 
-  return Object.values(userStack.stack_packs).some(
-    (app) =>
-      app.status === AppLifecycleStatus.Installing ||
-      app.status === AppDeploymentStatus.InProgress,
-  );
+  return Object.values(userStack.stack_packs)
+    .map((app) => app.status)
+    .some((status) => inProgressStatuses.has(status));
 }
