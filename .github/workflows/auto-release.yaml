@@ -10,9 +10,9 @@ jobs:
   release-dev:
     name: Release (dev)
     concurrency:
-      group: ci-dev-us-west-2
+      group: ci-dev-us-east-1
     uses: ./.github/workflows/release.yaml
     with:
       stage: dev
-      region: us-west-2
+      region: us-east-1
     secrets: inherit

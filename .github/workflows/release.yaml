@@ -15,7 +15,7 @@ on:
         description: The region to deploy to
         required: true
         type: string
-        default: us-west-2
+        default: us-east-1
       engine-ref:
         description: the ref (branch, tag or SHA) of the engine to build
         required: false
@@ -31,7 +31,7 @@ on:
         description: The region to deploy to
         required: true
         type: string
-        default: us-west-2
+        default: us-east-1
       engine-ref:
         required: false
         type: string
