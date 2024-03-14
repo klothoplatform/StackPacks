@@ -1,0 +1,101 @@
+name: SuperTokens
+description: User authentication and session management framework
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:supertokens:
+      BaseImage: registry.supertokens.io/supertokens/supertokens-postgresql:7.0
+      Dockerfile: Dockerfile
+    aws:ecs_service:supertokens-service:
+      LoadBalancers[0]:
+        ContainerPort: 3567
+        ContainerName: supertokens-task
+      TaskDefinition: aws:ecs_task_definition:supertokens-task
+    aws:ecs_task_definition:supertokens-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:supertokens
+        PortMappings[0]:
+          ContainerPort: 3567
+          HostPort: 3567
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: POSTGRESQL_HOST 
+          Value: aws:rds_instance:supertokens-db#Host
+        - Name: POSTGRESQL_PORT 
+          Value: aws:rds_instance:supertokens-db#Port
+        - Name: POSTGRESQL_DATABASE_NAME 
+          Value: aws:rds_instance:supertokens-db#DatabaseName
+        - Name: POSTGRESQL_USER 
+          Value: aws:rds_instance:supertokens-db#Username
+        - Name: POSTGRESQL_PASSWORD 
+          Value: aws:rds_instance:supertokens-db#Password
+    aws:load_balancer:supertokens-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:target_group:supertokens-tg:
+      Port: 3567
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /hello
+        Matcher: 200
+    aws:load_balancer_listener:supertokens-lb:supertokens-listener:
+      LoadBalancer: aws:load_balancer:supertokens-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:supertokens-tg
+    aws:rds_instance:supertokens-db:
+    aws:cloudfront_distribution:supertokens-cf:
+  edges:
+    aws:cloudfront_distribution:supertokens-cf -> aws:load_balancer:supertokens-lb:
+    aws:load_balancer:supertokens-lb -> aws:ecs_service:supertokens-service:
+    aws:ecs_service:supertokens-service -> aws:rds_instance:supertokens-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the supertokens service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the supertokens service
+    type: number
+    default: 2048
+    validation:
+      minValue: 2048
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the supertokens database
+    type: string
+    default: supertokensuser
+    pulumi_key: klo:supertokens-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the supertokens database
+    type: string
+    pulumi_key: klo:supertokens-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128

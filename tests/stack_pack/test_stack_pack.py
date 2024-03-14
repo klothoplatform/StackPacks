@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+
 from pydantic_yaml import parse_yaml_file_as
 
 from src.stack_pack import StackPack
@@ -13,6 +14,7 @@ class TestStackPack(unittest.TestCase):
 
     def test_parse_yaml(self):
         self.assertEqual("Test Pack", self.sp.name)
+        self.assertEqual("test", self.sp.description)
         self.assertEqual(4, len(self.sp.base.resources))
         self.assertEqual(2, len(self.sp.base.edges))
         self.assertEqual(2, len(self.sp.base.files))

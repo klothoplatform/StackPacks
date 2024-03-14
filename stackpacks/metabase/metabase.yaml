@@ -1,0 +1,107 @@
+name: Metabase
+description: Platform for data visualization and business intelligence
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:metabase:
+      BaseImage: metabase/metabase
+      Dockerfile: Dockerfile
+    aws:ecs_service:metabase-service:
+      HealthCheckGracePeriodSeconds: 900
+      LoadBalancers[0]:
+        ContainerPort: 3000
+        ContainerName: metabase-task
+      TaskDefinition: aws:ecs_task_definition:metabase-task
+    aws:ecs_task_definition:metabase-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:metabase
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: MB_DB_DBNAME
+          Value: aws:rds_instance:metabase-db#DatabaseName
+        - Name: MB_DB_PASS
+          Value: aws:rds_instance:metabase-db#Password
+        - Name: MB_DB_USER
+          Value: aws:rds_instance:metabase-db#Username
+        - Name: MB_DB_HOST
+          Value: aws:rds_instance:metabase-db#Host
+        - Name: MB_DB_TYPE
+          Value: postgres
+        - Name: MB_DB_PORT
+          Value: 5432
+    aws:target_group:metabase-tg:
+      Port: 3000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /api/health
+        Matcher: 200
+    aws:load_balancer_listener:metabase-lb:metabase-listener:
+      LoadBalancer: aws:load_balancer:metabase-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:metabase-tg
+    aws:load_balancer:metabase-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:rds_instance:metabase-db:
+    aws:cloudfront_distribution:metabase-cf:
+  edges:
+    aws:cloudfront_distribution:metabase-cf -> aws:load_balancer:metabase-lb:
+    aws:load_balancer:metabase-lb -> aws:ecs_service:metabase-service:
+    aws:load_balancer:metabase-lb -> aws:load_balancer_listener:metabase-lb:metabase-listener:
+    aws:load_balancer_listener:metabase-lb:metabase-listener -> aws:target_group:metabase-tg:
+    aws:target_group:metabase-tg -> aws:ecs_service:metabase-service:
+    aws:ecs_service:metabase-service -> aws:rds_instance:metabase-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the metabase service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the metabase service
+    type: number
+    default: 2048
+    validation:
+      minValue: 2048
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the metabase database
+    type: string
+    default: metabaseuser
+    pulumi_key: klo:metabase-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the metabase database
+    type: string
+    pulumi_key: klo:metabase-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128

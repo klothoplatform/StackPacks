@@ -1,0 +1,103 @@
+name: TypeSense
+description: Typo tolerant fuzzy search engine
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:typesense:
+      BaseImage: typesense/typesense:0.25.2
+      Dockerfile: Dockerfile
+    aws:ecs_service:typesense-service:
+      LoadBalancers[0]:
+        ContainerPort: 8108
+        ContainerName: typesense-task
+      TaskDefinition: aws:ecs_task_definition:typesense-task
+    aws:ecs_task_definition:typesense-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:typesense
+        PortMappings[0]:
+          ContainerPort: 8108
+          HostPort: 8108
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: TYPESENSE_DATA_DIR 
+          Value: /mnt/data
+        - Name: TYPESENSE_API_KEY 
+          Value: ${YOUR_API_KEY}
+        MountPoints[0]:
+          ContainerPath: /mnt/data
+          SourceVolume: typesense-data
+    aws:target_group:typesense-tg:
+      Port: 8108
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /health
+        Matcher: 200
+    aws:load_balancer_listener:typesense-lb:typesense-listener:
+      LoadBalancer: aws:load_balancer:typesense-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:typesense-tg
+    aws:load_balancer:typesense-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:cloudfront_distribution:typesense-cf:
+    aws:efs_file_system:typesense-efs:
+    aws:efs_access_point:typesense-efs:typesense-data:
+      FileSystem: aws:efs_file_system:typesense-efs
+      PosixUser:
+          Gid: 1000
+          Uid: 1000
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 1000
+              OwnerUid: 1000
+              Permissions: "777"
+          Path: /mnt/data
+  edges:
+    aws:cloudfront_distribution:typesense-cf -> aws:load_balancer:typesense-lb:
+    aws:load_balancer:typesense-lb -> aws:ecs_service:typesense-service:
+    aws:load_balancer:typesense-lb -> aws:load_balancer_listener:typesense-lb:typesense-listener:
+    aws:load_balancer_listener:typesense-lb:typesense-listener -> aws:target_group:typesense-tg:
+    aws:target_group:typesense-tg -> aws:ecs_service:typesense-service:
+    aws:ecs_task_definition:typesense-task -> aws:efs_access_point:typesense-efs:typesense-data:
+    aws:efs_access_point:typesense-efs:typesense-data -> aws:efs_file_system:typesense-efs:
+    # Service to FS edge sets up the mount_target
+    aws:ecs_service:typesense-service -> aws:efs_file_system:typesense-efs:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the Typesense service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the Typesense service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  YOUR_API_KEY:
+    name: Your API Key
+    description: The API key to use for Typesense
+    type: string
+    default: typesenseapikey
+    validation:
+      minLength: 8
+      maxLength: 128

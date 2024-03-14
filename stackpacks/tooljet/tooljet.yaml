@@ -1,7 +1,6 @@
-name: ToolJet
-description: Low-code open-source platform for developing and deploying custom business applications
+name: Tooljet
+description: Low-code framework for internal tools
 version: '1.0.0'
-
 requires:
   - network
   - ecs

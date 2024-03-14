@@ -1,8 +1,6 @@
 name: Mattermost
-description: Secure collaboration across the entire software development lifecycle
 version: '1.0.0'
-
-
+description: Enterprise communication platform for developers
 requires:
   - network
   - ecs
