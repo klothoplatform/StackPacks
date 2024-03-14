@@ -111,8 +111,8 @@ jobs:
       - name: Get Pulumi Outputs
         id: pulumi-outputs
         run: |
-          echo "::set-output name=stack_snap_binaries_BucketName::$(pulumi stack output stack_snap_binaries_BucketName)"
-          echo "::set-output name=stacksnap_ui_BucketName::$(pulumi stack output stacksnap_ui_BucketName)"
+          echo "stack_snap_binaries_BucketName=$(pulumi stack output stack_snap_binaries_BucketName)" >> $GITHUB_OUTPUT
+          echo "stacksnap_ui_BucketName=$(pulumi stack output stacksnap_ui_BucketName)" >> $GITHUB_OUTPUT
         working-directory: ./deploy
         shell: bash
       - name: build frontend
@@ -125,7 +125,7 @@ jobs:
           STAGE: ${{ inputs.stage }}
       - name: Upload frontend to S3
         run: |
-          aws s3 sync frontend/build/ s3://${{ steps.pulumi-outputs.outputs.stacksnap_ui_BucketName }}
+          aws s3 sync frontend/dist/ s3://${{ steps.pulumi-outputs.outputs.stacksnap_ui_BucketName }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
