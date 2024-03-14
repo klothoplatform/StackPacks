@@ -5,6 +5,8 @@ WORKDIR /app
 
 VOLUME [ "/app/deployments" ]
 
+RUN pip3 install awscli
+
 ENV PYTHONPATH=.:${PYTHONPATH}
 EXPOSE 80
 
