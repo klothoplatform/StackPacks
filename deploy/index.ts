@@ -853,14 +853,12 @@ const stacksnap = new aws.cloudfront.Distribution("stacksnap", {
     {
       allowedMethods: ["GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "DELETE"],
       cachedMethods: ["GET", "HEAD"],
-      defaultTtl: 0,
-      forwardedValues: { cookies: { forward: "none" }, queryString: true },
-      maxTtl: 0,
-      minTtl: 0,
       pathPattern: "/api**",
       smoothStreaming: false,
       targetOriginId: "load-balancer-2",
       viewerProtocolPolicy: "redirect-to-https",
+      cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad", // Managed-CachingDisabled
+      originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac", // Managed-AllViewerExceptHostHeader
     },
   ],
   defaultCacheBehavior: {
