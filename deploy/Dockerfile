@@ -23,4 +23,4 @@ COPY ./src ./src
 COPY ./stackpacks ./stackpacks
 COPY ./stackpacks_common ./stackpacks_common
 
-ENTRYPOINT [ "container_start.sh" ]
+ENTRYPOINT [ "./container_start.sh" ]
