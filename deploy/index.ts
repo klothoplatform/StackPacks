@@ -666,8 +666,8 @@ const subnet_3 = new aws.ec2.Subnet("subnet-3", {
 });
 const ecs_service_0 = new aws.ecs.TaskDefinition("ecs_service_0", {
   family: "ecs_service_0",
-  cpu: "256",
-  memory: "512",
+  cpu: "4096",
+  memory: "8192",
   networkMode: "awsvpc",
   requiresCompatibilities: ["FARGATE"],
   executionRoleArn: ecs_service_0_execution_role.arn,
@@ -687,7 +687,7 @@ const ecs_service_0 = new aws.ecs.TaskDefinition("ecs_service_0", {
   ],
   containerDefinitions: pulumi.jsonStringify([
     {
-      cpu: 256,
+      cpu: 4096,
       environment: [
         {
           name: "PULUMISTACKS_TABLE_NAME",
@@ -724,7 +724,7 @@ const ecs_service_0 = new aws.ecs.TaskDefinition("ecs_service_0", {
           "awslogs-stream-prefix": "ecs_service_0-ecs_service_0",
         },
       },
-      memory: 512,
+      memory: 8192,
       mountPoints: [
         {
           containerPath: "/app/deployments",
