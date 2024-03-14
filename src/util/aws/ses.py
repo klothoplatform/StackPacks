@@ -1,5 +1,4 @@
 import boto3
-from botocore.exceptions import ClientError
 
 from src.util.logging import logger
 
@@ -70,7 +69,7 @@ def send_email(client: boto3.client, recipient: str, applications: list[str]):
             },
         )
     # Display an error if something goes wrong.
-    except ClientError as e:
+    except Exception as e:
         logger.error(e.response["Error"]["Message"])
     else:
         logger.info(f"Email sent! Message ID: {response['MessageId']}"),
