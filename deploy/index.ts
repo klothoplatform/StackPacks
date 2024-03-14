@@ -713,6 +713,14 @@ const ecs_service_0 = new aws.ecs.TaskDefinition("ecs_service_0", {
           name: "STACK_SNAP_BINARIES_BUCKET_NAME",
           value: stack_snap_binaries.bucket,
         },
+        {
+          name: "AUTH0_DOMAIN",
+          value: "klotho-dev.us.auth0.com",
+        },
+        {
+          name: "AUTH0_AUDIENCE",
+          value: "hZwtQWajZBlAM7lKOp6jr98py5v13jCk",
+        },
       ],
       essential: true,
       image: ecs_service_0_ecs_service_0.imageName,
