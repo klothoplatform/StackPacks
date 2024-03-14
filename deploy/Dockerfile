@@ -15,4 +15,7 @@ RUN pip3 install -r requirements.txt
 RUN mkdir ./src
 COPY ./src ./src
 
+COPY ./stackpacks ./stackpacks
+COPY ./stackpacks_common ./stackpacks_common
+
 ENTRYPOINT [ "gunicorn", "--timeout", "0", "-w", "9", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:80", "src.main:app" ]
