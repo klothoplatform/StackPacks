@@ -1,0 +1,165 @@
+name: ownCloud
+description: ownCloud is an open-source file sync, share and content collaboration software that lets teams work on data easily from anywhere, on any device
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:owncloud:
+      BaseImage: owncloud/server:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:owncloud-service:
+      LoadBalancers[0]:
+        ContainerPort: 8080
+        TargetGroup: aws:target_group:owncloud-web
+        ContainerName: owncloud-task
+      TaskDefinition: aws:ecs_task_definition:owncloud-task
+    aws:ecs_task_definition:owncloud-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:owncloud
+        PortMappings[0]:
+          ContainerPort: 8080
+          HostPort: 8080
+        MountPoints[0]:
+          ContainerPath: /mnt/data
+          SourceVolume: owncloud-data
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: OWNCLOUD_DB_TYPE
+          Value: postgres
+        - Name: OWNCLOUD_DB_HOST
+          Value: aws:rds_instance:owncloud-db#Host
+        - Name: OWNCLOUD_DB_NAME
+          Value: aws:rds_instance:owncloud-db#DatabaseName
+        - Name: OWNCLOUD_DB_USERNAME
+          Value: aws:rds_instance:owncloud-db#Username
+        - Name: OWNCLOUD_DB_PASSWORD
+          Value: aws:rds_instance:owncloud-db#Password
+        - Name: OWNCLOUD_ADMIN_USERNAME
+          Value: ${AdminUsername}
+        - Name: OWNCLOUD_ADMIN_PASSWORD
+          Value: ${AdminPassword}
+        - Name: OWNCLOUD_REDIS_ENABLED
+          Value: "true"
+        - Name: OWNCLOUD_REDIS_HOST
+          Value: aws:elasticache_cluster:owncloud-redis#CacheNodeAddress
+    aws:load_balancer:owncloud-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:owncloud-lb:owncloud-web:
+      LoadBalancer: aws:load_balancer:owncloud-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:owncloud-web
+    aws:target_group:owncloud-web:
+      Port: 8080
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200-399
+    aws:efs_file_system:owncloud-efs:
+    aws:efs_access_point:owncloud-efs:owncloud-data:
+      FileSystem: aws:efs_file_system:owncloud-efs
+      PosixUser:
+          Gid: 0
+          Uid: 0
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 0
+              OwnerUid: 0
+              Permissions: "777"
+          Path: /mnt/data
+    aws:rds_instance:owncloud-db:
+    aws:elasticache_cluster:owncloud-redis:
+    aws:cloudfront_distribution:owncloud-cf:
+  edges:
+    aws:load_balancer:owncloud-lb -> aws:load_balancer_listener:owncloud-lb:owncloud-web:
+    aws:load_balancer_listener:owncloud-lb:owncloud-web -> aws:target_group:owncloud-web:
+    aws:target_group:owncloud-web -> aws:ecs_service:owncloud-service:
+    aws:load_balancer:owncloud-lb -> aws:ecs_service:owncloud-service:
+    aws:cloudfront_distribution:owncloud-cf -> aws:load_balancer:owncloud-lb:
+
+    aws:ecs_task_definition:owncloud-task -> aws:efs_access_point:owncloud-efs:owncloud-data:
+    aws:efs_access_point:owncloud-efs:owncloud-data -> aws:efs_file_system:owncloud-efs:
+    aws:ecs_service:owncloud-service -> aws:efs_file_system:owncloud-efs:
+
+    aws:ecs_service:owncloud-service -> aws:rds_instance:owncloud-db:
+    aws:ecs_service:owncloud-service -> aws:elasticache_cluster:owncloud-redis:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the owncloud service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the owncloud service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the ownCloud database
+    type: string
+    default: ownclouduser
+    pulumi_key: klo:owncloud-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the ownCloud database
+    type: string
+    pulumi_key: klo:owncloud-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+  AdminUsername:
+    name: Admin Username
+    description: The username to use for the ownCloud admin account
+    type: string
+    default: admin
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  AdminPassword:
+    name: Admin Password
+    description: The password to use for the ownCloud admin account
+    type: string
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+  
+  RedisClusterPassword:
+    name: Redis Cluster Password
+    description: The password to use for the Redis cluster
+    type: string
+    pulumi_key: klo:tooljet-service-tooljet-memcluster-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+
