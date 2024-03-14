@@ -16,7 +16,7 @@ from pynamodb.models import Model
 
 from src.stack_pack import ConfigValues, StackPack
 from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.user_app import AppModel, UserApp
+from src.stack_pack.models.user_app import AppLifecycleStatus, AppModel, UserApp
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.logging import logger
@@ -60,7 +60,7 @@ class UserPack(Model):
                     base_version,
                 )
                 # Only increment version if there has been an attempted deploy on the current version
-                latest_version = UserApp.get_latest_version_with_status(app.app_id)
+                latest_version = UserApp.get_latest_deployed_version(app.app_id)
                 if latest_version is not None and latest_version.version == app.version:
                     app.version = app.version + 1
             except DoesNotExist as e:
@@ -75,6 +75,7 @@ class UserPack(Model):
                 created_by=self.created_by,
                 created_at=datetime.datetime.now(),
                 configuration=config,
+                status=AppLifecycleStatus.NEW.value,
             )
         # Run the packs in parallel and only store the iac if we are incrementing the version
         subdir = Path(tmp_dir) / app.get_app_name()
@@ -127,9 +128,7 @@ class UserPack(Model):
                     app.configuration = config
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
-                        latest_version = UserApp.get_latest_version_with_status(
-                            app.app_id
-                        )
+                        latest_version = UserApp.get_latest_deployed_version(app.app_id)
                         if (
                             latest_version is not None
                             and latest_version.version == app.version
@@ -147,6 +146,7 @@ class UserPack(Model):
                     created_by=self.created_by,
                     created_at=datetime.datetime.now(),
                     configuration=config,
+                    status=AppLifecycleStatus.NEW.value,
                 )
             apps.append(app)
 

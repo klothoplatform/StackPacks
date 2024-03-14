@@ -5,7 +5,7 @@ from pynamodb.exceptions import DoesNotExist
 
 from src.stack_pack import ConfigValues, Resources, StackPack, StackParts
 from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.user_app import AppModel, UserApp
+from src.stack_pack.models.user_app import AppLifecycleStatus, AppModel, UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
@@ -51,7 +51,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         self.temp_dir.cleanup()
         return super().tearDown()
 
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     async def test_run_base(self, mock_common_stack, mock_get, mock_get_latest):
@@ -91,7 +91,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             Policy('{"Version": "2012-10-17","Statement": []}').__str__(),
         )
 
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     async def test_run_base_latest_not_deployed(
@@ -168,8 +168,9 @@ class TestUserPack(aiounittest.AsyncTestCase):
             created_by="created_by",
             created_at=ANY,
             configuration=self.config.get("common"),
+            status=AppLifecycleStatus.NEW.value,
         )
-        mock_user_app.get_latest_version_with_status.assert_not_called()
+        mock_user_app.get_latest_deployed_version.assert_not_called()
         common_app.run_app.assert_called_once_with(
             common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
         )
@@ -180,7 +181,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             Policy('{"Version": "2012-10-17","Statement": []}').__str__(),
         )
 
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     async def test_run_pack(self, mock_common_stack, mock_get, mock_get_latest):
@@ -249,7 +250,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         self.assertEqual(policy, policy1)
 
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
     @patch("src.stack_pack.models.user_pack.CommonStack")
     async def test_run_pack_favors_imports(
@@ -345,7 +346,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         mock_user_app.return_value = mock_app_1
         mock_user_app.get.side_effect = [DoesNotExist(), mock_app_2]
-        mock_user_app.get_latest_version_with_status.side_effect = [
+        mock_user_app.get_latest_deployed_version.side_effect = [
             MagicMock(spec=UserApp, version=1),
             MagicMock(spec=UserApp, version=1),
         ]
@@ -364,7 +365,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
         # Assert
         mock_user_app.get.assert_has_calls([call("id#app1", 1), call("id#app2", 2)])
-        mock_user_app.get_latest_version_with_status.assert_has_calls(
+        mock_user_app.get_latest_deployed_version.assert_has_calls(
             [call(mock_app_2.app_id)]
         )
         mock_user_app.assert_called_once_with(
@@ -373,6 +374,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             created_by="created_by",
             created_at=ANY,
             configuration=self.config.get("app1"),
+            status=AppLifecycleStatus.NEW.value,
         )
 
         mock_app_1.run_app.assert_called_once_with(
@@ -395,7 +397,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         self.assertEqual(policy, policy1)
 
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
     @patch("src.stack_pack.models.user_pack.UserApp")
     async def test_run_pack_invalid_stack_name(

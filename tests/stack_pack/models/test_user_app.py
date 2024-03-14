@@ -3,7 +3,6 @@ from unittest.mock import ANY, MagicMock, patch
 
 import aiounittest
 
-from src.deployer.models.deployment import PulumiStack
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
 from src.stack_pack import StackPack
@@ -13,35 +12,34 @@ from src.stack_pack.storage.iac_storage import IacStorage
 
 class TestUserApp(aiounittest.AsyncTestCase):
 
-    @patch.object(PulumiStack, "get")
-    @patch.object(UserApp, "get_latest_version_with_status")
-    def test_to_user_app(self, mock_get_latest_version_with_status, mock_get):
+    @patch.object(UserApp, "get_latest_deployed_version")
+    def test_to_user_app(self, mock_get_latest_deployed_version):
         # Arrange
         mock_user_app = UserApp(
             app_id="id#app",
             version=1,
             created_by="created_by",
             configuration={"config": "value"},
+        )
+        mock_latest_deployed_version = MagicMock(
+            spec=UserApp,
             iac_stack_composite_key="iac#stack",
+            status="status",
+            status_reason="status_reason",
         )
-        mock_pulumi_stack = MagicMock(
-            spec=PulumiStack, status="status", status_reason="status_reason"
-        )
-        mock_get.return_value = mock_pulumi_stack
-        mock_get_latest_version_with_status.return_value = mock_user_app
+        mock_get_latest_deployed_version.return_value = mock_latest_deployed_version
 
         # Act
         app_model = mock_user_app.to_user_app()
 
         # Assert
-        mock_get.assert_called_once()
-        mock_get_latest_version_with_status.assert_called_once_with("id#app")
+        mock_get_latest_deployed_version.assert_called_once_with("id#app")
         self.assertEqual(app_model.app_id, "id#app")
         self.assertEqual(app_model.version, 1)
         self.assertEqual(app_model.created_by, "created_by")
         self.assertEqual(app_model.configuration, {"config": "value"})
-        self.assertEqual(app_model.status, mock_pulumi_stack.status)
-        self.assertEqual(app_model.status_reason, mock_pulumi_stack.status_reason)
+        self.assertEqual(app_model.status, "status")
+        self.assertEqual(app_model.status_reason, "status_reason")
 
     def test_get_app_name(self):
         # Arrange
@@ -105,7 +103,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
         # Assert
         mock_update.assert_called_once()
 
-    # Continue with other tests for run_app, get_latest_version, get_latest_version_with_status, composite_key
+    # Continue with other tests for run_app, get_latest_version, get_latest_deployed_version, composite_key
 
     @patch("src.stack_pack.models.user_app.run_engine")
     @patch("src.stack_pack.models.user_app.export_iac")
@@ -171,7 +169,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
         self.assertEqual(latest_version, mock_query.return_value[0])
 
     @patch.object(UserApp, "query")
-    def test_get_latest_version_with_status(self, mock_query):
+    def test_get_latest_deployed_version(self, mock_query):
         # Arrange
         mock_user_app = UserApp(
             app_id="id#app",
@@ -182,7 +180,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
         mock_query.return_value = [MagicMock(spec=UserApp)]
 
         # Act
-        latest_version = UserApp.get_latest_version_with_status("id#app")
+        latest_version = UserApp.get_latest_deployed_version("id#app")
 
         # Assert
         mock_query.assert_called_once()

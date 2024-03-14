@@ -179,7 +179,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
     @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     async def test_tear_down_app(
         self,
         mock_get_latest_app,
@@ -224,7 +224,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
     @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_version_with_status")
+    @patch.object(UserApp, "get_latest_deployed_version")
     async def test_tear_down_app_wont_destroy_common(
         self,
         mock_get_latest_app,

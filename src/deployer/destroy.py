@@ -16,9 +16,9 @@ from src.deployer.models.deployment import (
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
 from src.stack_pack.models.user_pack import UserPack
-from src.stack_pack.storage.iac_storage import IaCDoesNotExistError, IacStorage
+from src.stack_pack.storage.iac_storage import IaCDoesNotExistError
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
@@ -49,39 +49,121 @@ async def run_destroy(
         status_reason="Destroy in progress",
         initiated_by=user,
     )
+    try:
+        pulumi_stack.save()
+        deployment.save()
+        builder = AppBuilder(tmp_dir)
+        stack = builder.prepare_stack(iac, pulumi_stack)
+        for k, v in pulumi_config.items():
+            stack.set_config(k, auto.ConfigValue(v, secret=True))
+        builder.configure_aws(stack, assume_role_arn, region)
+        deployer = AppDeployer(
+            stack,
+            DeploymentDir(user, deployment_id),
+        )
+        result_status, reason = await deployer.destroy_and_remove_stack()
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(result_status.value),
+                PulumiStack.status_reason.set(reason),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(result_status.value),
+                Deployment.status_reason.set(reason),
+            ]
+        )
+        return DeploymentResult(
+            manager=None, status=result_status, reason=reason, stack=pulumi_stack
+        )
+    except Exception as e:
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(DeploymentStatus.FAILED.value),
+                PulumiStack.status_reason.set(str(e)),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(DeploymentStatus.FAILED.value),
+                Deployment.status_reason.set(str(e)),
+            ]
+        )
+        return DeploymentResult(
+            manager=None,
+            status=DeploymentStatus.FAILED,
+            reason=str(e),
+            stack=pulumi_stack,
+        )
 
-    pulumi_stack.save()
-    deployment.save()
-    builder = AppBuilder(tmp_dir)
-    stack = builder.prepare_stack(iac, pulumi_stack)
-    for k, v in pulumi_config.items():
-        stack.set_config(k, auto.ConfigValue(v, secret=True))
-    builder.configure_aws(stack, assume_role_arn, region)
-    deployer = AppDeployer(
-        stack,
-        DeploymentDir(user, deployment_id),
+
+async def run_destroy_application(
+    pack_id: str,
+    app_name: str,
+    user: str,
+    pulumi_config: dict[str, str],
+    deployment_id: str,
+    tmp_dir: Path,
+) -> DeploymentResult:
+    logger.info(
+        f"Building and deploying {app_name} for pack {pack_id} with deployment id {deployment_id}"
     )
-    result_status, reason = await deployer.destroy_and_remove_stack()
-    pulumi_stack.update(
+    iac_storage = get_iac_storage()
+    pack = UserPack.get(pack_id)
+    app = UserApp.get_latest_deployed_version(UserApp.composite_key(pack_id, app_name))
+    if app is None:
+        logger.info(f"Skipping destroy for {app_name} as it is not deployed")
+        return DeploymentResult(
+            manager=None,
+            status=DeploymentStatus.SUCCEEDED,
+            reason="Not deployed",
+            stack=None,
+        )
+    try:
+        iac = iac_storage.get_iac(pack.id, app.get_app_name(), app.version)
+    except IaCDoesNotExistError:
+        # This state could happen if an application's iac failed to generate.
+        # Since other applications and the common stack could have been deployed
+        # don't fail the destroy process, just log and continue.
+        logger.info(f"Skipping destroy for {app.app_id} as iac does not exist")
+        return DeploymentResult(
+            manager=None,
+            status=DeploymentStatus.SUCCEEDED,
+            reason="IaC does not exist",
+            stack=None,
+        )
+    app.transition_status(
+        DeploymentStatus.IN_PROGRESS, DeploymentAction.DESTROY, "Destroy in progress"
+    )
+    result = await run_destroy(
+        pack.region,
+        pack.assumed_role_arn,
+        pack.id,
+        app.get_app_name(),
+        user,
+        iac,
+        pulumi_config,
+        deployment_id,
+        tmp_dir / app.get_app_name(),
+    )
+    iac_composite_key = (
+        result.stack.composite_key()
+        if result.status != DeploymentStatus.SUCCEEDED
+        else None
+    )
+    app.update(
         actions=[
-            PulumiStack.status.set(result_status.value),
-            PulumiStack.status_reason.set(reason),
+            UserApp.iac_stack_composite_key.set(iac_composite_key),
+            UserApp.deployments.add({deployment_id}),
         ]
     )
-    deployment.update(
-        actions=[
-            Deployment.status.set(result_status.value),
-            Deployment.status_reason.set(reason),
-        ]
-    )
-    return DeploymentResult(
-        manager=None, status=result_status, reason=reason, stack=pulumi_stack
-    )
+    app.transition_status(result.status, DeploymentAction.DESTROY, result.reason)
+    logger.info(f"DESTROY of {app.get_app_name()} complete. Status: {result.status}")
+    return result
 
 
 async def run_concurrent_destroys(
-    region: str,
-    assume_role_arn: str,
     stacks: list[StackDeploymentRequest],
     user: str,
     tmp_dir: Path,
@@ -94,17 +176,14 @@ async def run_concurrent_destroys(
         app_order = []
         for stack in stacks:
             task = pool.apply(
-                run_destroy,
+                run_destroy_application,
                 args=(
-                    region,
-                    assume_role_arn,
                     stack.project_name,
                     stack.stack_name,
                     user,
-                    stack.iac,
                     stack.pulumi_config,
                     stack.deployment_id,
-                    tmp_dir / stack.stack_name,
+                    tmp_dir,
                 ),
             )
             app_order.append(stack.stack_name)
@@ -115,113 +194,45 @@ async def run_concurrent_destroys(
         return app_order, gathered
 
 
-async def destroy_common_stack(
-    user_pack: UserPack,
-    common_pack: UserApp,
-    iac_storage: IacStorage,
-    deployment_id: str,
-    tmp_dir: Path,
-):
-    common_version = common_pack.version
-    logger.info(f"Destroying common stack {common_version}")
-    iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
-
-    order, results = await run_concurrent_destroys(
-        user_pack.region,
-        user_pack.assumed_role_arn,
-        [
-            StackDeploymentRequest(
-                project_name=common_pack.get_pack_id(),
-                stack_name=common_pack.get_app_name(),
-                iac=iac,
-                pulumi_config={},
-                deployment_id=deployment_id,
-            )
-        ],
-        user_pack.id,
-        tmp_dir,
-    )
-    common_pack.update(
-        actions=[
-            UserApp.status.set(results[0].status.value),
-            UserApp.status_reason.set(results[0].reason),
-            UserApp.iac_stack_composite_key.set(None),
-        ]
-    )
-
-
 async def destroy_applications(
     user_pack: UserPack,
-    iac_storage: IacStorage,
     deployment_id: str,
     tmp_dir: Path,
-):
+) -> bool:
     deployment_stacks: list[StackDeploymentRequest] = []
-    apps: dict[str, UserApp] = {}
     for name, version in user_pack.apps.items():
         if name == UserPack.COMMON_APP_NAME:
             continue
-        app = UserApp.get_latest_version_with_status(
-            UserApp.composite_key(user_pack.id, name)
-        )
-        if app == None:
-            # this would mean that nothing has been deployed
-            continue
-        apps[app.get_app_name()] = app
-        try:
-            iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
-        except IaCDoesNotExistError:
-            # This state could happen if an application's iac failed to generate.
-            # Since other applications and the common stack could have been deployed
-            # don't fail the destroy process, just log and continue.
-            logger.info(f"Skipping destroy for {app.app_id} as iac does not exist")
-            continue
-
         deployment_stacks.append(
             StackDeploymentRequest(
-                project_name=app.get_pack_id(),
-                stack_name=app.get_app_name(),
-                iac=iac,
+                project_name=user_pack.id,
+                stack_name=name,
                 pulumi_config={},
                 deployment_id=deployment_id,
             )
         )
 
     order, results = await run_concurrent_destroys(
-        user_pack.region,
-        user_pack.assumed_role_arn,
         deployment_stacks,
         user_pack.id,
         tmp_dir,
     )
-    for i, name in enumerate(order):
-        app = apps[name]
-        result = results[i]
-        app.update(
-            actions=[
-                UserApp.status.set(result.status.value),
-                UserApp.status_reason.set(result.reason),
-                UserApp.iac_stack_composite_key.set(None),
-            ]
-        )
+
+    return all(result.status == DeploymentStatus.SUCCEEDED for result in results)
 
 
 async def tear_down_user_app(
     pack: UserPack,
     app: UserApp,
-    iac_storage: IacStorage,
     deployment_id: str,
     tmp_dir: Path,
-):
+) -> DeploymentResult:
     logger.info(f"Tearing down app {app.app_id}")
     _, results = await run_concurrent_destroys(
-        pack.region,
-        pack.assumed_role_arn,
         [
             StackDeploymentRequest(
                 project_name=pack.id,
                 stack_name=app.get_app_name(),
-                iac=iac_storage.get_iac(pack.id, app.get_app_name(), app.version),
                 pulumi_config={},
                 deployment_id=deployment_id,
             )
@@ -229,29 +240,20 @@ async def tear_down_user_app(
         pack.id,
         tmp_dir,
     )
-
-    result = results[0]
-    app.update(
-        actions=[
-            UserApp.status.set(result.status.value),
-            UserApp.status_reason.set(result.reason),
-            UserApp.iac_stack_composite_key.set(None),
-        ]
-    )
+    return results[0]
 
 
 async def tear_down_single(pack: UserPack, app: UserApp, deployment_id: str):
-    iac_storage = get_iac_storage()
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
-        await tear_down_user_app(pack, app, iac_storage, deployment_id, tmp_dir)
-        common_pack = UserApp.get_latest_version_with_status(
-            UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
-        )
-        await destroy_common_stack(
-            pack, common_pack, iac_storage, deployment_id, tmp_dir
-        )
-        pack.update(actions=[UserPack.tear_down_in_progress.set(False)])
+        result = await tear_down_user_app(pack, app, deployment_id, tmp_dir)
+
+        if pack.tear_down_in_progress and result.status == DeploymentStatus.SUCCEEDED:
+            common_pack = UserApp.get_latest_deployed_version(
+                UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
+            )
+            await tear_down_user_app(pack, common_pack, deployment_id, tmp_dir)
+            pack.update(actions=[UserPack.tear_down_in_progress.set(False)])
 
 
 async def tear_down_pack(
@@ -259,7 +261,6 @@ async def tear_down_pack(
     deployment_id: str,
 ):
     logger.info(f"Tearing down pack {pack_id}")
-    iac_storage = get_iac_storage()
     user_pack = UserPack.get(pack_id)
     user_pack.update(actions=[UserPack.tear_down_in_progress.set(True)])
 
@@ -267,8 +268,6 @@ async def tear_down_pack(
 
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
-
-        await destroy_applications(user_pack, iac_storage, deployment_id, tmp_dir)
 
         common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
         if common_version == 0:
@@ -278,7 +277,22 @@ async def tear_down_pack(
             UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
             common_version,
         )
-        await destroy_common_stack(
-            user_pack, common_pack, iac_storage, deployment_id, tmp_dir
+        common_pack.update(
+            actions=[
+                UserApp.status.set(AppLifecycleStatus.PENDING.value),
+                UserApp.status_reason.set("waiting for applications to be destroyed"),
+            ]
         )
+
+        success = await destroy_applications(user_pack, deployment_id, tmp_dir)
+
+        if not success:
+            common_pack.transition_status(
+                DeploymentStatus.FAILED,
+                DeploymentAction.DESTROY,
+                "One or more applications failed to destroy",
+            )
+            return
+
+        await tear_down_user_app(user_pack, common_pack, deployment_id, tmp_dir)
         user_pack.update(actions=[UserPack.tear_down_in_progress.set(False)])

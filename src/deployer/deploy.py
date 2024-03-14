@@ -20,7 +20,7 @@ from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.ses import send_email
@@ -37,11 +37,11 @@ class DeploymentResult:
 
 
 class StackDeploymentRequest(BaseModel):
+    deployment_id: str
     project_name: str
     stack_name: str
-    iac: bytes
+    # iac: bytes
     pulumi_config: dict[str, str]
-    deployment_id: str
 
 
 PROJECT_NAME = "StackPack"
@@ -73,42 +73,103 @@ async def build_and_deploy(
         status_reason="Deployment in progress",
         initiated_by=user,
     )
+    try:
+        pulumi_stack.save()
+        deployment.save()
+        builder = AppBuilder(tmp_dir)
+        stack = builder.prepare_stack(iac, pulumi_stack)
+        builder.configure_aws(stack, assume_role_arn, region)
+        for k, v in pulumi_config.items():
+            stack.set_config(k, auto.ConfigValue(v, secret=True))
+        deployer = AppDeployer(
+            stack,
+            DeploymentDir(user, deployment_id),
+        )
+        result_status, reason = await deployer.deploy()
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(result_status.value),
+                PulumiStack.status_reason.set(reason),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(result_status.value),
+                Deployment.status_reason.set(reason),
+            ]
+        )
+        return DeploymentResult(
+            manager=AppManager(stack),
+            status=result_status,
+            reason=reason,
+            stack=pulumi_stack,
+        )
+    except Exception as e:
+        logger.error(f"Error deploying {app_name}: {e}", exc_info=True)
+        pulumi_stack.update(
+            actions=[
+                PulumiStack.status.set(DeploymentStatus.FAILED.value),
+                PulumiStack.status_reason.set(str(e)),
+            ]
+        )
+        deployment.update(
+            actions=[
+                Deployment.status.set(DeploymentStatus.FAILED.value),
+                Deployment.status_reason.set(str(e)),
+            ]
+        )
+        return DeploymentResult(
+            manager=None,
+            status=DeploymentStatus.FAILED,
+            reason="Internal error",
+            stack=None,
+        )
 
-    pulumi_stack.save()
-    deployment.save()
-    builder = AppBuilder(tmp_dir)
-    stack = builder.prepare_stack(iac, pulumi_stack)
-    builder.configure_aws(stack, assume_role_arn, region)
-    for k, v in pulumi_config.items():
-        stack.set_config(k, auto.ConfigValue(v, secret=True))
-    deployer = AppDeployer(
-        stack,
-        DeploymentDir(user, deployment_id),
+
+async def build_and_deploy_application(
+    pack_id: str,
+    app_name: str,
+    user: str,
+    pulumi_config: dict[str, str],
+    deployment_id: str,
+    tmp_dir: Path,
+) -> DeploymentResult:
+    logger.info(
+        f"Building and deploying {app_name} for pack {pack_id} with deployment id {deployment_id}"
     )
-    result_status, reason = await deployer.deploy()
-    pulumi_stack.update(
+    iac_storage = get_iac_storage()
+    pack = UserPack.get(pack_id)
+    app = UserApp.get(UserApp.composite_key(pack_id, app_name), pack.apps[app_name])
+    iac = iac_storage.get_iac(
+        pack.id, app.get_app_name(), pack.apps[app.get_app_name()]
+    )
+    app.transition_status(
+        DeploymentStatus.IN_PROGRESS, DeploymentAction.DEPLOY, "Deployment in progress"
+    )
+    result = await build_and_deploy(
+        pack.region,
+        pack.assumed_role_arn,
+        pack.id,
+        app.get_app_name(),
+        user,
+        iac,
+        pulumi_config,
+        deployment_id,
+        tmp_dir / app.get_app_name(),
+    )
+    iac_composite_key = result.stack.composite_key() if result.stack else None
+    app.update(
         actions=[
-            PulumiStack.status.set(result_status.value),
-            PulumiStack.status_reason.set(reason),
+            UserApp.iac_stack_composite_key.set(iac_composite_key),
+            UserApp.deployments.add({deployment_id}),
         ]
     )
-    deployment.update(
-        actions=[
-            Deployment.status.set(result_status.value),
-            Deployment.status_reason.set(reason),
-        ]
-    )
-    return DeploymentResult(
-        manager=AppManager(stack),
-        status=result_status,
-        reason=reason,
-        stack=pulumi_stack,
-    )
+    app.transition_status(result.status, DeploymentAction.DEPLOY, result.reason)
+    logger.info(f"Deployment of {app.get_app_name()} complete. Status: {result.status}")
+    return result
 
 
 async def run_concurrent_deployments(
-    region: str,
-    assume_role_arn: str,
     stacks: list[StackDeploymentRequest],
     user: str,
     tmp_dir: Path,
@@ -124,17 +185,14 @@ async def run_concurrent_deployments(
         app_order = []
         for stack in stacks:
             task = pool.apply(
-                build_and_deploy,
+                build_and_deploy_application,
                 args=(
-                    region,
-                    assume_role_arn,
                     stack.project_name,
                     stack.stack_name,
                     user,
-                    stack.iac,
                     stack.pulumi_config,
                     stack.deployment_id,
-                    tmp_dir / stack.stack_name,
+                    tmp_dir,
                 ),
             )
             app_order.append(stack.stack_name)
@@ -143,44 +201,6 @@ async def run_concurrent_deployments(
         gathered = await asyncio.gather(*tasks)
         logger.info(f"Tasks: {tasks}")
         return app_order, gathered
-
-
-async def deploy_common_stack(
-    user_pack: UserPack,
-    common_pack: UserApp,
-    common_stack: CommonStack,
-    iac_storage: IacStorage,
-    deployment_id: str,
-    tmp_dir: Path,
-):
-    common_version = common_pack.version
-    logger.info(f"Deploying common stack {common_version}")
-    iac = iac_storage.get_iac(user_pack.id, common_pack.get_app_name(), common_version)
-
-    pulumi_config = common_stack.get_pulumi_configs(common_pack.configuration.items())
-    order, results = await run_concurrent_deployments(
-        user_pack.region,
-        user_pack.assumed_role_arn,
-        [
-            StackDeploymentRequest(
-                project_name=common_pack.get_pack_id(),
-                stack_name=common_pack.get_app_name(),
-                iac=iac,
-                pulumi_config=pulumi_config,
-                deployment_id=deployment_id,
-            )
-        ],
-        user_pack.id,
-        tmp_dir,
-    )
-    common_pack.update(
-        actions=[
-            UserApp.status.set(results[0].status.value),
-            UserApp.status_reason.set(results[0].reason),
-            UserApp.iac_stack_composite_key.set(results[0].stack.composite_key()),
-        ]
-    )
-    return results[0].manager
 
 
 async def rerun_pack_with_live_state(
@@ -213,11 +233,10 @@ async def rerun_pack_with_live_state(
 
 async def deploy_applications(
     user_pack: UserPack,
-    iac_storage: IacStorage,
     sps: dict[str, StackPack],
     deployment_id: str,
     tmp_dir: Path,
-):
+) -> bool:
     deployment_stacks: list[StackDeploymentRequest] = []
     apps: dict[str, UserApp] = {}
     for name, version in user_pack.apps.items():
@@ -225,56 +244,38 @@ async def deploy_applications(
             continue
         app = UserApp.get(UserApp.composite_key(user_pack.id, name), version)
         apps[app.get_app_name()] = app
-        iac = iac_storage.get_iac(user_pack.id, app.get_app_name(), version)
         sp = sps[app.get_app_name()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
         deployment_stacks.append(
             StackDeploymentRequest(
                 project_name=app.get_pack_id(),
                 stack_name=app.get_app_name(),
-                iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
             )
         )
 
     order, results = await run_concurrent_deployments(
-        user_pack.region,
-        user_pack.assumed_role_arn,
         deployment_stacks,
         user_pack.id,
         tmp_dir,
     )
-    for i, name in enumerate(order):
-        app = apps[name]
-        result = results[i]
-        app.update(
-            actions=[
-                UserApp.status.set(result.status.value),
-                UserApp.status_reason.set(result.reason),
-                UserApp.iac_stack_composite_key.set(result.stack.composite_key()),
-            ]
-        )
+    return all(result.status == DeploymentStatus.SUCCEEDED for result in results)
 
 
 async def deploy_app(
     pack: UserPack,
     app: UserApp,
     stack_pack: StackPack,
-    iac_storage: IacStorage,
     deployment_id: str,
     tmp_dir: Path,
-):
-    iac = iac_storage.get_iac(pack.id, app.get_app_name(), app.version)
+) -> DeploymentResult:
     pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
     _, results = await run_concurrent_deployments(
-        pack.region,
-        pack.assumed_role_arn,
         [
             StackDeploymentRequest(
                 project_name=pack.id,
                 stack_name=app.get_app_name(),
-                iac=iac,
                 pulumi_config=pulumi_config,
                 deployment_id=deployment_id,
             )
@@ -283,14 +284,7 @@ async def deploy_app(
         tmp_dir,
     )
 
-    result = results[0]
-    app.update(
-        actions=[
-            UserApp.status.set(result.status.value),
-            UserApp.status_reason.set(result.reason),
-            UserApp.iac_stack_composite_key.set(result.stack.composite_key()),
-        ]
-    )
+    return results[0]
 
 
 async def deploy_single(
@@ -304,21 +298,42 @@ async def deploy_single(
         UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
         pack.apps[UserPack.COMMON_APP_NAME],
     )
-    with TempDir() as tmp_dir_str:
-        tmp_dir = Path(tmp_dir_str)
-        manager = await deploy_common_stack(
-            pack, common_app, common_stack, iac_storage, deployment_id, tmp_dir
-        )
-        live_state = await manager.read_deployed_state()
-        _ = await app.run_app(
-            stack_pack,
-            tmp_dir,
-            iac_storage,
-            live_state.to_constraints(common_stack, common_app.get_configurations()),
-        )
-        await deploy_app(pack, app, stack_pack, iac_storage, deployment_id, tmp_dir)
-        if email is not None:
-            send_email(get_ses_client(), email, sps.keys())
+    app.update(
+        actions=[
+            UserApp.status.set(AppLifecycleStatus.PENDING.value),
+            UserApp.status_reason.set(
+                f"Updating Common Resources, then deploying {app.get_app_name()}."
+            ),
+        ]
+    )
+    try:
+        with TempDir() as tmp_dir_str:
+            tmp_dir = Path(tmp_dir_str)
+            result = await deploy_app(
+                pack, common_app, common_stack, deployment_id, tmp_dir
+            )
+            if result.status == DeploymentStatus.FAILED:
+                app.transition_status(
+                    result.status, DeploymentAction.DEPLOY, result.reason
+                )
+                return
+            live_state = await result.manager.read_deployed_state()
+            _ = await app.run_app(
+                stack_pack,
+                tmp_dir,
+                iac_storage,
+                live_state.to_constraints(
+                    common_stack, common_app.get_configurations()
+                ),
+            )
+            await deploy_app(pack, app, stack_pack, deployment_id, tmp_dir)
+            if email is not None:
+                send_email(get_ses_client(), email, sps.keys())
+    except Exception as e:
+        if app.status == AppLifecycleStatus.PENDING.value:
+            app.transition_status(
+                DeploymentStatus.FAILED, DeploymentAction.DEPLOY, str(e)
+            )
 
 
 async def deploy_pack(
@@ -342,30 +357,66 @@ async def deploy_pack(
             common_version,
         )
         common_stack = CommonStack(list(sps.values()))
-        logger.info(f"Deploying common stack")
 
-        manager = await deploy_common_stack(
-            user_pack,
-            common_pack,
-            common_stack,
-            iac_storage,
-            deployment_id,
-            tmp_dir,
-        )
-        live_state = await manager.read_deployed_state()
+        for app_name, version in user_pack.apps.items():
+            if app_name == UserPack.COMMON_APP_NAME:
+                continue
+            app = UserApp.get(UserApp.composite_key(pack_id, app_name), version)
+            app.update(
+                actions=[
+                    UserApp.status.set(AppLifecycleStatus.PENDING.value),
+                    UserApp.status_reason.set(
+                        f"Updating Common Resources, then deploying {app_name}."
+                    ),
+                ]
+            )
+        try:
 
-        logger.info(f"Rerunning pack with live state")
-        await rerun_pack_with_live_state(
-            user_pack,
-            common_pack,
-            common_stack,
-            iac_storage,
-            live_state,
-            sps,
-            tmp_dir_str,
-        )
+            logger.info(f"Deploying common stack")
 
-        logger.info(f"Deploying app stacks")
-        await deploy_applications(user_pack, iac_storage, sps, deployment_id, tmp_dir)
-        if email is not None:
-            send_email(get_ses_client(), email, sps.keys())
+            result = await deploy_app(
+                user_pack,
+                common_pack,
+                common_stack,
+                deployment_id,
+                tmp_dir,
+            )
+
+            if result.status == DeploymentStatus.FAILED:
+                for app_name, version in user_pack.apps.items():
+                    if app_name == UserPack.COMMON_APP_NAME:
+                        continue
+                    app = UserApp.get(UserApp.composite_key(pack_id, app_name), version)
+                    app.transition_status(
+                        DeploymentStatus.FAILED, DeploymentAction.DEPLOY, result.reason
+                    )
+                return
+
+            live_state = await result.manager.read_deployed_state()
+
+            logger.info(f"Rerunning pack with live state")
+            await rerun_pack_with_live_state(
+                user_pack,
+                common_pack,
+                common_stack,
+                iac_storage,
+                live_state,
+                sps,
+                tmp_dir_str,
+            )
+
+            logger.info(f"Deploying app stacks")
+            sucess = await deploy_applications(user_pack, sps, deployment_id, tmp_dir)
+            if email is not None and sucess:
+                send_email(get_ses_client(), email, sps.keys())
+        except Exception as e:
+            for app_name, version in user_pack.apps.items():
+                if app_name == UserPack.COMMON_APP_NAME:
+                    continue
+                app = UserApp.get(UserApp.composite_key(pack_id, app_name), version)
+                if app.status == AppLifecycleStatus.PENDING.value:
+                    app.transition_status(
+                        DeploymentStatus.FAILED, DeploymentAction.DEPLOY, str(e)
+                    )
+            logger.error(f"Error deploying pack {pack_id}: {e}")
+            raise e

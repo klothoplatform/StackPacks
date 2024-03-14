@@ -107,9 +107,7 @@ async def tear_down_app(
         return Response(status_code=400, content="latest is a reserved deployment_id")
 
     user_pack = UserPack.get(user_id)
-    app = UserApp.get_latest_version_with_status(
-        UserApp.composite_key(user_id, app_name)
-    )
+    app = UserApp.get_latest_deployed_version(UserApp.composite_key(user_id, app_name))
 
     if (
         len(user_pack.apps) < 2

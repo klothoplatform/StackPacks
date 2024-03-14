@@ -1,11 +1,15 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiounittest
+from fastapi import HTTPException
+from pynamodb.exceptions import DoesNotExist
 
 from src.api.stack_packs import (
     AppRequest,
+    StackRequest,
     StackResponse,
     add_app,
+    create_stack,
     remove_app,
     update_app,
 )
@@ -15,6 +19,109 @@ from src.util.aws.iam import Policy
 
 
 class TestStackPackRoutes(aiounittest.AsyncTestCase):
+
+    @patch("src.api.stack_packs.get_iac_storage")
+    @patch("src.api.stack_packs.get_stack_packs")
+    @patch("src.api.stack_packs.get_user_id")
+    @patch("src.api.stack_packs.UserPack")
+    @patch("src.api.stack_packs.TempDir")
+    async def test_create_stack(
+        self,
+        mock_tmp_dir,
+        mock_user_pack,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+    ):
+        mock_get_user_id.return_value = "user_id"
+        user_stack = UserStack(
+            id="id", owner="user_id", created_by="user_id", created_at=0
+        )
+        mock_pack = MagicMock(
+            spec=UserPack,
+            id="user_id",
+            to_user_stack=MagicMock(return_value=user_stack),
+        )
+        mock_user_pack.get.side_effect = DoesNotExist()
+        mock_user_pack.return_value = mock_pack
+        sps = {"app1": MagicMock(), "app2": MagicMock()}
+        mock_get_stack_packs.return_value = sps
+        iac_storage = mock_get_iac_storage.return_value
+        mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
+        policy1 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy1"))
+        policy2 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy2"))
+        mock_pack.run_base = AsyncMock(return_value=policy1)
+        mock_pack.run_pack = AsyncMock(return_value=policy2)
+
+        response: StackResponse = await create_stack(
+            MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
+        )
+
+        mock_get_user_id.assert_called_once()
+        mock_user_pack.get.assert_called_once_with("user_id")
+        mock_user_pack.assert_called_once_with(
+            id="user_id",
+            owner="user_id",
+            created_by="user_id",
+            apps={"app1": 0},
+            region=None,
+            assumed_role_arn=None,
+        )
+        mock_get_stack_packs.assert_called_once()
+        mock_get_iac_storage.assert_called_once()
+        mock_tmp_dir.assert_called_once()
+        mock_tmp_dir.return_value.__enter__.assert_called_once()
+        mock_pack.run_base.assert_called_once_with(
+            list(sps.values()), {}, iac_storage, "/tmp"
+        )
+        mock_pack.run_pack.assert_called_once_with(
+            sps, {"app1": {"config1": "value1"}}, "/tmp"
+        )
+        mock_pack.save.assert_called_once()
+        policy2.combine.assert_called_once_with(policy1)
+        self.assertEqual(response.stack, user_stack)
+        self.assertEqual(response.policy, "policy2")
+
+    @patch("src.api.stack_packs.get_iac_storage")
+    @patch("src.api.stack_packs.get_stack_packs")
+    @patch("src.api.stack_packs.get_user_id")
+    @patch("src.api.stack_packs.TempDir")
+    @patch.object(UserPack, "get")
+    async def test_create_stack_Stack_exists(
+        self,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+    ):
+        mock_get_user_id.return_value = "user_id"
+        mock_pack = MagicMock(
+            spec=UserPack,
+            id="user_id",
+        )
+        mock_get_pack.return_value = mock_pack
+        sps = {"app1": MagicMock(), "app2": MagicMock()}
+        mock_get_stack_packs.return_value = sps
+
+        response: HTTPException = await create_stack(
+            MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.detail, "Stack already exists for this user, use PATCH to update"
+        )
+
+        mock_get_user_id.assert_called_once()
+        mock_get_pack.assert_called_once_with("user_id")
+        mock_get_stack_packs.assert_not_called()
+        mock_get_iac_storage.assert_not_called()
+        mock_tmp_dir.assert_not_called()
+        mock_tmp_dir.return_value.__enter__.assert_not_called()
+        mock_pack.run_base.assert_not_called()
+        mock_pack.run_pack.assert_not_called()
+        mock_pack.save.assert_not_called()
+
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")

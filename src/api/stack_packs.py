@@ -37,7 +37,7 @@ async def create_stack(
     try:
         pack = UserPack.get(user_id)
         if pack is not None:
-            raise HTTPException(
+            return HTTPException(
                 status_code=400,
                 detail="Stack already exists for this user, use PATCH to update",
             )
@@ -52,7 +52,6 @@ async def create_stack(
         region=body.region,
         assumed_role_arn=body.assumed_role_arn,
     )
-    stack_packs = get_stack_packs()
     policy: Policy = None
     common_policy: Policy = None
     iac_storage = get_iac_storage()
