@@ -8,6 +8,9 @@ VOLUME [ "/app/deployments" ]
 ENV PYTHONPATH=.:${PYTHONPATH}
 EXPOSE 80
 
+COPY deploy/container_start.sh .
+RUN chmod +x container_start.sh
+
 COPY requirements.txt .
 
 RUN pip3 install -r requirements.txt
@@ -18,4 +21,4 @@ COPY ./src ./src
 COPY ./stackpacks ./stackpacks
 COPY ./stackpacks_common ./stackpacks_common
 
-ENTRYPOINT [ "gunicorn", "--timeout", "0", "-w", "9", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:80", "src.main:app" ]
+ENTRYPOINT [ "container_start.sh" ]
