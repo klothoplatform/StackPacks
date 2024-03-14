@@ -846,7 +846,7 @@ const stacksnap = new aws.cloudfront.Distribution("stacksnap", {
       forwardedValues: { cookies: { forward: "none" }, queryString: true },
       maxTtl: 0,
       minTtl: 0,
-      pathPattern: "/api/*",
+      pathPattern: "/api**",
       smoothStreaming: false,
       targetOriginId: "load-balancer-2",
       viewerProtocolPolicy: "redirect-to-https",
