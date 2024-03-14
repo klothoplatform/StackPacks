@@ -837,6 +837,9 @@ const stacksnap = new aws.cloudfront.Distribution("stacksnap", {
     },
   ],
   enabled: true,
+  customErrorResponses: [
+    { errorCode: 403, responseCode: 200, responsePagePath: "/index.html" },
+  ],
   viewerCertificate: { cloudfrontDefaultCertificate: true },
   orderedCacheBehaviors: [
     {
