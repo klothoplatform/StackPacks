@@ -35,8 +35,12 @@ async def get_user_id(request: Request) -> str:
         logging.info("Skipping authentication for local dev user")
         return LOCAL_USER
 
+    logging.info(
+        "Checking auth header (len %d)", len(request.headers.get("Authorization", ""))
+    )
     try:
         if is_public_user(request):
+            logging.info("Public user")
             raise AuthError(
                 {"code": "unauthorized", "description": "Unauthorized"}, 401
             )
