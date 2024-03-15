@@ -8,7 +8,7 @@ from sse_starlette import EventSourceResponse
 from starlette.responses import StreamingResponse
 
 from src.auth.token import get_user_id
-from src.dependencies.injection import get_iac_storage
+from src.dependencies.injection import get_iac_storage, get_binary_storage
 from src.deployer.models.deployment import PulumiStack, Deployment
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
@@ -63,10 +63,11 @@ async def create_stack(
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
         common_policy = await user_pack.run_base(
-            [sp for k, sp in stack_packs.items()],
-            body.configuration.get("base", {}),
-            iac_storage,
-            tmp_dir,
+            stack_packs=[sp for k, sp in stack_packs.items()],
+            config=body.configuration.get("base", {}),
+            iac_storage=iac_storage,
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
         )
         policy = await user_pack.run_pack(stack_packs, body.configuration, tmp_dir)
     user_pack.save()
