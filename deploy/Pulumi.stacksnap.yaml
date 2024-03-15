@@ -1,1 +1,3 @@
-encryptionsalt: v1:GUMQ3nu8TBg=:v1:b1DuYTKM7ssbL0Dg:NpGCUP1VlBl+Om+Qo5Ur04R0gp+BIQ==
+encryptionsalt: v1:0MYECxTNgvI=:v1:tlpGG93ZBPkdVn6p:LWIlvZE4jCfiDhTqf0nzloa+m9SFUw==
+config:
+  cloudcc:namespace: "StackSnap"
