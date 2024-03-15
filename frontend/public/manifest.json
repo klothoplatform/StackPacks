@@ -1,9 +1,9 @@
 {
-  "short_name": "StackPacks",
-  "name": "StackPacks",
+  "short_name": "StackSnap",
+  "name": "StackSnap",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#ffffff",
-  "description": "StackPacks"
+  "description": "StackSnap"
 }
