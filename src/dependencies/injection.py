@@ -5,7 +5,7 @@ import boto3
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack.storage.iac_storage import IacStorage
 
-if os.getenv("IAC_BUCKET", None) is None:
+if os.getenv("STACK_SNAP_BINARIES_BUCKET_NAME", None) is None:
     s3_resource = boto3.resource(
         "s3",
         endpoint_url="http://localhost:9000",
