@@ -68,7 +68,12 @@ const deploymentStatuses: Record<AppDeploymentStatus, string> = {
 };
 
 export function toAppStatusString(status: AppLifecycleStatus) {
-  return lifecycleStatuses[status] || deploymentStatuses[status];
+  return (
+    lifecycleStatuses[status] ||
+    deploymentStatuses[status] ||
+    status ||
+    AppLifecycleStatus.Unknown
+  );
 }
 
 export interface UserStack {

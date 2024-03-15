@@ -5,7 +5,9 @@
   "type": "module",
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
+    "@microsoft/fetch-event-source": "^2.0.1",
     "@segment/analytics-next": "^1.64.0",
+    "ansi-to-react-18": "^6.2.0",
     "autoprefixer": "^10.4.18",
     "axios": "^1.6.7",
     "axios-case-converter": "^1.1.1",

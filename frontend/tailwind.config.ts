@@ -11,6 +11,7 @@ const config: Config = {
   theme: {
     colors: {
       primary: colors.violet,
+      cyan: colors.cyan,
     },
     fontFamily: {
       sans: [

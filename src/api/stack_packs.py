@@ -1,11 +1,16 @@
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from pynamodb.exceptions import DoesNotExist
+from sse_starlette import EventSourceResponse
+from starlette.responses import StreamingResponse
 
 from src.auth.token import get_user_id
 from src.dependencies.injection import get_iac_storage
+from src.deployer.models.deployment import PulumiStack, Deployment
+from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
@@ -37,7 +42,7 @@ async def create_stack(
     try:
         pack = UserPack.get(user_id)
         if pack is not None:
-            return HTTPException(
+            raise HTTPException(
                 status_code=400,
                 detail="Stack already exists for this user, use PATCH to update",
             )
@@ -121,6 +126,108 @@ async def my_stack(request: Request) -> UserStack:
     return user_pack.to_user_stack()
 
 
+@router.get("/api/stack/{app_id}/deployment/{deployment_id}")
+async def get_deployment(
+    request: Request,
+    app_id: str,
+    deployment_id: str,
+):
+    user_id = await get_user_id(request)
+    deployment = Deployment.get(
+        deployment_id,
+        UserApp.composite_key(user_id, PulumiStack.sanitize_stack_name(app_id)),
+    )
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return deployment
+
+
+@router.get("/api/stack/{app_id}/deployments")
+async def get_deployments(
+    request: Request,
+    app_id: str,
+):
+    user_id = await get_user_id(request)
+    user_app = UserApp.get_latest_deployed_version(
+        UserApp.composite_key(user_id, app_id)
+    )
+    if user_app is None:
+        raise HTTPException(status_code=404, detail="App not found")
+    return list(user_app.get_deployments())
+
+
+@router.get("/api/deployments")
+async def get_all_deployments(
+    request: Request,
+):
+    user_id = await get_user_id(request)
+    user_stack = UserPack.get(user_id)
+    if user_stack is None:
+        raise HTTPException(status_code=404, detail="Stack not found")
+
+    deployments = []
+    for app, version in user_stack.apps.items():
+        user_app = UserApp.get(UserApp.composite_key(user_id, app), version)
+        if user_app is not None:
+            deployments.extend(list(user_app.get_deployments()))
+
+    return deployments
+
+
+@router.get("/api/stack/{app_id}/deployment/{deployment_id}/logs")
+async def stream_deployment_logs(
+    request: Request,
+    app_id: str,
+    deployment_id: str,
+):
+    user_id = await get_user_id(request)
+    if deployment_id == "latest":
+        user_app = UserApp.get_latest_deployed_version(
+            UserApp.composite_key(user_id, app_id)
+        )
+        if user_app is None:
+            raise HTTPException(status_code=404, detail="App not found")
+        elif len(user_app.deployments) == 0:
+            raise HTTPException(status_code=404, detail="No deployments found")
+
+        deployments = list(user_app.get_deployments(["id", "initiated_at", "status"]))
+        latest_deployment = max(deployments, key=lambda d: d.initiated_at)
+        deployment_id = latest_deployment.id
+
+    deploy_dir = DeploymentDir(user_id, deployment_id)
+    deployment_log = deploy_dir.get_log(PulumiStack.sanitize_stack_name(app_id))
+
+    if request.headers.get("accept") == "text/event-stream":
+
+        async def tail():
+            try:
+                async for line in deployment_log.tail():
+                    if await request.is_disconnected():
+                        logger.debug("Request disconnected")
+                        break
+                    yield {
+                        "event": "log-line",
+                        "data": line,
+                        "id": str(uuid.uuid4()),
+                    }
+                logger.debug("sending done")
+                yield {
+                    "event": "done",
+                    "data": "done",
+                    "id": str(uuid.uuid4()),
+                }
+            finally:
+                deployment_log.close()
+
+        return EventSourceResponse(tail())
+
+    return StreamingResponse(
+        deployment_log.tail(),
+        media_type="text/plain",
+        headers={"Cache-Control": "no-buffer"},
+    )
+
+
 @router.get("/api/stackpacks")
 async def list_stackpacks():
     sps = get_stack_packs()
@@ -171,7 +278,7 @@ async def add_app(
     configuration: dict[str, ConfigValues] = {app_name: body.configuration}
 
     if user_pack.apps.get(app_name, None) is not None:
-        return HTTPException(
+        raise HTTPException(
             status_code=400,
             detail="App already exists in stack, use PATCH to update",
         )
@@ -197,7 +304,6 @@ async def update_app(
     app_name: str,
     body: AppRequest,
 ) -> StackResponse:
-    policy: Policy = None
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id)
     configuration: dict[str, ConfigValues] = {app_name: body.configuration}
@@ -222,7 +328,6 @@ async def remove_app(
     request: Request,
     app_name: str,
 ):
-    policy: Policy = None
     user_id = await get_user_id(request)
     user_pack = UserPack.get(user_id)
     user_pack.apps.pop(app_name)

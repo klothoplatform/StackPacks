@@ -17,13 +17,13 @@ class AppDeployer:
     async def deploy(self) -> Tuple[DeploymentStatus, str]:
         with self.deploy_log.on_output() as on_output:
             try:
-                preview_result = self.stack.preview(on_output=on_output)
+                preview_result = self.stack.preview(on_output=on_output, color="always")
                 logger.info(f"Preview result: {preview_result}")
             except Exception as e:
                 logger.error(f"Failed to preview stack", exc_info=True)
                 return DeploymentStatus.FAILED, str(e)
             try:
-                self.stack.up(on_output=on_output)
+                self.stack.up(on_output=on_output, color="always")
                 logger.info(f"Deployed stack, {self.stack.name}, successfully.")
                 return DeploymentStatus.SUCCEEDED, "Deployment succeeded."
             except Exception as e:
@@ -31,13 +31,13 @@ class AppDeployer:
                     f"Deployment of stack, {self.stack.name}, failed.", exc_info=True
                 )
                 logger.info(f"Refreshing stack {self.stack.name}")
-                self.stack.refresh(on_output=on_output)
+                self.stack.refresh(on_output=on_output, color="always")
                 return DeploymentStatus.FAILED, str(e)
 
     async def destroy_and_remove_stack(self) -> Tuple[DeploymentStatus, str]:
         with self.deploy_log.on_output() as on_output:
             try:
-                self.stack.destroy(on_output=on_output)
+                self.stack.destroy(on_output=on_output, color="always")
                 logger.info(f"Removing stack {self.stack.name}")
                 self.stack.workspace.remove_stack(self.stack.name)
                 return DeploymentStatus.SUCCEEDED, "Stack removed successfully."
@@ -46,5 +46,5 @@ class AppDeployer:
                     f"Destroy of stack, {self.stack.name}, failed.", exc_info=True
                 )
                 logger.info(f"Refreshing stack {self.stack.name}")
-                self.stack.refresh(on_output=on_output)
+                self.stack.refresh(on_output=on_output, color="always")
                 return DeploymentStatus.FAILED, str(e)

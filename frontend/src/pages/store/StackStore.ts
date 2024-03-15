@@ -4,8 +4,10 @@ import type {
   StackModification,
   UserStack,
 } from "../../shared/models/UserStack.ts";
-import { AppDeploymentStatus } from "../../shared/models/UserStack.ts";
-import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
+import {
+  AppDeploymentStatus,
+  AppLifecycleStatus,
+} from "../../shared/models/UserStack.ts";
 import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
 import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
 import { getStack } from "../../api/GetStack.ts";
@@ -23,12 +25,15 @@ import { updateApp } from "../../api/UpdateApp.ts";
 import { installApp } from "../../api/InstallApp.ts";
 import { tearDownApp } from "../../api/TearDownApp.ts";
 import { removeApp } from "../../api/RemoveApp.ts";
-import { deployLogs } from "../../api/DeployLogs.ts";
+import type { LogStreamListener } from "../../api/DeployLogs.ts";
+import { subscribeToLogStream } from "../../api/DeployLogs.ts";
+import { getDeployments } from "../../api/GetDeployments.ts";
 
 export interface StackStoreState {
   userStack?: UserStack;
   userStackPolicy?: string;
   stackPacks: Map<string, AppTemplate>;
+  latestDeploymentIds: Map<string, string>;
 }
 
 export interface StackStoreBase extends StackStoreState {
@@ -36,11 +41,17 @@ export interface StackStoreBase extends StackStoreState {
   createOrUpdateStack: (
     stack: StackModification,
   ) => Promise<CreateStackResponse | UpdateStackResponse>;
-  deployLogs: (deploy_id: string, app_id: string) => Promise<EventSource>;
+  subscribeToLogStream: (
+    deploy_id: string,
+    app_id: string,
+    listener: LogStreamListener,
+    controller?: AbortController,
+  ) => Promise<void>;
   getAppTemplates: (
     appIds: string[],
     refresh?: boolean,
   ) => Promise<AppTemplate[]>;
+  getDeployments: () => Promise<any>;
   getStack: () => Promise<UserStack>;
   getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
   getUserStack: (refresh?: boolean) => Promise<UserStack>;
@@ -59,6 +70,7 @@ export interface StackStoreBase extends StackStoreState {
 
 const initialState: () => StackStoreState = () => ({
   stackPacks: new Map(),
+  latestDeploymentIds: new Map(),
 });
 
 export type StackStore = StackStoreBase & ErrorStore & AuthStore;
@@ -163,6 +175,12 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     const userStack = get().userStack;
     set(
       {
+        latestDeploymentIds: new Map(
+          Object.keys(userStack?.stack_packs ?? {}).map((appId) => [
+            appId,
+            response,
+          ]),
+        ),
         userStack: {
           ...userStack,
           stack_packs: Object.fromEntries(
@@ -183,11 +201,42 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
   },
   tearDownStack: async () => {
     const idToken = await get().getIdToken();
-    return await tearDownStack(idToken);
+    const deploymentId = await tearDownStack(idToken);
+    set(
+      {
+        latestDeploymentIds: new Map(
+          Object.keys(get().userStack?.stack_packs ?? {}).map((appId) => [
+            appId,
+            deploymentId,
+          ]),
+        ),
+        userStack: {
+          ...get().userStack,
+          stack_packs: Object.fromEntries(
+            Object.keys(get().userStack?.stack_packs ?? {}).map((appId) => [
+              appId,
+              {
+                ...get().userStack?.stack_packs[appId],
+                status: AppLifecycleStatus.Uninstalling,
+              },
+            ]),
+          ),
+        },
+      },
+      false,
+      "tearDownStack:init",
+    );
+    return deploymentId;
   },
-  deployLogs: async (deploy_id, app_id) => {
+  subscribeToLogStream: async (deploy_id, app_id, listener, controller) => {
     const idToken = await get().getIdToken();
-    return deployLogs(idToken, deploy_id, app_id);
+    return subscribeToLogStream({
+      idToken,
+      deploymentId: deploy_id,
+      appId: app_id,
+      listener,
+      controller,
+    });
   },
   getAppTemplates: async (
     appIds: string[],
@@ -215,7 +264,15 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       "installApp:init",
     );
     const idToken = await get().getIdToken();
-    return await installApp({ idToken, appId });
+    const deploymentId = await installApp({ idToken, appId });
+    set(
+      {
+        latestDeploymentIds: new Map([[appId, deploymentId]]),
+      },
+      false,
+      "installApp:success",
+    );
+    return deploymentId;
   },
   tearDownApp: async (appId: string) => {
     set(
@@ -235,7 +292,15 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       "tearDownApp:init",
     );
     const idToken = await get().getIdToken();
-    return await tearDownApp({ idToken, appId });
+    const deploymentId = await tearDownApp({ idToken, appId });
+    set(
+      {
+        latestDeploymentIds: new Map([[appId, deploymentId]]),
+      },
+      false,
+      "tearDownApp:success",
+    );
+    return deploymentId;
   },
   updateApp: async (appId: string, configuration: Record<string, any>) => {
     const idToken = await get().getIdToken();
@@ -261,5 +326,9 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       false,
       "removeApp",
     );
+  },
+  getDeployments: async () => {
+    const idToken = await get().getIdToken();
+    return await getDeployments(idToken);
   },
 });

@@ -244,10 +244,13 @@ const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
   },
 };
 
-const AppStatusBadge: FC<{ rtl?: boolean; status: AppLifecycleStatus }> = ({
-  rtl,
-  status,
-}) => {
+const AppStatusBadge: FC<{
+  rtl?: boolean;
+  status: AppLifecycleStatus;
+  appTemplateId: string;
+  deploymentId?: string;
+}> = ({ rtl, status, appTemplateId, deploymentId }) => {
+  deploymentId = deploymentId ?? "latest";
   const navigate = useNavigate();
   const statusStyle = statusStyles[status] ?? statusStyles.default;
   const { mode } = useThemeMode();
@@ -266,7 +269,7 @@ const AppStatusBadge: FC<{ rtl?: boolean; status: AppLifecycleStatus }> = ({
       }}
       icon={statusStyle.icon}
       color={statusStyle.color}
-      onClick={() => navigate("./deployment-logs/latest")}
+      onClick={() => navigate(`./deploy/${deploymentId}/app/${appTemplateId}`)}
       className={classNames(
         "items-center flex w-fit flex-nowrap text-xs font-normal cursor-pointer",
         {
@@ -280,18 +283,21 @@ const AppStatusBadge: FC<{ rtl?: boolean; status: AppLifecycleStatus }> = ({
 };
 
 const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
+  const { latestDeploymentIds } = useApplicationStore();
   const { mode } = useThemeMode();
+  const appTemplateId = app.app_id.split("#")[1];
   return (
     <Card className="flex h-fit w-full flex-col p-4">
       <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-2 dark:border-gray-700">
         <div className="flex items-center">
-          <AppLogo
-            className={"h-fit w-6"}
-            appId={app.app_id.split("#")[1]}
-            mode={mode}
-          />
+          <AppLogo className={"h-fit w-6"} appId={appTemplateId} mode={mode} />
           <h4 className={"font-md ml-2 mr-4"}>{app.name}</h4>
-          <AppStatusBadge status={app.status} rtl />
+          <AppStatusBadge
+            appTemplateId={appTemplateId}
+            deploymentId={latestDeploymentIds.get(appTemplateId)}
+            status={app.status}
+            rtl
+          />
         </div>
         <AppButtonGroup {...app} />
       </div>

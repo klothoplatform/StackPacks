@@ -1,13 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response
 
 from src.auth.token import get_email, get_user_id
 from src.deployer.deploy import deploy_pack, deploy_single
 from src.deployer.destroy import tear_down_pack, tear_down_single
-from src.deployer.models.deployment import PulumiStack
-from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.stack_pack import get_stack_packs
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack
@@ -125,31 +123,4 @@ async def tear_down_app(
     return JSONResponse(
         status_code=201,
         content={"message": "Destroy started", "deployment_id": deployment_id},
-    )
-
-
-@router.get("/api/logs/{deploy_id}/{app_id}")
-async def stream_deployment_logs(request: Request, deploy_id: str, app_id: str):
-    user_id = await get_user_id(request)
-    deploy_dir = DeploymentDir(user_id, deploy_id)
-    log = deploy_dir.get_log(PulumiStack.sanitize_stack_name(app_id))
-
-    if request.headers.get("accept") == "text/event-stream":
-
-        async def tail():
-            async for line in log.tail():
-                yield f"data: {line}\n\n"
-            print("sending done")
-            yield f"event: done\ndata: done\n\n"
-
-        return StreamingResponse(
-            tail(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-buffer"},
-        )
-
-    return StreamingResponse(
-        log.tail(),
-        media_type="text/plain",
-        headers={"Cache-Control": "no-buffer"},
     )

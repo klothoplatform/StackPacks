@@ -3,7 +3,7 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler, PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from src.util.logging import logger
@@ -55,6 +55,7 @@ class DeployLog:
         self.dir = dir
         self.stack_id = stack_id
         self.path = dir.log_path(stack_id)
+        self.deploy_handler = None
 
     @contextmanager
     def on_output(self):
@@ -63,39 +64,55 @@ class DeployLog:
         On exit, it writes the END_MESSAGE to the log file to signal to any readers that the log file is complete.
         """
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        writer = open(self.path, "a")
 
         self.dir.update_latest()
 
         def on_output(s: str):
             if PRINT_LOGS:
                 print(s)
-            writer.write(s + "\n")
-            writer.flush()
+            with open(self.path, "a") as writer:
+                writer.write(s + "\n")
 
         try:
             yield on_output
         finally:
-            writer.write(DeployLog.END_MESSAGE)
-            writer.close()
+            with open(self.path, "a") as writer:
+                writer.write(DeployLog.END_MESSAGE)
 
     def tail(self):
-        return DeployLogHandler(self)
+        if self.deploy_handler is None:
+            self.deploy_handler = DeployLogHandler(self)
+        return self.deploy_handler
+
+    def close(self):
+        if self.deploy_handler:
+            self.deploy_handler.close()
 
 
-class DeployLogHandler(FileSystemEventHandler):
-    """DeployLogHandler is used for communcation between the watchdog FileSystemEventHandler and the StreamingResponse
+class DeployLogHandler(PatternMatchingEventHandler):
+    """DeployLogHandler is used for communication between the watchdog FileSystemEventHandler and the StreamingResponse
     using a Queue to pass messages between the two.
     """
 
     def __init__(self, log: DeployLog):
+        super().__init__(patterns=[str(log.path)])
+        self.interrupted = None
+        self.observer = None
         self.log = log
         self.messages = asyncio.Queue()
         self.complete = False
         self.file = None
         self.sent = 0
 
-    def on_any_event(self, event):
+    def close(self):
+        if self.observer:
+            self.observer.stop()
+            self.observer.join()
+        if self.file:
+            self.file.close()
+        self.interrupted = True
+
+    def on_modified(self, event):
         line_count = 0
         for line in self.file.readlines():
             line_count += 1
@@ -126,13 +143,17 @@ class DeployLogHandler(FileSystemEventHandler):
 
         if not self.complete:
             self.observer = Observer()
-            self.observer.schedule(self, str(self.log.path), recursive=False)
+            self.observer.schedule(self, str(self.log.path.parent), recursive=False)
             self.observer.start()
 
     async def __anext__(self):
+        if self.interrupted:
+            raise StopAsyncIteration
         if self.file is None:
             # Poll for file creation
             for attempt in range(60 * 2):  # wait up to 2 minutes
+                if self.interrupted:
+                    raise StopAsyncIteration
                 if self.log.path.exists():
                     break
                 await asyncio.sleep(1)
@@ -140,6 +161,8 @@ class DeployLogHandler(FileSystemEventHandler):
                 logger.warning("Log file %s was never created", self.log.path)
                 raise StopAsyncIteration
 
+            if self.interrupted:
+                raise StopAsyncIteration
             self.setup_file()
 
         if self.complete and self.messages.empty():
@@ -153,6 +176,8 @@ class DeployLogHandler(FileSystemEventHandler):
                 self.messages.get(),
                 timeout=60 * 10,
             )
+            if self.interrupted:
+                raise StopAsyncIteration
             self.sent += 1
             return line
         except TimeoutError:

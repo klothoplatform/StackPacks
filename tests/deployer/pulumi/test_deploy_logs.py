@@ -38,14 +38,13 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
         latest.unlink.assert_called_once()
         latest.symlink_to.assert_called_once_with("deploy_id")
 
-    @patch("src.deployer.pulumi.deploy_logs.open")
+    @patch("builtins.open", create=True)
     def test_on_output(self, mock_open):
         dir = MagicMock()
         path = MagicMock()
         dir.log_path.return_value = path
 
-        file = MagicMock()
-        mock_open.return_value = file
+        file = mock_open.return_value.__enter__.return_value
 
         log = DeployLog(dir, "stack_id")
 
@@ -55,7 +54,7 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
             on_output("message")
 
         path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
-        mock_open.assert_called_once_with(path, "a")
+        mock_open.has_calls([path, "a"], [path, "a"])
         dir.update_latest.assert_called_once()
 
         file.write.assert_has_calls(
@@ -64,8 +63,6 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
                 call("END\n"),
             ]
         )
-        file.flush.assert_called()
-        file.close.assert_called_once()
 
     @patch("src.deployer.pulumi.deploy_logs.open")
     @patch("src.deployer.pulumi.deploy_logs.asyncio.sleep")

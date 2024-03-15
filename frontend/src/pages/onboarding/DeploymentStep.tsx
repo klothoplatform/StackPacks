@@ -14,28 +14,25 @@ import { awsRegions } from "../../shared/aws-regions.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { InlineDropdown } from "../../components/InlineDropdown.tsx";
 import { InstructionalStep } from "../../components/InstructionalStep.tsx";
+import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
 
 export interface DeploymentFormState {
   region: string;
 }
 
-const defaultValues: DeploymentFormState = {
-  region: "us-east-1",
-};
+const defaultRegion = "us-east-1";
 
 export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
-  const {
-    installStack,
-    addError,
-    onboardingWorkflowState,
-    updateOnboardingWorkflowState,
-    updateStack,
-    userStack,
-  } = useApplicationStore();
+  const { installStack, addError, updateStack, userStack } =
+    useApplicationStore();
   const [deploymentState, setDeploymentState] = useState<
     "initial" | "installing" | "installed" | "failed"
   >("initial");
   const navigate = useNavigate();
+
+  const defaultValues: DeploymentFormState = {
+    region: userStack.region || defaultRegion,
+  };
 
   const methods = useForm<DeploymentFormState>({ defaultValues });
   const watchRegion = methods.watch("region");
@@ -46,7 +43,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
     });
 
     methods.reset({
-      region: onboardingWorkflowState.region || defaultValues.region,
+      region: defaultValues.region,
     });
 
     return () => {
@@ -57,14 +54,13 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   const onDeploy = async (data: DeploymentFormState) => {
     setDeploymentState("installing");
 
-    updateOnboardingWorkflowState({
-      region: data.region,
-    });
-
     try {
-      await updateStack({
-        region: data.region,
-      });
+      if (userStack?.region !== data.region) {
+        await updateStack({
+          region: data.region,
+        });
+      }
+
       const deployId = await installStack();
       setDeploymentState("installed");
       navigate(`/user/dashboard/deploy/${deployId}`);
@@ -82,7 +78,11 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
 
   const canSelectRegion =
     !userStack.region ||
-    !Object.values(userStack.stack_packs).some((a) => a.status);
+    !Object.values(userStack.stack_packs).some((a) =>
+      new Set([AppLifecycleStatus.New, AppLifecycleStatus.Uninstalled]).has(
+        a.status,
+      ),
+    );
 
   return (
     <Card className={"min-h-[50vh] w-full p-4"}>

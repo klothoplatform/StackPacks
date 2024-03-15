@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiounittest
 from fastapi import HTTPException
 from pynamodb.exceptions import DoesNotExist
+from sse_starlette import EventSourceResponse
 
 from src.api.stack_packs import (
     AppRequest,
@@ -12,6 +13,7 @@ from src.api.stack_packs import (
     create_stack,
     remove_app,
     update_app,
+    stream_deployment_logs,
 )
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
@@ -104,13 +106,12 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         sps = {"app1": MagicMock(), "app2": MagicMock()}
         mock_get_stack_packs.return_value = sps
 
-        response: HTTPException = await create_stack(
-            MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
-        )
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.detail, "Stack already exists for this user, use PATCH to update"
-        )
+        with self.assertRaises(HTTPException) as e:
+            await create_stack(
+                MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
+            )
+        self.assertEqual(e.exception.status_code, 400)
+        self.assertEqual(e.exception.detail, "Stack already exists for this user, use PATCH to update")
 
         mock_get_user_id.assert_called_once()
         mock_get_pack.assert_called_once_with("user_id")
@@ -405,3 +406,28 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         # Assert response
         self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
         self.assertEqual(response.policy, None)
+
+    @patch("src.api.stack_packs.get_user_id")
+    @patch("src.api.stack_packs.DeploymentDir")
+    async def test_stream_deployment_logs(self, mock_deploy_dir_ctor, mock_get_user_id):
+        # Setup mock objects
+        mock_get_user_id.return_value = "user_id"
+        mock_deploy_dir = MagicMock()
+        mock_deploy_dir_ctor.return_value = mock_deploy_dir
+        mock_deploy_log = MagicMock()
+        mock_deploy_dir.get_log.return_value = mock_deploy_log
+        mock_deploy_log.tail.return_value = MagicMock()
+
+        response: EventSourceResponse = await stream_deployment_logs(
+            MagicMock(),
+            "app_id",
+            "deployment_id",
+        )
+
+        # Assert calls
+        mock_deploy_dir_ctor.assert_called_once_with("user_id", "deployment_id")
+        mock_deploy_dir.get_log.assert_called_once_with("app_id")
+        mock_deploy_log.tail.assert_called_once()
+
+        # Assert response
+        self.assertEqual(response.status_code, 200)

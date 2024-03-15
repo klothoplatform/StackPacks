@@ -1,7 +1,5 @@
 import os
 import re
-from typing import List
-from pydantic import BaseModel
 import datetime
 from enum import Enum
 from pynamodb.models import Model

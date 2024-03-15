@@ -1,0 +1,83 @@
+// font styles
+
+.ansi-bold {
+  font-weight: bold;
+}
+
+.ansi-italic {
+  font-style: italic;
+}
+
+// colors
+.ansi-black-fg {
+  color: theme("colors.gray.900");
+}
+.ansi-black-bg {
+  background-color: theme("colors.gray.900");
+}
+.ansi-red-fg {
+  color: theme("colors.red.500");
+}
+.ansi-red-bg {
+  background-color: theme("colors.red.500");
+}
+.ansi-green-fg {
+  color: theme("colors.green.300");
+}
+.ansi-green-bg {
+  background-color: theme("colors.green.300");
+}
+.ansi-yellow-fg {
+  color: theme("colors.yellow.300");
+}
+.ansi-yellow-bg {
+  background-color: theme("colors.yellow.300");
+}
+.ansi-blue-fg {
+  color: theme("colors.blue.500");
+}
+.ansi-blue-bg {
+  background-color: theme("colors.blue.500");
+}
+.ansi-magenta-fg {
+  color: theme("colors.purple.500");
+}
+.ansi-magenta-bg {
+  background-color: theme("colors.purple.500");
+}
+.ansi-cyan-fg {
+  color: theme("colors.cyan.300");
+}
+.ansi-cyan-bg {
+  background-color: theme("colors.cyan.300");
+}
+.ansi-white-fg {
+  color: theme("colors.gray.100");
+}
+.ansi-white-bg {
+  background-color: theme("colors.gray.100");
+}
+.ansi-bright-black-fg {
+  color: theme("colors.gray.900");
+}
+.ansi-bright-red-fg {
+  color: theme("colors.red.500");
+}
+.ansi-bright-green-fg {
+  color: theme("colors.green.300");
+}
+.ansi-bright-yellow-fg {
+  color: theme("colors.yellow.300");
+}
+.ansi-bright-blue-fg {
+  color: theme("colors.blue.500");
+}
+.ansi-bright-magenta-fg {
+  color: theme("colors.purple.500");
+}
+.ansi-bright-cyan-fg {
+  color: theme("colors.cyan.300");
+}
+.ansi-bright-white-fg {
+  color: theme("colors.gray.100");
+}

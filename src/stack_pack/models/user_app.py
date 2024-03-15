@@ -15,7 +15,12 @@ from pynamodb.attributes import (
 )
 from pynamodb.models import Model
 
-from src.deployer.models.deployment import DeploymentAction, DeploymentStatus
+from src.deployer.models.deployment import (
+    DeploymentAction,
+    DeploymentStatus,
+    Deployment,
+    PulumiStack,
+)
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
@@ -61,6 +66,21 @@ class UserApp(Model):
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
+
+    def get_deployments(self, attributes: Optional[list[str]] = None):
+        # todo: look into why this doesn't work with iac_stack_composite_key
+        keys = [
+            (
+                d,
+                UserApp.composite_key(
+                    self.get_pack_id(),
+                    PulumiStack.sanitize_stack_name(self.get_app_name()),
+                ),
+            )
+            for d in (self.deployments or [])
+        ]
+        # todo: add pagination
+        return Deployment.batch_get(keys, attributes_to_get=attributes)
 
     def to_user_app(self):
         latest_deployed_version = UserApp.get_latest_deployed_version(self.app_id)
