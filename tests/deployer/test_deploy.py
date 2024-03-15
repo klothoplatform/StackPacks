@@ -21,6 +21,7 @@ from src.deployer.models.deployment import (
     PulumiStack,
 )
 from src.deployer.pulumi.manager import AppManager
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import StackPack
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.live_state import LiveState
@@ -346,6 +347,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_common_pack = MagicMock(spec=UserApp)
         mock_common_stack = MagicMock(spec=CommonStack)
         mock_iac_storage = MagicMock(spec=IacStorage)
+        mock_binary_storage = MagicMock(spec=BinaryStorage)
         mock_live_state = MagicMock(
             spec=LiveState,
             to_constraints=MagicMock(return_value=["constraint1", "constraint2"]),
@@ -361,6 +363,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_common_pack,
             mock_common_stack,
             mock_iac_storage,
+            mock_binary_storage,
             mock_live_state,
             mock_sps,
             "/tmp",
@@ -371,10 +374,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_app_1.get_configurations.assert_called_once()
         mock_app_2.get_configurations.assert_called_once()
         mock_user_pack_instance.run_pack.assert_called_once_with(
-            mock_sps,
-            {"app1": {"key": "value"}, "app2": {"key2": "value2"}},
-            "/tmp",
-            mock_iac_storage,
+            stack_packs=mock_sps,
+            config={"app1": {"key": "value"}, "app2": {"key2": "value2"}},
+            tmp_dir="/tmp",
+            iac_storage=mock_iac_storage,
+            binary_storage=mock_binary_storage,
             increment_versions=False,
             imports=["constraint1", "constraint2"],
         )
@@ -571,11 +575,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         manager.read_deployed_state.assert_called_once()
         app.run_app.assert_called_once_with(
-            mock_sps.get("app1"),
-            Path("/tmp"),
-            iac_storage,
-            binary_storage,
-            ["constraint1"],
+            stack_pack=mock_sps.get("app1"),
+            dir="/tmp",
+            iac_storage=iac_storage,
+            binary_storage=binary_storage,
+            imports=["constraint1"],
         )
         mock_get_ses_client.assert_called_once()
         mock_send_email.assert_called_once_with(
@@ -663,6 +667,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.deploy_applications")
     @patch("src.deployer.deploy.rerun_pack_with_live_state")
     @patch("src.deployer.deploy.deploy_app")
+    @patch("src.deployer.deploy.get_binary_storage")
     @patch("src.deployer.deploy.get_iac_storage")
     @patch.object(UserPack, "get")
     @patch.object(UserApp, "get")
@@ -679,6 +684,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_app,
         mock_user_pack,
         mock_get_iac_storage,
+        mock_get_binary_storage,
         mock_deploy_app,
         mock_rerun_pack_with_live_state,
         mock_deploy_applications,
@@ -687,6 +693,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_iac_storage = mock_get_iac_storage.return_value
+        mock_binary_storage = mock_get_binary_storage.return_value
         user_pack = MagicMock(
             spec=UserPack,
             id="id",
@@ -739,6 +746,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_common_pack,
             common_stack,
             mock_iac_storage,
+            mock_binary_storage,
             live_state,
             mock_sps,
             "/tmp",

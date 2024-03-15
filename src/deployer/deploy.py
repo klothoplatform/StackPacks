@@ -22,6 +22,7 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
@@ -52,15 +53,15 @@ PROJECT_NAME = "StackPack"
 
 
 async def build_and_deploy(
-        region: str,
-        assume_role_arn: str,
-        project_name: str,
-        app_name: str,
-        user: str,
-        iac: bytes,
-        pulumi_config: dict[str, str],
-        deployment_id: str,
-        tmp_dir: Path,
+    region: str,
+    assume_role_arn: str,
+    project_name: str,
+    app_name: str,
+    user: str,
+    iac: bytes,
+    pulumi_config: dict[str, str],
+    deployment_id: str,
+    tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_stack = PulumiStack(
         project_name=project_name,
@@ -131,12 +132,12 @@ async def build_and_deploy(
 
 
 async def build_and_deploy_application(
-        pack_id: str,
-        app_name: str,
-        user: str,
-        pulumi_config: dict[str, str],
-        deployment_id: str,
-        tmp_dir: Path,
+    pack_id: str,
+    app_name: str,
+    user: str,
+    pulumi_config: dict[str, str],
+    deployment_id: str,
+    tmp_dir: Path,
 ) -> DeploymentResult:
     logger.info(
         f"Building and deploying {app_name} for pack {pack_id} with deployment id {deployment_id}"
@@ -174,9 +175,9 @@ async def build_and_deploy_application(
 
 
 async def run_concurrent_deployments(
-        stacks: list[StackDeploymentRequest],
-        user: str,
-        tmp_dir: Path,
+    stacks: list[StackDeploymentRequest],
+    user: str,
+    tmp_dir: Path,
 ) -> Tuple[list[str], list[DeploymentResult]]:
     # This version of the function creates an empty list tasks, then iterates over the stacks list.
     # For each stack, it applies the build_and_deploy function using the pool, awaits the result, and appends it to the tasks list.
@@ -208,13 +209,14 @@ async def run_concurrent_deployments(
 
 
 async def rerun_pack_with_live_state(
-        user_pack: UserPack,
-        common_pack: UserApp,
-        common_stack: CommonStack,
-        iac_storage: IacStorage,
-        live_state: LiveState,
-        sps: dict[str, StackPack],
-        tmp_dir: str,
+    user_pack: UserPack,
+    common_pack: UserApp,
+    common_stack: CommonStack,
+    iac_storage: IacStorage,
+    binary_storage: BinaryStorage,
+    live_state: LiveState,
+    sps: dict[str, StackPack],
+    tmp_dir: str,
 ):
     logger.info(f"Rerunning pack {user_pack.id} with imports")
 
@@ -226,20 +228,21 @@ async def rerun_pack_with_live_state(
         configuration[name] = app.get_configurations()
 
     await user_pack.run_pack(
-        sps,
-        configuration,
-        tmp_dir,
-        iac_storage,
+        stack_packs=sps,
+        config=configuration,
+        tmp_dir=tmp_dir,
+        iac_storage=iac_storage,
+        binary_storage=binary_storage,
         increment_versions=False,
         imports=live_state.to_constraints(common_stack, common_pack.configuration),
     )
 
 
 async def deploy_applications(
-        user_pack: UserPack,
-        sps: dict[str, StackPack],
-        deployment_id: str,
-        tmp_dir: Path,
+    user_pack: UserPack,
+    sps: dict[str, StackPack],
+    deployment_id: str,
+    tmp_dir: Path,
 ) -> bool:
     deployment_stacks: list[StackDeploymentRequest] = []
     apps: dict[str, UserApp] = {}
@@ -268,11 +271,11 @@ async def deploy_applications(
 
 
 async def deploy_app(
-        pack: UserPack,
-        app: UserApp,
-        stack_pack: StackPack,
-        deployment_id: str,
-        tmp_dir: Path,
+    pack: UserPack,
+    app: UserApp,
+    stack_pack: StackPack,
+    deployment_id: str,
+    tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
     _, results = await run_concurrent_deployments(
@@ -292,7 +295,7 @@ async def deploy_app(
 
 
 async def deploy_single(
-        pack: UserPack, app: UserApp, deployment_id: str, email: str = None
+    pack: UserPack, app: UserApp, deployment_id: str, email: str = None
 ):
     sps = get_stack_packs()
     iac_storage = get_iac_storage()
@@ -324,11 +327,11 @@ async def deploy_single(
                 return
             live_state = await result.manager.read_deployed_state()
             _ = await app.run_app(
-                stack_pack,
-                tmp_dir,
-                iac_storage,
-                binary_storage,
-                live_state.to_constraints(
+                stack_pack=stack_pack,
+                dir=str(tmp_dir),
+                iac_storage=iac_storage,
+                binary_storage=binary_storage,
+                imports=live_state.to_constraints(
                     common_stack, common_app.get_configurations()
                 ),
             )
@@ -343,13 +346,14 @@ async def deploy_single(
 
 
 async def deploy_pack(
-        pack_id: str, sps: dict[str, StackPack], deployment_id: str, email: str | None
+    pack_id: str, sps: dict[str, StackPack], deployment_id: str, email: str | None
 ):
     with TempDir() as tmp_dir_str:
         tmp_dir = Path(tmp_dir_str)
 
         logger.info(f"Deploying pack {pack_id}")
         iac_storage = get_iac_storage()
+        binary_storage = get_binary_storage()
         user_pack = UserPack.get(pack_id)
         if user_pack.tear_down_in_progress:
             raise ValueError("Pack is currently being torn down")
@@ -406,6 +410,7 @@ async def deploy_pack(
                 common_pack,
                 common_stack,
                 iac_storage,
+                binary_storage,
                 live_state,
                 sps,
                 tmp_dir_str,
