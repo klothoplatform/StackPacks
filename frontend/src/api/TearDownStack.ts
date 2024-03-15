@@ -7,7 +7,7 @@ import { analytics } from "../shared/analytics.ts";
 export async function tearDownStack(idToken: string): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post("/api/tear_down", {
+    response = await axios.post("/api/tear_down", undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

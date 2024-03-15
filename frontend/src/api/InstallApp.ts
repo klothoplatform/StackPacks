@@ -15,7 +15,7 @@ export async function installApp({
 }: InstallAppRequest): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post(`/api/install/${appId}`, {
+    response = await axios.post(`/api/install/${appId}`, undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

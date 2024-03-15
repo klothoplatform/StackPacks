@@ -7,7 +7,7 @@ import { analytics } from "../shared/analytics.ts";
 export async function installStack(idToken: string): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post("/api/install", {
+    response = await axios.post("/api/install", undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },

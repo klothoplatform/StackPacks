@@ -15,7 +15,7 @@ export async function tearDownApp({
 }: TearDownAppRequest): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post(`/api/tear_down/${appId}`, {
+    response = await axios.post(`/api/tear_down/${appId}`, undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
@@ -38,5 +38,5 @@ export async function tearDownApp({
     appId: appId,
   });
 
-  return response.data;
+  return response.data.deployment_id;
 }
