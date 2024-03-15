@@ -81,3 +81,11 @@
 .ansi-bright-white-fg {
   color: theme("colors.gray.100");
 }
+
+[class^="ansi-"] > a {
+  text-decoration: underline;
+
+  &:hover {
+    color: theme("colors.blue.600");
+  }
+}

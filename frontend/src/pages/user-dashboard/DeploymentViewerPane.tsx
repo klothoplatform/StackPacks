@@ -3,8 +3,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useNavigate, useParams } from "react-router-dom";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import type { CustomFlowbiteTheme } from "flowbite-react";
-import { Card } from "flowbite-react";
-import { Tabs } from "flowbite-react";
+import { Card, Tabs } from "flowbite-react";
 import { ErrorBoundary } from "react-error-boundary";
 import { FallbackRenderer } from "../../components/FallbackRenderer.tsx";
 import { trackError } from "../store/ErrorStore.ts";
@@ -195,7 +194,7 @@ const LogPane: FC<{
         onScroll={handleScroll}
         className={"flex size-full flex-col overflow-auto p-2 text-xs"}
       >
-        <Ansi useClasses className={"whitespace-pre-wrap"}>
+        <Ansi linkify useClasses className={"whitespace-pre-wrap"}>
           {log.join("")}
         </Ansi>
         <span className="mt-4 font-mono font-bold text-green-300">
