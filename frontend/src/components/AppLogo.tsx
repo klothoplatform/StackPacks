@@ -8,9 +8,9 @@ import type { FC, ImgHTMLAttributes } from "react";
 import { twMerge } from "tw-merge";
 import Metabase from "/images/logos/metabase.svg";
 import Strapi from "/images/logos/strapi.svg";
-import Supertokens from "/images/logos/supertokens.svg";
-import SupertokensDark from "/images/logos/supertokens-dark.svg";
-import Typesense from "/images/logos/typesense.png";
+import SuperTokens from "/images/logos/supertokens.svg";
+import SuperTokensDark from "/images/logos/supertokens-dark.svg";
+import TypeSense from "/images/logos/typesense.png";
 
 export interface LogoMapping {
   filePath: string;
@@ -32,11 +32,11 @@ const LogoMappings: Record<string, string | LogoMapping> = {
   ToolJet,
   Metabase,
   Strapi,
-  Supertokens: {
-    filePath: Supertokens,
-    darkPath: SupertokensDark,
+  SuperTokens: {
+    filePath: SuperTokens,
+    darkPath: SuperTokensDark,
   },
-  Typesense,
+  TypeSense,
 };
 
 export const AppLogo: FC<
