@@ -72,7 +72,7 @@ function UserDashboardPage() {
   return (
     <div
       className={
-        "min-w-screen max-w-screen absolute flex h-screen min-h-screen w-screen flex-col overflow-hidden bg-white dark:bg-gray-900 dark:text-white"
+        "min-w-screen max-w-screen absolute flex h-screen min-h-screen w-screen flex-col overflow-hidden bg-gradient-light dark:bg-gradient-dark dark:text-white"
       }
     >
       <ErrorBoundary

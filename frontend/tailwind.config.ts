@@ -13,6 +13,10 @@ const config: Config = {
       primary: colors.violet,
       cyan: colors.cyan,
     },
+    backgroundImage: {
+      ["gradient-light"]: `linear-gradient(180deg, ${colors.gray[50]} 0%, ${colors.gray[100]} 100%)`,
+      ["gradient-dark"]: `linear-gradient(180deg, ${colors.gray[900]} 0%, ${colors.gray[950]} 100%)`,
+    },
     fontFamily: {
       sans: [
         "Inter",
