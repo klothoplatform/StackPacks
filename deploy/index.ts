@@ -197,14 +197,14 @@ const stacksnap_ui = new aws.s3.Bucket(
 );
 export const stacksnap_ui_BucketName = stacksnap_ui.bucket;
 const stacksnap_pulumi_access_token = new aws.secretsmanager.Secret(
-        "stacksnap-pulumi-access-token",
-        {
-            name: "stacksnap-pulumi-access-token",
-            recoveryWindowInDays: 0,
-            tags: {GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "secret_23"},
-        },
-        { protect: protect }
-    )
+  "stacksnap-pulumi-access-token",
+  {
+    name: "stacksnap-pulumi-access-token",
+    recoveryWindowInDays: 0,
+    tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "secret_23" },
+  },
+  { protect: protect },
+);
 const vpc_0 = new aws.ec2.Vpc("vpc-0", {
   cidrBlock: "10.0.0.0/16",
   enableDnsHostnames: true,
@@ -648,8 +648,31 @@ const ecs_service_0_execution_role = new aws.iam.Role(
         }),
       },
       {
-          name: "pulumi-access-token-policy",
-          policy: pulumi.jsonStringify({Statement: [{Action: ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"], Effect: "Allow", Resource: [stacksnap_pulumi_access_token.arn]}], Version: "2012-10-17"})
+        name: "pulumi-access-token-policy",
+        policy: pulumi.jsonStringify({
+          Statement: [
+            {
+              Action: [
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:GetSecretValue",
+              ],
+              Effect: "Allow",
+              Resource: [stacksnap_pulumi_access_token.arn],
+            },
+          ],
+          Version: "2012-10-17",
+        }),
+      },
+      {
+        name: "assume-role-policy",
+        policy: pulumi.jsonStringify({
+          Version: "2012-10-17",
+          Statement: {
+            Effect: "Allow",
+            Action: "sts:AssumeRole",
+            Resource: "*",
+          },
+        }),
       },
     ],
     managedPolicyArns: [
@@ -868,7 +891,15 @@ const stacksnap = new aws.cloudfront.Distribution("stacksnap", {
   viewerCertificate: { cloudfrontDefaultCertificate: true },
   orderedCacheBehaviors: [
     {
-      allowedMethods: ["GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "DELETE"],
+      allowedMethods: [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PUT",
+        "DELETE",
+      ],
       cachedMethods: ["GET", "HEAD"],
       pathPattern: "/api**",
       smoothStreaming: false,
