@@ -8,7 +8,7 @@ from sse_starlette import EventSourceResponse
 from starlette.responses import StreamingResponse
 
 from src.auth.token import get_user_id
-from src.dependencies.injection import get_iac_storage
+from src.dependencies.injection import get_iac_storage, get_binary_storage
 from src.deployer.models.deployment import PulumiStack, Deployment
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
@@ -63,12 +63,19 @@ async def create_stack(
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
         common_policy = await user_pack.run_base(
-            [sp for k, sp in stack_packs.items()],
-            body.configuration.get("base", {}),
-            iac_storage,
-            tmp_dir,
+            stack_packs=[sp for k, sp in stack_packs.items()],
+            config=body.configuration.get("base", {}),
+            iac_storage=iac_storage,
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
         )
-        policy = await user_pack.run_pack(stack_packs, body.configuration, tmp_dir)
+        policy = await user_pack.run_pack(
+            stack_packs=stack_packs,
+            config=body.configuration,
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
+        )
     user_pack.save()
     policy.combine(common_policy)
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
@@ -104,12 +111,19 @@ async def update_stack(
         stack_packs = get_stack_packs()
         with TempDir() as tmp_dir:
             common_policy = await user_pack.run_base(
-                stack_packs.values(),
-                body.configuration.get("base", {}),
-                get_iac_storage(),
-                tmp_dir,
+                stack_packs=list(stack_packs.values()),
+                config=body.configuration.get("base", {}),
+                iac_storage=get_iac_storage(),
+                binary_storage=get_binary_storage(),
+                tmp_dir=tmp_dir,
             )
-            policy = await user_pack.run_pack(stack_packs, body.configuration, tmp_dir)
+            policy = await user_pack.run_pack(
+                stack_packs=stack_packs,
+                config=body.configuration,
+                iac_storage=get_iac_storage(),
+                binary_storage=get_binary_storage(),
+                tmp_dir=tmp_dir,
+            )
         policy.combine(common_policy)
         user_pack.update(actions=[UserPack.apps.set(user_pack.apps)])
 
@@ -289,9 +303,19 @@ async def add_app(
         user_app = UserApp.get(UserApp.composite_key(user_pack.id, app), version)
         configuration[app] = user_app.get_configurations()
     with TempDir() as tmp_dir:
-        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        policy = await user_pack.run_pack(
+            stack_packs=get_stack_packs(),
+            config=configuration,
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
+        )
         common_policy = await user_pack.run_base(
-            list(get_stack_packs().values()), {}, get_iac_storage(), tmp_dir
+            stack_packs=list(get_stack_packs().values()),
+            config=ConfigValues(),
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
         )
         policy.combine(common_policy)
         user_pack.save()
@@ -314,9 +338,19 @@ async def update_app(
         configuration[app] = user_app.get_configurations()
 
     with TempDir() as tmp_dir:
-        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        policy = await user_pack.run_pack(
+            stack_packs=get_stack_packs(),
+            config=configuration,
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
+        )
         common_policy = await user_pack.run_base(
-            list(get_stack_packs().values()), {}, get_iac_storage(), tmp_dir
+            stack_packs=list(get_stack_packs().values()),
+            config=ConfigValues(),
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
         )
         policy.combine(common_policy)
         user_pack.save()
@@ -347,6 +381,12 @@ async def remove_app(
         return StackResponse(stack=user_pack.to_user_stack())
 
     with TempDir() as tmp_dir:
-        policy = await user_pack.run_pack(get_stack_packs(), configuration, tmp_dir)
+        policy = await user_pack.run_pack(
+            stack_packs=get_stack_packs(),
+            config=configuration,
+            iac_storage=get_iac_storage(),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
+        )
         user_pack.save()
         return StackResponse(stack=user_pack.to_user_stack(), policy=str(policy))

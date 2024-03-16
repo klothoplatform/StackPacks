@@ -4,10 +4,14 @@ from pathlib import Path
 from typing import Tuple
 
 from aiomultiprocess import Pool
-from pulumi import automation as auto
 from pydantic import BaseModel
 
-from src.dependencies.injection import get_iac_storage, get_ses_client
+from pulumi import automation as auto
+from src.dependencies.injection import (
+    get_binary_storage,
+    get_iac_storage,
+    get_ses_client,
+)
 from src.deployer.models.deployment import (
     Deployment,
     DeploymentAction,
@@ -18,6 +22,7 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
@@ -208,6 +213,7 @@ async def rerun_pack_with_live_state(
     common_pack: UserApp,
     common_stack: CommonStack,
     iac_storage: IacStorage,
+    binary_storage: BinaryStorage,
     live_state: LiveState,
     sps: dict[str, StackPack],
     tmp_dir: str,
@@ -222,10 +228,11 @@ async def rerun_pack_with_live_state(
         configuration[name] = app.get_configurations()
 
     await user_pack.run_pack(
-        sps,
-        configuration,
-        tmp_dir,
-        iac_storage,
+        stack_packs=sps,
+        config=configuration,
+        tmp_dir=tmp_dir,
+        iac_storage=iac_storage,
+        binary_storage=binary_storage,
         increment_versions=False,
         imports=live_state.to_constraints(common_stack, common_pack.configuration),
     )
@@ -292,6 +299,7 @@ async def deploy_single(
 ):
     sps = get_stack_packs()
     iac_storage = get_iac_storage()
+    binary_storage = get_binary_storage()
     stack_pack = sps[app.get_app_name()]
     common_stack = CommonStack(list(sps.values()))
     common_app = UserApp.get(
@@ -319,10 +327,11 @@ async def deploy_single(
                 return
             live_state = await result.manager.read_deployed_state()
             _ = await app.run_app(
-                stack_pack,
-                tmp_dir,
-                iac_storage,
-                live_state.to_constraints(
+                stack_pack=stack_pack,
+                dir=str(tmp_dir),
+                iac_storage=iac_storage,
+                binary_storage=binary_storage,
+                imports=live_state.to_constraints(
                     common_stack, common_app.get_configurations()
                 ),
             )
@@ -344,6 +353,7 @@ async def deploy_pack(
 
         logger.info(f"Deploying pack {pack_id}")
         iac_storage = get_iac_storage()
+        binary_storage = get_binary_storage()
         user_pack = UserPack.get(pack_id)
         if user_pack.tear_down_in_progress:
             raise ValueError("Pack is currently being torn down")
@@ -400,6 +410,7 @@ async def deploy_pack(
                 common_pack,
                 common_stack,
                 iac_storage,
+                binary_storage,
                 live_state,
                 sps,
                 tmp_dir_str,

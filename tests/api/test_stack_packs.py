@@ -22,6 +22,7 @@ from src.util.aws.iam import Policy
 
 class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
+    @patch("src.api.stack_packs.get_binary_storage")
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
@@ -34,6 +35,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
         user_stack = UserStack(
@@ -49,6 +51,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         sps = {"app1": MagicMock(), "app2": MagicMock()}
         mock_get_stack_packs.return_value = sps
         iac_storage = mock_get_iac_storage.return_value
+        binary_storage = mock_get_binary_storage.return_value
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         policy1 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy1"))
         policy2 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy2"))
@@ -70,14 +73,22 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             assumed_role_arn=None,
         )
         mock_get_stack_packs.assert_called_once()
-        mock_get_iac_storage.assert_called_once()
+        self.assertEqual(mock_get_iac_storage.call_count, 2)
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         mock_pack.run_base.assert_called_once_with(
-            list(sps.values()), {}, iac_storage, "/tmp"
+            stack_packs=list(sps.values()),
+            config={},
+            iac_storage=iac_storage,
+            binary_storage=binary_storage,
+            tmp_dir="/tmp",
         )
         mock_pack.run_pack.assert_called_once_with(
-            sps, {"app1": {"config1": "value1"}}, "/tmp"
+            stack_packs=sps,
+            config={"app1": {"config1": "value1"}},
+            iac_storage=iac_storage,
+            binary_storage=binary_storage,
+            tmp_dir="/tmp",
         )
         mock_pack.save.assert_called_once()
         policy2.combine.assert_called_once_with(policy1)
@@ -111,7 +122,10 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
                 MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
             )
         self.assertEqual(e.exception.status_code, 400)
-        self.assertEqual(e.exception.detail, "Stack already exists for this user, use PATCH to update")
+        self.assertEqual(
+            e.exception.detail,
+            "Stack already exists for this user, use PATCH to update",
+        )
 
         mock_get_user_id.assert_called_once()
         mock_get_pack.assert_called_once_with("user_id")
@@ -123,6 +137,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_pack.run_pack.assert_not_called()
         mock_pack.save.assert_not_called()
 
+    @patch("src.api.stack_packs.get_binary_storage")
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
@@ -137,6 +152,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -172,15 +188,18 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         user_pack.run_pack.assert_called_once_with(
-            mock_get_stack_packs.return_value,
-            {"app1": {"config1": "value1"}, "app2": {"config": "value"}},
-            "/tmp",
+            stack_packs=mock_get_stack_packs.return_value,
+            config={"app1": {"config1": "value1"}, "app2": {"config": "value"}},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         user_pack.run_base.assert_called_once_with(
-            list(mock_get_stack_packs.return_value.values()),
-            {},
-            mock_get_iac_storage.return_value,
-            "/tmp",
+            stack_packs=list(mock_get_stack_packs.return_value.values()),
+            config={},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         policy.combine.assert_called_once_with(policy2)
         user_pack.save.assert_called_once()
@@ -189,6 +208,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
         self.assertEqual(response.policy, str(policy))
 
+    @patch("src.api.stack_packs.get_binary_storage")
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
@@ -203,6 +223,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -233,13 +254,18 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         user_pack.run_pack.assert_called_once_with(
-            mock_get_stack_packs.return_value, {"app1": {"config1": "value1"}}, "/tmp"
+            stack_packs=mock_get_stack_packs.return_value,
+            config={"app1": {"config1": "value1"}},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         user_pack.run_base.assert_called_once_with(
-            list(mock_get_stack_packs.return_value.values()),
-            {},
-            mock_get_iac_storage.return_value,
-            "/tmp",
+            stack_packs=list(mock_get_stack_packs.return_value.values()),
+            config={},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         policy.combine.assert_called_once_with(policy2)
         user_pack.save.assert_called_once()
@@ -248,6 +274,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
         self.assertEqual(response.policy, str(policy))
 
+    @patch("src.api.stack_packs.get_binary_storage")
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
@@ -262,6 +289,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -297,15 +325,18 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         user_pack.run_pack.assert_called_once_with(
-            mock_get_stack_packs.return_value,
-            {"app1": {"config1": "value1"}, "app2": {"config": "value"}},
-            "/tmp",
+            stack_packs=mock_get_stack_packs.return_value,
+            config={"app1": {"config1": "value1"}, "app2": {"config": "value"}},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         user_pack.run_base.assert_called_once_with(
-            list(mock_get_stack_packs.return_value.values()),
-            {},
-            mock_get_iac_storage.return_value,
-            "/tmp",
+            stack_packs=list(mock_get_stack_packs.return_value.values()),
+            config={},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         policy.combine.assert_called_once_with(policy2)
         user_pack.save.assert_called_once()
@@ -314,6 +345,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
         self.assertEqual(response.policy, str(policy))
 
+    @patch("src.api.stack_packs.get_binary_storage")
+    @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
@@ -326,6 +359,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir,
         mock_get_user_id,
         mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -357,7 +392,11 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         user_pack.run_pack.assert_called_once_with(
-            mock_get_stack_packs.return_value, {"app2": {"config": "value"}}, "/tmp"
+            stack_packs=mock_get_stack_packs.return_value,
+            config={"app2": {"config": "value"}},
+            iac_storage=mock_get_iac_storage.return_value,
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
         )
         user_pack.save.assert_called_once()
 

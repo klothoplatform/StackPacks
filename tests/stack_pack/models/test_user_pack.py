@@ -3,6 +3,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 import aiounittest
 from pynamodb.exceptions import DoesNotExist
 
+from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import ConfigValues, Resources, StackPack, StackParts
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, AppModel, UserApp
@@ -39,6 +40,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             "common": MagicMock(spec=ConfigValues),
         }
         self.mock_iac_storage = MagicMock(spec=IacStorage)
+        self.mock_binary_storage = MagicMock(spec=BinaryStorage)
         self.temp_dir = TempDir()
         return super().setUp()
 
@@ -48,6 +50,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         for key, mock in self.config.items():
             mock.reset_mock()
         self.mock_iac_storage.reset_mock()
+        self.mock_binary_storage.reset_mock()
         self.temp_dir.cleanup()
         return super().tearDown()
 
@@ -74,6 +77,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs,
             self.config.get("common"),
             self.mock_iac_storage,
+            self.mock_binary_storage,
             f"{self.temp_dir.dir}",
         )
 
@@ -82,7 +86,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
-            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
+            common_stack,
+            f"{self.temp_dir.dir}/common",
+            self.mock_iac_storage,
+            self.mock_binary_storage,
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 2, "app1": 1, "app2": 2})
@@ -116,6 +123,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs,
             self.config.get("common"),
             self.mock_iac_storage,
+            self.mock_binary_storage,
             f"{self.temp_dir.dir}",
         )
 
@@ -124,7 +132,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
-            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
+            common_stack,
+            f"{self.temp_dir.dir}/common",
+            self.mock_iac_storage,
+            self.mock_binary_storage,
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 1, "app1": 1, "app2": 2})
@@ -156,6 +167,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs,
             self.config.get("common"),
             self.mock_iac_storage,
+            self.mock_binary_storage,
             f"{self.temp_dir.dir}",
         )
 
@@ -172,7 +184,10 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         mock_user_app.get_latest_deployed_version.assert_not_called()
         common_app.run_app.assert_called_once_with(
-            common_stack, f"{self.temp_dir.dir}/common", self.mock_iac_storage
+            common_stack,
+            f"{self.temp_dir.dir}/common",
+            self.mock_iac_storage,
+            self.mock_binary_storage,
         )
         common_app.save.assert_called_once()
         self.assertEqual(self.user_pack.apps, {"common": 1, "app1": 1, "app2": 2})
@@ -217,6 +232,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.config,
             f"{self.temp_dir.dir}",
             self.mock_iac_storage,
+            self.mock_binary_storage,
         )
 
         # Assert
@@ -228,12 +244,14 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs.get("app1"),
             f"{self.temp_dir.dir}/app1",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             [],
         )
         mock_app_2.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app2"),
             f"{self.temp_dir.dir}/app2",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             [],
         )
         mock_app_1.save.assert_called_once()
@@ -295,6 +313,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.config,
             f"{self.temp_dir.dir}",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             imports=imports,
         )
 
@@ -307,12 +326,14 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs.get("app1"),
             f"{self.temp_dir.dir}/app1",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             imports,
         )
         mock_app_2.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app2"),
             f"{self.temp_dir.dir}/app2",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             imports,
         )
         mock_app_1.save.assert_called_once()
@@ -361,6 +382,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.config,
             f"{self.temp_dir.dir}",
             self.mock_iac_storage,
+            self.mock_binary_storage,
         )
 
         # Assert
@@ -381,12 +403,14 @@ class TestUserPack(aiounittest.AsyncTestCase):
             self.mock_stack_packs.get("app1"),
             f"{self.temp_dir.dir}/app1",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             [],
         )
         mock_app_2.run_app.assert_called_once_with(
             self.mock_stack_packs.get("app2"),
             f"{self.temp_dir.dir}/app2",
             self.mock_iac_storage,
+            self.mock_binary_storage,
             [],
         )
         mock_app_1.save.assert_called_once()
@@ -420,11 +444,16 @@ class TestUserPack(aiounittest.AsyncTestCase):
             "app2": MagicMock(spec=ConfigValues),
         }
         mock_iac_storage = MagicMock(spec=IacStorage)
+        mock_binary_storage = MagicMock(spec=BinaryStorage)
 
         # Act & Assert
         with self.assertRaises(ValueError):
             await mock_user_pack.run_pack(
-                mock_stack_packs, config, f"{self.temp_dir.dir}", mock_iac_storage
+                mock_stack_packs,
+                config,
+                f"{self.temp_dir.dir}",
+                mock_iac_storage,
+                mock_binary_storage,
             )
 
     @patch.object(UserApp, "get")

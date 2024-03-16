@@ -1,9 +1,10 @@
-import logging
 import os
 
 import jwt
 from fastapi import HTTPException, Request
 from jwt import PyJWKClient
+
+from src.util.logging import logger
 
 domain = os.getenv("AUTH0_DOMAIN", "klotho.us.auth0.com")
 key_url = os.getenv("AUTH0_PEM_URL", f"https://{domain}/.well-known/jwks.json")
@@ -17,12 +18,8 @@ jwks_client = PyJWKClient(key_url, cache_keys=True)
 
 
 class AuthError(HTTPException):
-    detail: str
-
-    def __init__(self, error, detail, status_code=401):
-        self.error = error
-        self.status_code = status_code
-        self.detail = detail
+    def __init__(self, detail, status_code=401):
+        super().__init__(status_code=status_code, detail=detail)
 
 
 def is_public_user(request: Request) -> bool:
@@ -32,36 +29,37 @@ def is_public_user(request: Request) -> bool:
 
 async def get_user_id(request: Request) -> str:
     if LOCAL_USER is not None:
-        logging.info("Skipping authentication for local dev user")
+        logger.info("Skipping authentication for local dev user")
         return LOCAL_USER
 
+    logger.info(
+        "Checking auth header (len %d)", len(request.headers.get("Authorization", ""))
+    )
+    if is_public_user(request):
+        logger.info("Public user")
+        raise AuthError({"code": "unauthorized", "description": "Unauthenticated user"})
+
     try:
-        if is_public_user(request):
-            raise AuthError(
-                {"code": "unauthorized", "description": "Unauthorized"}, 401
-            )
         token = await get_id_token(request)
         return token["sub"]
     except:
-        logging.error("Error getting user id", exc_info=True)
-        raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)
+        logger.error("Error getting user id", exc_info=True)
+        raise AuthError({"code": "unauthorized", "description": "Error decoding token"})
 
 
 async def get_email(request: Request) -> str:
     if LOCAL_USER is not None:
-        logging.info("Skipping authentication for local dev user")
+        logger.info("Skipping authentication for local dev user")
         return LOCAL_USER
 
     try:
         if is_public_user(request):
-            raise AuthError(
-                {"code": "unauthorized", "description": "Unauthorized"}, 401
-            )
+            raise AuthError({"code": "unauthorized", "description": "Unauthorized"})
         token = await get_id_token(request)
         return token["email"]
     except:
-        logging.error("Error getting user id", exc_info=True)
-        raise AuthError({"code": "unauthorized", "description": "Unauthorized"}, 401)
+        logger.error("Error getting user id", exc_info=True)
+        raise AuthError({"code": "unauthorized", "description": "Unauthorized"})
 
 
 async def get_id_token(request: Request):
@@ -82,9 +80,7 @@ async def get_id_token(request: Request):
         )
         return payload
     except jwt.ExpiredSignatureError:
-        raise AuthError(
-            {"code": "token_expired", "description": "token is expired"}, 401
-        )
+        raise AuthError({"code": "token_expired", "description": "token is expired"})
     except Exception as e:
         print("error getting id token", e)
         raise AuthError(
@@ -119,9 +115,7 @@ def get_token_auth_header(request: Request):
             401,
         )
     elif len(parts) == 1:
-        raise AuthError(
-            {"code": "invalid_header", "description": "Token not found"}, 401
-        )
+        raise AuthError({"code": "invalid_header", "description": "Token not found"})
     elif len(parts) > 2:
         raise AuthError(
             {

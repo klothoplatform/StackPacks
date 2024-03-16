@@ -1,9 +1,10 @@
+import datetime
 import os
 import re
-import datetime
 from enum import Enum
-from pynamodb.models import Model
+
 from pynamodb.attributes import UnicodeAttribute, UTCDateTimeAttribute
+from pynamodb.models import Model
 
 
 class DeploymentStatus(Enum):
@@ -21,7 +22,7 @@ class DeploymentAction(Enum):
 class Deployment(Model):
 
     class Meta:
-        table_name = "Deployments"
+        table_name = os.environ.get("DEPLOYMENTS_TABLE_NAME", "Deployments")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
 
@@ -51,7 +52,7 @@ class Deployment(Model):
 
 class PulumiStack(Model):
     class Meta:
-        table_name = "PulumiStacks"
+        table_name = os.environ.get("PULUMISTACKS_TABLE_NAME", "PulumiStacks")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
 
