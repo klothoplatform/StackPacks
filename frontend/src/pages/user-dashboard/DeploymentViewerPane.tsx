@@ -1,6 +1,6 @@
 import React, { type FC, useEffect, useState } from "react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import type { CustomFlowbiteTheme } from "flowbite-react";
 import { Card, Tabs } from "flowbite-react";
@@ -14,6 +14,8 @@ import type { EventSourceMessage } from "@microsoft/fetch-event-source";
 import { AbortError, DeployLogEventType } from "../../api/DeployLogs.ts";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import "./ansi.scss";
+import { useScrollToAnchor } from "../../hooks/useScrollToAnchor.ts";
+import classNames from "classnames";
 
 const tabTheme: CustomFlowbiteTheme["tabs"] = {
   base: "flex flex-col gap-2 size-full",
@@ -123,6 +125,10 @@ const LogPane: FC<{
 
   const [log, setLog] = useState([] as string[]);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
+  const location = useLocation();
+  const selectedLine = location.hash.startsWith("#line:")
+    ? Number(location.hash.slice(6))
+    : null;
 
   const handleScroll = (e) => {
     const bottom =
@@ -133,6 +139,8 @@ const LogPane: FC<{
       setHasUserScrolled(false);
     }
   };
+
+  useScrollToAnchor({ mode: "auto", behavior: "smooth" });
 
   useEffect(() => {
     setHasUserScrolled(false);
@@ -186,18 +194,45 @@ const LogPane: FC<{
       controller.abort();
     };
   }, [deployId, appId, subscribeToLogStream]);
-
   return (
     <Card className="size-full bg-gray-800 p-2 text-white">
       <div
         ref={logPaneRef}
         onScroll={handleScroll}
-        className={"flex size-full flex-col overflow-auto p-2 text-xs"}
+        className={"flex size-full flex-col overflow-auto py-2 pr-2 text-xs"}
       >
-        <Ansi linkify useClasses className={"whitespace-pre-wrap"}>
-          {log.join("")}
-        </Ansi>
-        <span className="mt-4 font-mono font-bold text-green-300">
+        <div className={"whitespace-pre-wrap"}>
+          {log.map((line, index) => {
+            return (
+              <div
+                key={index}
+                className={classNames(
+                  "flex h-fit flex-nowrap items-start gap-4 px-2 hover:bg-gray-700",
+                  {
+                    "bg-primary-600/40": selectedLine === index + 1,
+                  },
+                )}
+              >
+                <a
+                  href={`#line:${index + 1}`}
+                  id={`line:${index + 1}`}
+                  className={classNames(
+                    "font-mono text-gray-400 transition-all hover:text-primary-300 hover:underline",
+                    {
+                      "text-primary-300 underline": selectedLine === index + 1,
+                    },
+                  )}
+                >
+                  {index + 1}
+                </a>
+                <Ansi linkify useClasses>
+                  {line}
+                </Ansi>
+              </div>
+            );
+          })}
+        </div>
+        <span className="mt-4 px-2 font-mono font-bold text-green-300">
           {done ? (
             "Done"
           ) : (
