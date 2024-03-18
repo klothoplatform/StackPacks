@@ -89,11 +89,19 @@ async def run_command(
 
 
 async def run_engine_command(*args, cwd: None | Path | str = None) -> tuple[str, str]:
-    return await run_command(Binary.ENGINE, *args, cwd=cwd)
+    try:
+        return await run_command(Binary.ENGINE, *args, cwd=cwd)
+    except Exception as e:
+        log.error("Error running engine command", exc_info=True)
+        raise e
 
 
 async def run_iac_command(*args, cwd: None | Path | str = None) -> tuple[str, str]:
-    return await run_command(Binary.IAC, *args, cwd=cwd)
+    try:
+        return await run_command(Binary.IAC, *args, cwd=cwd)
+    except Exception as e:
+        log.error("Error running IAC command", exc_info=True)
+        raise e
 
 
 def capture_failure(

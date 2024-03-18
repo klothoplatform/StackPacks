@@ -122,7 +122,6 @@ class DeployLogHandler(PatternMatchingEventHandler):
                 break
             else:
                 self.messages.put_nowait(line)
-        logger.debug("Read %d lines from log", line_count)
 
     def __aiter__(self):
         return self
