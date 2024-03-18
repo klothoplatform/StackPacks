@@ -1,4 +1,4 @@
-name: Gitness
+name: gitness
 description: Development platform with code hosting and automated DevOps pipelines
 version: '1.0.0'
 requires:

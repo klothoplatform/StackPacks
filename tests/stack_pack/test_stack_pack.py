@@ -68,7 +68,7 @@ class TestStackPack(unittest.TestCase):
                 },
                 {
                     "scope": "resource",
-                    "operator": "add",
+                    "operator": "equals",
                     "property": "Environment",
                     "value": [
                         {"Name": "KEY1", "Value": "v1"},

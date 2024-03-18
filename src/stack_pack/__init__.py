@@ -12,6 +12,15 @@ class BaseRequirements(Enum):
     ECS = "ecs"
 
 
+class Output(BaseModel):
+    value: str
+    description: str
+
+    def value_string(self):
+        parts = self.value.split(":")[-1].split("#")
+        return "_".join(parts).replace("-", "_")
+
+
 class ConfigValues(dict[str, Any]):
 
     @classmethod
@@ -52,11 +61,13 @@ class Properties(dict[str, Any]):
         def to_c(p: str, v: Any) -> List[dict]:
             if isinstance(v, dict):
                 return [c for k, vv in v.items() for c in to_c(f"{p}.{k}", vv)]
-            elif isinstance(v, list):
+            if isinstance(v, list):
                 return [
                     {
                         "scope": "resource",
-                        "operator": "add",
+                        # This has to be equals otherwise you have no ability to set multiple values in an array
+                        # If we do add and you want to have 2 containers in your task definition, its not possible because nothing will add the second one
+                        "operator": "equals",
                         "property": convert_value(p),
                         "value": convert_value(v),
                     }
@@ -198,6 +209,7 @@ class StackPack(BaseModel):
     requires: list[BaseRequirements] = Field(default_factory=list)
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
+    outputs: dict[str, Output] = Field(default_factory=dict)
 
     def final_config(self, user_config: ConfigValues):
         final_cfg = ConfigValues()

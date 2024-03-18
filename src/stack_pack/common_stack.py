@@ -1,22 +1,23 @@
 from pathlib import Path
-from typing import Any, List
-from pydantic import BaseModel, Field, GetCoreSchemaHandler
-from pydantic_yaml import parse_yaml_file_as
+from typing import Any, List, Set
+
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
+from pydantic_yaml import parse_yaml_file_as
+
 from src.stack_pack import (
+    BaseRequirements,
+    Edges,
+    Resources,
     StackConfig,
     StackPack,
     StackParts,
-    Resources,
-    Edges,
-    ConfigValues,
-    BaseRequirements,
 )
 
 
 class CommonPart(BaseModel):
     depends_on: List[BaseRequirements] = []
+    always_injected: List[str] = []
     resources: Resources = Field(default_factory=Resources)
     edges: Edges = Field(default_factory=Edges)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
@@ -70,6 +71,8 @@ def get_stack_pack_base() -> CommonPack:
 
 class CommonStack(StackPack):
 
+    always_inject: Set[str] = Field(default_factory=set)
+
     def __init__(self, stack_packs: List[StackPack]):
 
         base = get_stack_pack_base()
@@ -77,6 +80,7 @@ class CommonStack(StackPack):
         resources = Resources()
         edges = Edges()
         configuration = {}
+        always_inject = set()
 
         requirements = set()
         # find all required base parts
@@ -88,6 +92,7 @@ class CommonStack(StackPack):
 
         for requirement in requirements:
             base_part = base[requirement]
+            always_inject.update(base_part.always_injected)
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             configuration.update(base_part.configuration)
@@ -95,12 +100,14 @@ class CommonStack(StackPack):
 
         for requirement in dependencies:
             base_part = base[requirement]
+            always_inject.update(base_part.always_injected)
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             configuration.update(base_part.configuration)
 
         stack_base = StackParts(resources=resources, edges=edges)
         super().__init__(
+            always_inject=always_inject,
             id="base",
             name="base",
             version="0.0.1",

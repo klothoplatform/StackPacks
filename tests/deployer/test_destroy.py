@@ -256,6 +256,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_app.update.assert_called_once_with(
             actions=[
+                UserApp.outputs.set({}),
                 UserApp.iac_stack_composite_key.set(None),
                 UserApp.deployments.add({"deploy_id"}),
             ]

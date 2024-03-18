@@ -1,7 +1,10 @@
-import aiounittest
 from unittest.mock import Mock
+
+import aiounittest
+
+from src.stack_pack import ConfigValues, Edges, Properties, Resources
+from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.live_state import LiveState
-from src.stack_pack import ConfigValues, Properties, StackPack, Resources, Edges
 
 
 class TestLiveState(aiounittest.AsyncTestCase):
@@ -17,7 +20,7 @@ class TestLiveState(aiounittest.AsyncTestCase):
             edges=Edges(),
         )
         stack_pack = Mock(
-            spec=StackPack,
+            spec=CommonStack,
             base=Mock(
                 resources=Resources(
                     {
@@ -27,17 +30,9 @@ class TestLiveState(aiounittest.AsyncTestCase):
                 ),
                 edges=Edges({"resource1->resource2": None}),
             ),
+            always_inject={},
         )
         configuration = ConfigValues()
-
-        # Mock the methods that will be called in to_constraints
-        live_state.resources.to_constraints = Mock(
-            return_value=[
-                {"scope": "application", "operator": "must_exist", "node": "resource1"},
-                {"scope": "application", "operator": "must_exist", "node": "resource2"},
-            ]
-        )
-        live_state.edges.to_constraints = Mock(return_value=[])
 
         # Act
         result = live_state.to_constraints(stack_pack, configuration)
@@ -68,18 +63,18 @@ class TestLiveState(aiounittest.AsyncTestCase):
         ]
         self.assertEqual(result, expected_result)
 
-    def test_region_substituted(self):
+    def test_always_inject(self):
         # Arrange
         live_state = LiveState(
             resources=Resources(
                 {
-                    "aws:region:default": Properties({}),
+                    "aws:lambda_function:default": Properties({}),
                 }
             ),
             edges=Edges(),
         )
         stack_pack = Mock(
-            spec=StackPack,
+            spec=CommonStack,
             base=Mock(
                 resources=Resources(
                     {
@@ -88,6 +83,7 @@ class TestLiveState(aiounittest.AsyncTestCase):
                 ),
                 edges=Edges({"resource1->resource2": None}),
             ),
+            always_inject={"aws:region:region"},
         )
         configuration = ConfigValues()
 
@@ -96,6 +92,11 @@ class TestLiveState(aiounittest.AsyncTestCase):
 
         # Assert
         expected_result = [
+            {
+                "scope": "application",
+                "operator": "import",
+                "node": "aws:lambda_function:default",
+            },
             {"scope": "application", "operator": "import", "node": "aws:region:region"},
             {
                 "scope": "resource",

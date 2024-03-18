@@ -63,6 +63,7 @@ class UserApp(Model):
     created_at: datetime.datetime = UTCDateTimeAttribute(
         default=datetime.datetime.now()
     )
+    outputs: dict[str, str] = JSONAttribute(null=True)
     deployments: list[str] = UnicodeSetAttribute(null=True)
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute(null=True)
@@ -91,6 +92,7 @@ class UserApp(Model):
             created_by=self.created_by,
             created_at=self.created_at,
             configuration=ConfigValues(self.configuration.items()),
+            outputs=self.outputs,
             last_deployed_version=(
                 latest_deployed_version.version if latest_deployed_version else None
             ),
@@ -227,6 +229,7 @@ class AppModel(BaseModel):
     created_by: str
     created_at: datetime.datetime
     configuration: ConfigValues = Field(default_factory=dict)
+    outputs: Optional[dict[str, str]] = Field(default_factory=dict)
     last_deployed_version: Optional[int] = None
     status: Optional[str] = None
     status_reason: Optional[str] = None

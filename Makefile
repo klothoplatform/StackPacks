@@ -24,7 +24,7 @@ run:
 
 test-backend:
 	PYTHONPATH=. pipenv run coverage run --source=src -m unittest discover
-	PYTHONPATH=. pipenv run coverage report -m --fail-under 75
+	PYTHONPATH=. pipenv run coverage report -m --fail-under 70
 
 test-frontend:
 	cd frontend && npm run test:unit

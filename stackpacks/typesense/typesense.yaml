@@ -1,4 +1,4 @@
-name: TypeSense
+name: typesense
 description: Typo tolerant fuzzy search engine
 version: '1.0.0'
 requires:

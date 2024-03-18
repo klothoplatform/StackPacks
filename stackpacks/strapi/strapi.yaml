@@ -1,4 +1,4 @@
-name: Strapi
+name: strapi
 description: Node.js Headless CMS to build customisable APIs
 version: '1.0.0'
 requires:

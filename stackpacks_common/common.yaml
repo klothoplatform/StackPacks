@@ -1,19 +1,33 @@
 network:
+  always_injected:
+    - aws:region:region
+    - aws:availability_zone:region:az1
+    - aws:availability_zone:region:az2
   resources:
     aws:region:region:
+    aws:availability_zone:region:az1:
+      Region: aws:region:region
+      Index: 0
+    aws:availability_zone:region:az2:
+      Region: aws:region:region
+      Index: 1
     aws:vpc:stackpacks-vpc:
     aws:subnet:stackpacks-private-subnet-1:
       Type: private
       Vpc: aws:vpc:stackpacks-vpc
+      AvailabilityZone: aws:availability_zone:region:az1
     aws:subnet:stackpacks-private-subnet-2:
       Type: private
       Vpc: aws:vpc:stackpacks-vpc
+      AvailabilityZone: aws:availability_zone:region:az2
     aws:subnet:stackpacks-public-subnet-1:
       Type: public
       Vpc: aws:vpc:stackpacks-vpc
+      AvailabilityZone: aws:availability_zone:region:az1
     aws:subnet:stackpacks-public-subnet-2:
       Type: public
       Vpc: aws:vpc:stackpacks-vpc
+      AvailabilityZone: aws:availability_zone:region:az2
   edges:
     # We need to connect the subnets to the region since normally they autogenerate one and ecs requires a downstream region for logs
     # Because the engine wont modify anything about existing resources without explicit command this is our workaround
@@ -26,3 +40,32 @@ ecs:
     - network
   resources:
     aws:ecs_cluster:stackpacks-ecs-cluster:
+    aws:ec2_launch_template:stackpacks-ecs-launch-template:
+      LaunchTemplateData:
+        InstanceType: t3.medium
+    aws:auto_scaling_group:stackpacks-asg:
+      MinSize: 1
+      MaxSize: 2
+    aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
+    aws:ecs_capacity_provider:stackpacks-capacity-provider:
+  edges:
+    aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider -> aws:ecs_cluster:stackpacks-ecs-cluster:
+    aws:ecs_capacity_provider:stackpacks-capacity-provider -> aws:auto_scaling_group:stackpacks-asg:
+    aws:ecs_capacity_provider:stackpacks-capacity-provider -> aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
+    aws:auto_scaling_group:stackpacks-asg -> aws:ec2_launch_template:stackpacks-ecs-launch-template:
+
+  configuration:
+    NumServices: 
+      name: NumServices
+      description: The number of oss services that will be deployed to the ecs cluster
+      type: number
+  
+    MinMemoryMiB:
+      name: MinMemoryMiB
+      description: The minimum amount of memory to allocate to the ecs cluster
+      type: number
+
+    MinVcpu:
+      name: MinVcpu
+      description: The minimum amount of vcpu to allocate to the ecs cluster
+      type: number

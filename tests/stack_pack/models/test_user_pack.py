@@ -68,6 +68,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             run_app=AsyncMock(
                 return_value=Policy('{"Version": "2012-10-17","Statement": []}')
             ),
+            deployments={"id"},
         )
         mock_get.return_value = common_app
         mock_get_latest.return_value = MagicMock(spec=UserApp, version=1)
@@ -97,6 +98,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             policy.__str__(),
             Policy('{"Version": "2012-10-17","Statement": []}').__str__(),
         )
+        self.assertEqual(common_app.deployments, {})
 
     @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
@@ -208,12 +210,14 @@ class TestUserPack(aiounittest.AsyncTestCase):
             version=1,
             run_app=AsyncMock(return_value=policy1),
             get_app_name=MagicMock(return_value="app1"),
+            deployments={"id"},
         )
         mock_app_2 = MagicMock(
             spec=UserApp,
             version=2,
             run_app=AsyncMock(return_value=policy2),
             get_app_name=MagicMock(return_value="app2"),
+            deployments={"id"},
         )
         mock_get.side_effect = [mock_app_1, mock_app_2]
         mock_get_latest.side_effect = [
@@ -256,17 +260,13 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
         mock_app_1.save.assert_called_once()
         mock_app_2.save.assert_called_once()
-        self.mock_stack_packs.get("app1").base.resources.update.assert_called_once_with(
-            {"test": {}}
-        )
-        self.mock_stack_packs.get("app2").base.resources.update.assert_called_once_with(
-            {"test": {}}
-        )
         policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
             self.user_pack.apps, {"app1": 2, "app2": 2, UserPack.COMMON_APP_NAME: 1}
         )
         self.assertEqual(policy, policy1)
+        self.assertEqual(mock_app_1.deployments, {})
+        self.assertEqual(mock_app_2.deployments, {"id"})
 
     @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
@@ -423,10 +423,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
 
     @patch.object(UserApp, "get_latest_deployed_version")
     @patch.object(UserApp, "get")
-    @patch("src.stack_pack.models.user_pack.UserApp")
-    async def test_run_pack_invalid_stack_name(
-        self, mock_user_app, mock_get, mock_get_latest
-    ):
+    async def test_run_pack_invalid_stack_name(self, mock_get, mock_get_latest):
         # Arrange
         mock_user_pack = UserPack(
             id="id",
@@ -445,7 +442,8 @@ class TestUserPack(aiounittest.AsyncTestCase):
         }
         mock_iac_storage = MagicMock(spec=IacStorage)
         mock_binary_storage = MagicMock(spec=BinaryStorage)
-
+        mock_get.return_value = MagicMock(spec=UserApp, version=1)
+        mock_get_latest.return_value = MagicMock(spec=UserApp, version=1)
         # Act & Assert
         with self.assertRaises(ValueError):
             await mock_user_pack.run_pack(
