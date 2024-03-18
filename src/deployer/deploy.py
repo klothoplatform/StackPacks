@@ -22,7 +22,7 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
-from src.engine_service.binaries.fetcher import BinaryStorage
+from src.engine_service.binaries.fetcher import BinaryStorage, Binary
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
@@ -315,6 +315,8 @@ async def deploy_single(
         ]
     )
     try:
+        binary_storage.ensure_binary(Binary.IAC)
+
         with TempDir() as tmp_dir_str:
             tmp_dir = Path(tmp_dir_str)
             result = await deploy_app(
@@ -383,6 +385,7 @@ async def deploy_pack(
         try:
 
             logger.info(f"Deploying common stack")
+            binary_storage.ensure_binary(Binary.IAC)
 
             result = await deploy_app(
                 user_pack,
