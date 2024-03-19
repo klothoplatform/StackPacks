@@ -8,6 +8,14 @@
   font-style: italic;
 }
 
+[class^="ansi-"] > a {
+  text-decoration: underline;
+
+  &:hover {
+    color: theme("colors.blue.600");
+  }
+}
+
 // colors
 .ansi-black-fg {
   color: theme("colors.gray.900");
@@ -82,10 +90,10 @@
   color: theme("colors.gray.100");
 }
 
-[class^="ansi-"] > a {
-  text-decoration: underline;
+.ansi-palette-208-bg {
+  background-color: theme("colors.orange.500");
+}
 
-  &:hover {
-    color: theme("colors.blue.600");
-  }
+.ansi-palette-240-bg {
+  background-color: theme("colors.gray.500");
 }
