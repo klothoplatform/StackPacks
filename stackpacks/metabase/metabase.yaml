@@ -1,4 +1,5 @@
 name: Metabase
+id: metabase
 description: Platform for data visualization and business intelligence
 version: '1.0.0'
 requires:
@@ -105,3 +106,8 @@ configuration:
     validation:
       minLength: 8
       maxLength: 128
+
+outputs:
+  URL:
+    description: The URL of the Metabase service
+    value: aws:cloudfront_distribution:metabase-cf#Domain

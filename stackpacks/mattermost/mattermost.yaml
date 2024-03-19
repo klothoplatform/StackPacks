@@ -1,4 +1,5 @@
 name: Mattermost
+id: mattermost
 version: '1.0.0'
 description: Enterprise communication platform for developers
 requires:
@@ -16,10 +17,11 @@ base:
     aws:ecs_task_definition:mattermost-task:
       Cpu: ${CPU}
       Memory: ${Memory}
-      ContainerDefinitions[0]:
-        Image: aws:ecr_image:mattermost
-        PortMappings[0]:
-          ContainerPort: 8065
+      ContainerDefinitions:
+      - Image: aws:ecr_image:mattermost
+        Name: mattermost
+        PortMappings:
+        - ContainerPort: 8065
           HostPort: 8065
         Cpu: ${CPU}
         Memory: ${Memory}
@@ -104,3 +106,8 @@ configuration:
           aws:s3_bucket:mattermost-s3:
         edges:
           aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:
+
+outputs:
+  URL:
+    description: The URL of the Mattermost service
+    value: aws:cloudfront_distribution:mattermost-cf#Domain

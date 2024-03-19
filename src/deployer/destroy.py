@@ -152,8 +152,10 @@ async def run_destroy_application(
         if result.status != DeploymentStatus.SUCCEEDED
         else None
     )
+
     app.update(
         actions=[
+            UserApp.outputs.set({}),
             UserApp.iac_stack_composite_key.set(iac_composite_key),
             UserApp.deployments.add({deployment_id}),
         ]

@@ -12,6 +12,15 @@ class BaseRequirements(Enum):
     ECS = "ecs"
 
 
+class Output(BaseModel):
+    value: str
+    description: str
+
+    def value_string(self):
+        parts = self.value.split(":")[-1].split("#")
+        return "_".join(parts).replace("-", "_")
+
+
 class ConfigValues(dict[str, Any]):
 
     @classmethod
@@ -52,11 +61,13 @@ class Properties(dict[str, Any]):
         def to_c(p: str, v: Any) -> List[dict]:
             if isinstance(v, dict):
                 return [c for k, vv in v.items() for c in to_c(f"{p}.{k}", vv)]
-            elif isinstance(v, list):
+            if isinstance(v, list):
                 return [
                     {
                         "scope": "resource",
-                        "operator": "add",
+                        # This has to be equals otherwise you have no ability to set multiple values in an array
+                        # If we do add and you want to have 2 containers in your task definition, its not possible because nothing will add the second one
+                        "operator": "equals",
                         "property": convert_value(p),
                         "value": convert_value(v),
                     }
@@ -189,15 +200,14 @@ class StackConfig(BaseModel):
 
 
 class StackPack(BaseModel):
-    id: str = Field(
-        default=None, exclude=True, validate_default=False
-    )  # Default is None because it is set outside of the model
+    id: str
     name: str
     version: str = Field(default="0.0.1")
     description: str = Field(default="")
     requires: list[BaseRequirements] = Field(default_factory=list)
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
+    outputs: dict[str, Output] = Field(default_factory=dict)
 
     def final_config(self, user_config: ConfigValues):
         final_cfg = ConfigValues()
@@ -246,6 +256,9 @@ def get_stack_packs() -> dict[str, StackPack]:
             sp = parse_yaml_file_as(StackPack, f)
         except Exception as e:
             raise ValueError(f"Failed to parse {dir.name}") from e
-        sp.id = dir.name
-        sps[sp.name] = sp
+
+        if sp.id in sps:
+            raise ValueError(f"Duplicate stack pack id: {sp.id}")
+
+        sps[sp.id] = sp
     return sps

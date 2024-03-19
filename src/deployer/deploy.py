@@ -45,7 +45,7 @@ class StackDeploymentRequest(BaseModel):
     deployment_id: str
     project_name: str
     stack_name: str
-    # iac: bytes
+    outputs: dict[str, str] = {}
     pulumi_config: dict[str, str]
 
 
@@ -136,6 +136,7 @@ async def build_and_deploy_application(
     app_name: str,
     user: str,
     pulumi_config: dict[str, str],
+    outputs: dict[str, str],
     deployment_id: str,
     tmp_dir: Path,
 ) -> DeploymentResult:
@@ -163,14 +164,19 @@ async def build_and_deploy_application(
         tmp_dir / app.get_app_name(),
     )
     iac_composite_key = result.stack.composite_key() if result.stack else None
+    logger.info(f"mapping outputs: {outputs}")
+    stack_outputs = result.manager.get_outputs(outputs) if result.manager else {}
+    logger.info(
+        f"Deployment of {app.get_app_name()} complete. Status: {result.status}, with outputs: {stack_outputs}"
+    )
     app.update(
         actions=[
+            UserApp.outputs.set(stack_outputs),
             UserApp.iac_stack_composite_key.set(iac_composite_key),
             UserApp.deployments.add({deployment_id}),
         ]
     )
     app.transition_status(result.status, DeploymentAction.DEPLOY, result.reason)
-    logger.info(f"Deployment of {app.get_app_name()} complete. Status: {result.status}")
     return result
 
 
@@ -196,6 +202,7 @@ async def run_concurrent_deployments(
                     stack.stack_name,
                     user,
                     stack.pulumi_config,
+                    stack.outputs,
                     stack.deployment_id,
                     tmp_dir,
                 ),
@@ -253,11 +260,13 @@ async def deploy_applications(
         apps[app.get_app_name()] = app
         sp = sps[app.get_app_name()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
+        outputs = {k: v.value_string() for k, v in sp.outputs.items()}
         deployment_stacks.append(
             StackDeploymentRequest(
                 project_name=app.get_pack_id(),
                 stack_name=app.get_app_name(),
                 pulumi_config=pulumi_config,
+                outputs=outputs,
                 deployment_id=deployment_id,
             )
         )
@@ -278,12 +287,14 @@ async def deploy_app(
     tmp_dir: Path,
 ) -> DeploymentResult:
     pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
+    outputs = {k: v.value_string() for k, v in stack_pack.outputs.items()}
     _, results = await run_concurrent_deployments(
         [
             StackDeploymentRequest(
                 project_name=pack.id,
                 stack_name=app.get_app_name(),
                 pulumi_config=pulumi_config,
+                outputs=outputs,
                 deployment_id=deployment_id,
             )
         ],

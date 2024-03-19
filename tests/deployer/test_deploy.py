@@ -22,7 +22,7 @@ from src.deployer.models.deployment import (
 )
 from src.deployer.pulumi.manager import AppManager
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.stack_pack import StackPack
+from src.stack_pack import Output, StackPack
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.live_state import LiveState
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
@@ -223,16 +223,21 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_pulumi_stack = MagicMock(
             spec=PulumiStack, composite_key=MagicMock(return_value="key")
         )
+        mock_manager = MagicMock(
+            spec=AppManager,
+            get_outputs=MagicMock(return_value={"key1": "value1"}),
+        )
         mock_build_and_deploy.return_value = DeploymentResult(
-            manager=MagicMock(spec=AppManager),
+            manager=mock_manager,
             status=DeploymentStatus.SUCCEEDED,
             reason="Success",
             stack=mock_pulumi_stack,
         )
+        outputs = {"key": "value"}
 
         # Act
         result = await build_and_deploy_application(
-            "id", "app1", "user", {"key": "value"}, "deploy_id", Path("/tmp")
+            "id", "app1", "user", {"key": "value"}, outputs, "deploy_id", Path("/tmp")
         )
 
         # Assert
@@ -261,8 +266,10 @@ class TestDeploy(aiounittest.AsyncTestCase):
                 call(DeploymentStatus.SUCCEEDED, DeploymentAction.DEPLOY, "Success"),
             ],
         )
+        mock_manager.get_outputs.assert_called_once_with(outputs)
         mock_user_app.update.assert_called_once_with(
             actions=[
+                UserApp.outputs.set({"key1": "value1"}),
                 UserApp.iac_stack_composite_key.set("key"),
                 UserApp.deployments.add({"deploy_id"}),
             ]
@@ -295,12 +302,14 @@ class TestDeploy(aiounittest.AsyncTestCase):
                 project_name="project",
                 stack_name="stack1",
                 pulumi_config={},
+                outputs={"key": "value"},
                 deployment_id="deploy_id",
             ),
             StackDeploymentRequest(
                 project_name="project",
                 stack_name="stack2",
                 pulumi_config={},
+                outputs={"key": "value2"},
                 deployment_id="deploy_id",
             ),
         ]
@@ -314,11 +323,27 @@ class TestDeploy(aiounittest.AsyncTestCase):
             [
                 call(
                     mock_build_and_deploy_application,
-                    args=("project", "stack1", "user", {}, "deploy_id", Path("/tmp")),
+                    args=(
+                        "project",
+                        "stack1",
+                        "user",
+                        {},
+                        {"key": "value"},
+                        "deploy_id",
+                        Path("/tmp"),
+                    ),
                 ),
                 call(
                     mock_build_and_deploy_application,
-                    args=("project", "stack2", "user", {}, "deploy_id", Path("/tmp")),
+                    args=(
+                        "project",
+                        "stack2",
+                        "user",
+                        {},
+                        {"key": "value2"},
+                        "deploy_id",
+                        Path("/tmp"),
+                    ),
                 ),
             ]
         )
@@ -411,11 +436,18 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_app.get.side_effect = [mock_app_1, mock_app_2]
         mock_user_pack = MagicMock(spec=UserPack, id="id", apps={"app1": 1, "app2": 1})
         sp1 = MagicMock(
-            spec=StackPack, get_pulumi_configs=MagicMock(return_value={"key": "value"})
+            spec=StackPack,
+            get_pulumi_configs=MagicMock(return_value={"key": "value"}),
+            outputs={
+                "key": Output(value="aws:res:the-cf#Domain", description="The domain")
+            },
         )
         sp2 = MagicMock(
             spec=StackPack,
             get_pulumi_configs=MagicMock(return_value={"key2": "value2"}),
+            outputs={
+                "key": Output(value="aws:res:the-ff#DnsName", description="The domain")
+            },
         )
         mock_sps = {"app1": sp1, "app2": sp2}
         mock_run_concurrent_deployments.side_effect = [
@@ -455,12 +487,14 @@ class TestDeploy(aiounittest.AsyncTestCase):
                     project_name="id",
                     stack_name="app1",
                     pulumi_config={"key": "value"},
+                    outputs={"key": "the_cf_Domain"},
                     deployment_id="deploy_id",
                 ),
                 StackDeploymentRequest(
                     project_name="id",
                     stack_name="app2",
                     pulumi_config={"key2": "value2"},
+                    outputs={"key": "the_ff_DnsName"},
                     deployment_id="deploy_id",
                 ),
             ],
@@ -478,7 +512,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
             spec=UserApp, get_app_name=MagicMock(return_value="app1"), version=1
         )
         sp = MagicMock(
-            spec=StackPack, get_pulumi_configs=MagicMock(return_value={"key": "value"})
+            spec=StackPack,
+            get_pulumi_configs=MagicMock(return_value={"key": "value"}),
+            outputs={
+                "key": Output(value="aws:res:the-cf#Domain", description="The domain")
+            },
         )
         deployment_id = "deployment_id"
         tmp_dir = Path("/tmp")
@@ -505,6 +543,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
                     project_name=pack.id,
                     stack_name=app.get_app_name(),
                     pulumi_config=sp.get_pulumi_configs.return_value,
+                    outputs={"key": "the_cf_Domain"},
                     deployment_id=deployment_id,
                 )
             ],
@@ -602,8 +641,10 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_ses_client")
     @patch("src.deployer.deploy.send_email")
     @patch("src.deployer.deploy.get_stack_packs")
+    @patch("src.deployer.deploy.get_binary_storage")
     async def test_deploy_single_common_stack_fails(
         self,
+        mock_get_binary_storage,
         mock_get_stack_packs,
         mock_send_email,
         mock_get_ses_client,
@@ -613,6 +654,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_get_iac_storage,
         mock_deploy_app,
     ):
+        mock_get_binary_storage.return_value = MagicMock()
         pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
         app = MagicMock(spec=UserApp, get_app_name=MagicMock(return_value="app1"))
         deployment_id = "deployment_id"
@@ -813,8 +855,10 @@ class TestDeploy(aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.TempDir")
     @patch("src.deployer.deploy.get_ses_client")
     @patch("src.deployer.deploy.send_email")
+    @patch("src.deployer.deploy.get_binary_storage")
     async def test_deploy_pack_common_stack_failed(
         self,
+        mock_get_binary_storage,
         mock_send_email,
         mock_get_ses_client,
         mock_temp_dir,
@@ -827,6 +871,8 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_deploy_applications,
     ):
         # Arrange
+        mock_binary_store = MagicMock()
+        mock_get_binary_storage.return_value = mock_binary_store
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_iac_storage = mock_get_iac_storage.return_value
