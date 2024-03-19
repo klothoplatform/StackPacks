@@ -21,6 +21,7 @@ pydantic-yaml = "*"
 prettytable = "*"
 aiomultiprocess = "*"
 watchdog = "*"
+asyncclick = "*"
 
 [dev-packages]
 black = "*"
