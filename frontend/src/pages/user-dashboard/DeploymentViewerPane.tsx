@@ -189,13 +189,14 @@ const LogPane: FC<{
             newResults.set(index, [
               ...(newResults.get(index) ?? []),
               {
-                resultNumber: total++,
+                resultNumber: total,
                 lineNumber: index + 1,
                 start,
                 end,
               },
             ]);
             newResultLineNumbers[total] = index + 1;
+            total++;
           }
         });
         setResults({
