@@ -14,11 +14,6 @@ log = logging.getLogger()
 # this must be somewhere in /tmp
 root_path = Path(os.environ.get("BINARIES_ROOT", "/tmp"))
 
-# engine_path and iac_path are the paths to the binaries if they are overridden. This is useful for local testing
-# and can be easily set to the one on your path via `ENGINE_PATH=$(which engine)`
-engine_path = os.environ.get("ENGINE_PATH")
-iac_path = os.environ.get("IAC_PATH")
-
 
 class Binary(Enum):
     ENGINE = "engine"
@@ -26,6 +21,10 @@ class Binary(Enum):
 
     @property
     def path(self):
+        # engine_path and iac_path are the paths to the binaries if they are overridden. This is useful for local testing
+        # and can be easily set to the one on your path via `ENGINE_PATH=$(which engine)`
+        engine_path = os.environ.get("ENGINE_PATH")
+        iac_path = os.environ.get("IAC_PATH")
         if self == Binary.ENGINE:
             if engine_path is not None:
                 return Path(engine_path)

@@ -67,3 +67,11 @@ configuration:
     type: string
     pulumi_key: # The pulumi config key to use for this value, set before the 'pulumi up'
 ```
+
+
+## CLI
+
+To generate infrastructure output from a stackpack file run from the root of the project
+```sh
+PYTHONPATH=. python3.11 scripts/cli.py iac generate-iac --file ./path/to/file.yaml --engine-path /path/to/engine --iac-binary-path path/to/iac --project-name sample-project --output-dir output
+```
