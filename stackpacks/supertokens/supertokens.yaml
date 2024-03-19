@@ -1,4 +1,5 @@
-name: supertokens
+name: SuperTokens
+id: supertokens
 description: User authentication and session management framework
 version: '1.0.0'
 requires:
@@ -99,3 +100,8 @@ configuration:
     validation:
       minLength: 8
       maxLength: 128
+
+outputs:
+  URL:
+    description: The URL of the SuperTokens service
+    value: aws:cloudfront_distribution:supertokens-cf#Domain

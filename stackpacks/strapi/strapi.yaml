@@ -1,4 +1,5 @@
-name: strapi
+name: Strapi
+id: strapi
 description: Node.js Headless CMS to build customisable APIs
 version: '1.0.0'
 requires:
@@ -104,3 +105,8 @@ configuration:
     validation:
       minLength: 8
       maxLength: 128
+
+outputs:
+  URL:
+    description: The URL of the Strapi service
+    value: aws:cloudfront_distribution:strapi-cf#Domain

@@ -1,4 +1,5 @@
-name: typesense
+name: TypeSense
+id: typesense
 description: Typo tolerant fuzzy search engine
 version: '1.0.0'
 requires:
@@ -101,3 +102,8 @@ configuration:
     validation:
       minLength: 8
       maxLength: 128
+
+outputs:
+  URL:
+    description: The URL of the TypeSense service
+    value: aws:cloudfront_distribution:typesense-cf#Domain

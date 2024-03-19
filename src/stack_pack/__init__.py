@@ -200,9 +200,7 @@ class StackConfig(BaseModel):
 
 
 class StackPack(BaseModel):
-    id: str = Field(
-        default=None, exclude=True, validate_default=False
-    )  # Default is None because it is set outside of the model
+    id: str
     name: str
     version: str = Field(default="0.0.1")
     description: str = Field(default="")
@@ -258,6 +256,9 @@ def get_stack_packs() -> dict[str, StackPack]:
             sp = parse_yaml_file_as(StackPack, f)
         except Exception as e:
             raise ValueError(f"Failed to parse {dir.name}") from e
-        sp.id = dir.name
-        sps[sp.name] = sp
+
+        if sp.id in sps:
+            raise ValueError(f"Duplicate stack pack id: {sp.id}")
+
+        sps[sp.id] = sp
     return sps
