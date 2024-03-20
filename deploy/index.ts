@@ -583,19 +583,13 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "projects-policy",
+      name: "stacksnap-shared-storage-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
-            Action: ["dynamodb:*"],
+            Action: ["efs:Client*"],
             Effect: "Allow",
-            Resource: [
-              projects.arn,
-              pulumi.interpolate`${projects.arn}/stream/*`,
-              pulumi.interpolate`${projects.arn}/backup/*`,
-              pulumi.interpolate`${projects.arn}/export/*`,
-              pulumi.interpolate`${projects.arn}/index/*`,
-            ],
+            Resource: [stacksnap_shared_storage.arn],
           },
         ],
         Version: "2012-10-17",
@@ -612,19 +606,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
               stacksnap_binaries.arn,
               pulumi.interpolate`${stacksnap_binaries.arn}/*`,
             ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-shared-storage-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["efs:Client*"],
-            Effect: "Allow",
-            Resource: [stacksnap_shared_storage.arn],
           },
         ],
         Version: "2012-10-17",
@@ -663,31 +644,18 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "stacksnap-email-identity-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["ses:SendEmail", "ses:SendRawEmail"],
-            Effect: "Allow",
-            Resource: [stacksnap_email_identity.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "project-applications-policy",
+      name: "projects-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
             Action: ["dynamodb:*"],
             Effect: "Allow",
             Resource: [
-              project_applications.arn,
-              pulumi.interpolate`${project_applications.arn}/stream/*`,
-              pulumi.interpolate`${project_applications.arn}/backup/*`,
-              pulumi.interpolate`${project_applications.arn}/export/*`,
-              pulumi.interpolate`${project_applications.arn}/index/*`,
+              projects.arn,
+              pulumi.interpolate`${projects.arn}/stream/*`,
+              pulumi.interpolate`${projects.arn}/backup/*`,
+              pulumi.interpolate`${projects.arn}/export/*`,
+              pulumi.interpolate`${projects.arn}/index/*`,
             ],
           },
         ],
@@ -726,6 +694,38 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
               pulumi.interpolate`${workflow_runs.arn}/backup/*`,
               pulumi.interpolate`${workflow_runs.arn}/export/*`,
               pulumi.interpolate`${workflow_runs.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-email-identity-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["ses:SendEmail", "ses:SendRawEmail"],
+            Effect: "Allow",
+            Resource: [stacksnap_email_identity.arn],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "project-applications-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              project_applications.arn,
+              pulumi.interpolate`${project_applications.arn}/stream/*`,
+              pulumi.interpolate`${project_applications.arn}/backup/*`,
+              pulumi.interpolate`${project_applications.arn}/export/*`,
+              pulumi.interpolate`${project_applications.arn}/index/*`,
             ],
           },
         ],
@@ -961,7 +961,11 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
       },
     ],
     enabled: true,
-    viewerCertificate: { cloudfrontDefaultCertificate: true },
+    viewerCertificate: {
+      acmCertificateArn:
+        "arn:aws:acm:us-east-1:338991950301:certificate/de37adbe-563d-4b81-b878-8be0e8175ce4",
+      sslSupportMethod: "sni-only",
+    },
     orderedCacheBehaviors: [
       {
         allowedMethods: [
@@ -985,8 +989,10 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
         viewerProtocolPolicy: "redirect-to-https",
       },
     ],
+    aliases: ["dev.stacksnap.io"],
     customErrorResponses: [
       { errorCode: 403, responseCode: 200, responsePagePath: "/index.html" },
+      { errorCode: 404, responseCode: 200, responsePagePath: "/index.html" },
     ],
     defaultCacheBehavior: {
       allowedMethods: [
