@@ -583,19 +583,80 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "project-applications-policy",
+      name: "projects-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
             Action: ["dynamodb:*"],
             Effect: "Allow",
             Resource: [
-              project_applications.arn,
-              pulumi.interpolate`${project_applications.arn}/stream/*`,
-              pulumi.interpolate`${project_applications.arn}/backup/*`,
-              pulumi.interpolate`${project_applications.arn}/export/*`,
-              pulumi.interpolate`${project_applications.arn}/index/*`,
+              projects.arn,
+              pulumi.interpolate`${projects.arn}/stream/*`,
+              pulumi.interpolate`${projects.arn}/backup/*`,
+              pulumi.interpolate`${projects.arn}/export/*`,
+              pulumi.interpolate`${projects.arn}/index/*`,
             ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-binaries-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["s3:*"],
+            Effect: "Allow",
+            Resource: [
+              stacksnap_binaries.arn,
+              pulumi.interpolate`${stacksnap_binaries.arn}/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-shared-storage-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["efs:Client*"],
+            Effect: "Allow",
+            Resource: [stacksnap_shared_storage.arn],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-iac-store-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["s3:*"],
+            Effect: "Allow",
+            Resource: [
+              stacksnap_iac_store.arn,
+              pulumi.interpolate`${stacksnap_iac_store.arn}/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-pulumi-access-token-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: [
+              "secretsmanager:DescribeSecret",
+              "secretsmanager:GetSecretValue",
+            ],
+            Effect: "Allow",
+            Resource: [stacksnap_pulumi_access_token.arn],
           },
         ],
         Version: "2012-10-17",
@@ -615,18 +676,18 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "projects-policy",
+      name: "project-applications-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
             Action: ["dynamodb:*"],
             Effect: "Allow",
             Resource: [
-              projects.arn,
-              pulumi.interpolate`${projects.arn}/stream/*`,
-              pulumi.interpolate`${projects.arn}/backup/*`,
-              pulumi.interpolate`${projects.arn}/export/*`,
-              pulumi.interpolate`${projects.arn}/index/*`,
+              project_applications.arn,
+              pulumi.interpolate`${project_applications.arn}/stream/*`,
+              pulumi.interpolate`${project_applications.arn}/backup/*`,
+              pulumi.interpolate`${project_applications.arn}/export/*`,
+              pulumi.interpolate`${project_applications.arn}/index/*`,
             ],
           },
         ],
@@ -666,67 +727,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
               pulumi.interpolate`${workflow_runs.arn}/export/*`,
               pulumi.interpolate`${workflow_runs.arn}/index/*`,
             ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-shared-storage-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["efs:Client*"],
-            Effect: "Allow",
-            Resource: [stacksnap_shared_storage.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-binaries-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["s3:*"],
-            Effect: "Allow",
-            Resource: [
-              stacksnap_binaries.arn,
-              pulumi.interpolate`${stacksnap_binaries.arn}/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-iac-store-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["s3:*"],
-            Effect: "Allow",
-            Resource: [
-              stacksnap_iac_store.arn,
-              pulumi.interpolate`${stacksnap_iac_store.arn}/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-pulumi-access-token-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: [
-              "secretsmanager:DescribeSecret",
-              "secretsmanager:GetSecretValue",
-            ],
-            Effect: "Allow",
-            Resource: [stacksnap_pulumi_access_token.arn],
           },
         ],
         Version: "2012-10-17",
@@ -937,8 +937,8 @@ const subnet_0_route_table = new aws.ec2.RouteTable("subnet-0-route_table", {
 
   tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "subnet-0-route_table" },
 });
-const stacksnap_ditribution = new aws.cloudfront.Distribution(
-  "stacksnap-ditribution",
+const stacksnap_distribution = new aws.cloudfront.Distribution(
+  "stacksnap-distribution",
   {
     origins: [
       {
@@ -1007,10 +1007,10 @@ const stacksnap_ditribution = new aws.cloudfront.Distribution(
       viewerProtocolPolicy: "allow-all",
     },
     restrictions: { geoRestriction: { restrictionType: "none" } },
-    tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "stacksnap-ditribution" },
+    tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "stacksnap-distribution" },
   },
 );
-export const stacksnap_ditribution_Domain = stacksnap_ditribution.domainName;
+export const stacksnap_distribution_Domain = stacksnap_distribution.domainName;
 const stacksnap_alb_listener = new aws.lb.Listener("stacksnap-alb-listener", {
   loadBalancerArn: stacksnap_alb.arn,
   defaultActions: [

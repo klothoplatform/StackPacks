@@ -125,7 +125,7 @@ base:
         Protocol: HTTP
         Path: /api/ping
         Matcher: 200-299
-    aws:cloudfront_distribution:stacksnap-ditribution:
+    aws:cloudfront_distribution:stacksnap-distribution:
       CustomErrorResponses:
         - ErrorCode: 403
           ResponseCode: 200
@@ -148,8 +148,8 @@ base:
 
   edges:
     # Networking
-    aws:cloudfront_distribution:stacksnap-ditribution -> aws:s3_bucket:stacksnap-ui:
-    aws:cloudfront_distribution:stacksnap-ditribution -> aws:load_balancer:stacksnap-alb:
+    aws:cloudfront_distribution:stacksnap-distribution -> aws:s3_bucket:stacksnap-ui:
+    aws:cloudfront_distribution:stacksnap-distribution -> aws:load_balancer:stacksnap-alb:
     aws:load_balancer:stacksnap-alb -> aws:load_balancer_listener:stacksnap-alb-listener:
     aws:load_balancer_listener_rule:stacksnap-alb-listener-rule -> aws:ecs_service:stacksnap-service:
     # Data Persistence
