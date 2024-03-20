@@ -583,13 +583,54 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "stacksnap-shared-storage-policy",
+      name: "stacksnap-pulumi-access-token-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
-            Action: ["efs:Client*"],
+            Action: [
+              "secretsmanager:DescribeSecret",
+              "secretsmanager:GetSecretValue",
+            ],
             Effect: "Allow",
-            Resource: [stacksnap_shared_storage.arn],
+            Resource: [stacksnap_pulumi_access_token.arn],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "project-applications-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              project_applications.arn,
+              pulumi.interpolate`${project_applications.arn}/stream/*`,
+              pulumi.interpolate`${project_applications.arn}/backup/*`,
+              pulumi.interpolate`${project_applications.arn}/export/*`,
+              pulumi.interpolate`${project_applications.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-runs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_runs.arn,
+              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_runs.arn}/export/*`,
+              pulumi.interpolate`${workflow_runs.arn}/index/*`,
+            ],
           },
         ],
         Version: "2012-10-17",
@@ -612,6 +653,19 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
+      name: "stacksnap-shared-storage-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["efs:Client*"],
+            Effect: "Allow",
+            Resource: [stacksnap_shared_storage.arn],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
       name: "stacksnap-iac-store-policy",
       policy: pulumi.jsonStringify({
         Statement: [
@@ -628,16 +682,13 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "stacksnap-pulumi-access-token-policy",
+      name: "stacksnap-email-identity-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
-            Action: [
-              "secretsmanager:DescribeSecret",
-              "secretsmanager:GetSecretValue",
-            ],
+            Action: ["ses:SendEmail", "ses:SendRawEmail"],
             Effect: "Allow",
-            Resource: [stacksnap_pulumi_access_token.arn],
+            Resource: [stacksnap_email_identity.arn],
           },
         ],
         Version: "2012-10-17",
@@ -675,57 +726,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
               pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
               pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
               pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "workflow-runs-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              workflow_runs.arn,
-              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
-              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
-              pulumi.interpolate`${workflow_runs.arn}/export/*`,
-              pulumi.interpolate`${workflow_runs.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-email-identity-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["ses:SendEmail", "ses:SendRawEmail"],
-            Effect: "Allow",
-            Resource: [stacksnap_email_identity.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "project-applications-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              project_applications.arn,
-              pulumi.interpolate`${project_applications.arn}/stream/*`,
-              pulumi.interpolate`${project_applications.arn}/backup/*`,
-              pulumi.interpolate`${project_applications.arn}/export/*`,
-              pulumi.interpolate`${project_applications.arn}/index/*`,
             ],
           },
         ],
@@ -992,7 +992,6 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
     aliases: ["dev.stacksnap.io"],
     customErrorResponses: [
       { errorCode: 403, responseCode: 200, responsePagePath: "/index.html" },
-      { errorCode: 404, responseCode: 200, responsePagePath: "/index.html" },
     ],
     defaultCacheBehavior: {
       allowedMethods: [
