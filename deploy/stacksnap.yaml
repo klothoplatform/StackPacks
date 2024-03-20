@@ -1,0 +1,170 @@
+name: StackSnap
+id: stacksnap
+
+base:
+  resources:
+    # Compute Services
+    aws:ecs_service:stacksnap-service:
+      TaskDefinition: aws:ecs_task_definition:stacksnap-task
+      Image: aws:ecr_image:stacksnap-task-image
+      LoadBalancers[0]:
+        ContainerPort: 80
+        ContainerName: stacksnap-backend
+        TargetGroup: aws:target_group:stacksnap-tg
+    aws:ecs_task_definition:stacksnap-task:
+      Cpu: 512
+      Memory: 3200
+      ExecutionRole: aws:iam_role:stacksnap-ecs-task-role
+      TaskRole: aws:iam_role:stacksnap-ecs-task-role
+      Volumes:
+        - Name: "docker_sock"
+          Host:
+            SourcePath: "/var/run/docker.sock"
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:stacksnap-task-image
+        Name: stacksnap-backend
+        Cpu: 512
+        Memory: 3200
+        Essential: true
+        MountPoints:
+          -  SourceVolume: "docker_sock"
+             ContainerPath: "/var/run/docker.sock"
+        PortMappings[0]:
+          ContainerPort: 80
+          HostPort: 80
+        HealthCheck:
+          Command:
+            - "CMD-SHELL"
+            - "curl -f http://localhost:80/api/ping || exit 1"
+        Environment:
+          - Name: PULUMISTACKS_TABLE_NAME
+            Value: aws:dynamodb_table:pulumi-stacks#Name
+          - Name: USERPACKS_TABLE_NAME
+            Value: aws:dynamodb_table:projects#Name
+          - Name: USERAPPS_TABLE_NAME
+            Value: aws:dynamodb_table:project-applications#Name
+          - Name: DEPLOYMENTS_TABLE_NAME
+            Value: aws:dynamodb_table:workflow-runs#Name
+          - Name: IAC_STORE_BUCKET_NAME
+            Value: aws:s3_bucket:stacksnap-iac-store#BucketName
+          - Name: STACK_SNAP_BINARIES_BUCKET_NAME
+            Value: aws:s3_bucket:stacksnap-binaries#BucketName
+          - Name: AUTH0_DOMAIN
+            Value: klotho-dev.us.auth0.com
+          - Name: AUTH0_AUDIENCE
+            Value: hZwtQWajZBlAM7lKOp6jr98py5v13jCk
+          - Name: PULUMI_ACCESS_TOKEN_ID
+            Value: aws:secret:stacksnap-pulumi-access-token#Id
+    aws:ecr_image:stacksnap-task-image:
+      BaseImage: python:3.11-slim-bookworm
+      Context: ".."
+      Dockerfile: Dockerfile
+    # Compute Infrastructure
+    aws:ecs_cluster:stacksnap-ecs-cluster:
+    aws:ec2_launch_template:stacksnap-ecs-launch-template:
+      LaunchTemplateData:
+        InstanceType: t3.large
+    aws:auto_scaling_group:stacksnap-asg:
+      MinSize: 1
+      MaxSize: 2
+    aws:ecs_cluster_capacity_provider:stacksnap-cluster-capacity-provider:
+    aws:ecs_capacity_provider:stacksnap-capacity-provider:
+    # Data Persistence
+    aws:dynamodb_table:projects:
+      Attributes:
+          - Name: id
+            Type: S
+      HashKey: id
+    aws:dynamodb_table:project-applications:
+      Attributes:
+        - Name: app_id
+          Type: S
+        - Name: version
+          Type: N
+      HashKey: app_id
+      RangeKey: version
+    aws:dynamodb_table:workflow-runs:
+      Attributes:
+        - Name: id
+          Type: S
+        - Name: iac_stack_composite_key
+          Type: S
+      HashKey: id
+      RangeKey: iac_stack_composite_key
+    aws:dynamodb_table:pulumi-stacks:
+      Attributes:
+        - Name: project_name
+          Type: S
+        - Name: name
+          Type: S
+      HashKey: project_name
+      RangeKey: name
+    aws:s3_bucket:stacksnap-binaries:
+    aws:s3_bucket:stacksnap-iac-store:
+    aws:s3_bucket:stacksnap-ui:
+    aws:efs_file_system:stacksnap-shared-storage:
+    # Secrets & Identity
+    aws:secret:stacksnap-pulumi-access-token:
+    aws:ses_email_identity:stacksnap-email-identity:
+      EmailIdentity: stacksnap@klo.dev
+    aws:iam_role:stacksnap-ecs-task-role:
+      InlinePolicies:
+        - Name: allow-sts-assume-role
+          Policy:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: ["*"]
+    # Networking
+    aws:target_group:stacksnap-tg:
+      Port: 80
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /api/ping
+        Matcher: 200-299
+    aws:cloudfront_distribution:stacksnap-ditribution:
+      CustomErrorResponses:
+        - ErrorCode: 403
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+    aws:load_balancer:stacksnap-alb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:stacksnap-alb-listener:
+      LoadBalancer: aws:load_balancer:stacksnap-alb
+      Port: 80
+      Protocol: HTTP
+    aws:load_balancer_listener_rule:stacksnap-alb-listener-rule:
+      Tags:
+        Name: default-rule
+      Priority: 1
+      Conditions:
+        - PathPattern:
+            Values:
+              - "/api/*"
+
+  edges:
+    # Networking
+    aws:cloudfront_distribution:stacksnap-ditribution -> aws:s3_bucket:stacksnap-ui:
+    aws:cloudfront_distribution:stacksnap-ditribution -> aws:load_balancer:stacksnap-alb:
+    aws:load_balancer:stacksnap-alb -> aws:load_balancer_listener:stacksnap-alb-listener:
+    aws:load_balancer_listener_rule:stacksnap-alb-listener-rule -> aws:ecs_service:stacksnap-service:
+    # Data Persistence
+    aws:ecs_service:stacksnap-service -> aws:dynamodb_table:projects:
+    aws:ecs_service:stacksnap-service -> aws:dynamodb_table:project-applications:
+    aws:ecs_service:stacksnap-service -> aws:dynamodb_table:workflow-runs:
+    aws:ecs_service:stacksnap-service -> aws:dynamodb_table:pulumi-stacks:
+    aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-binaries:
+    aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-iac-store:
+    aws:ecs_service:stacksnap-service -> aws:efs_file_system:stacksnap-shared-storage:
+    # Secrets & Identity
+    aws:ecs_service:stacksnap-service -> aws:secret:stacksnap-pulumi-access-token:
+    aws:ecs_service:stacksnap-service -> aws:ses_email_identity:stacksnap-email-identity:
+    # Compute Infrastructure
+    aws:ecs_cluster_capacity_provider:stacksnap-cluster-capacity-provider -> aws:ecs_cluster:stacksnap-ecs-cluster:
+    aws:ecs_capacity_provider:stacksnap-capacity-provider -> aws:auto_scaling_group:stacksnap-asg:
+    aws:ecs_capacity_provider:stacksnap-capacity-provider -> aws:ecs_cluster_capacity_provider:stacksnap-cluster-capacity-provider:
+    aws:auto_scaling_group:stacksnap-asg -> aws:ec2_launch_template:stacksnap-ecs-launch-template:

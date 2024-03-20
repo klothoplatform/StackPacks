@@ -11,6 +11,7 @@ from src.auth.token import get_user_id
 from src.dependencies.injection import get_iac_storage, get_binary_storage
 from src.deployer.models.deployment import PulumiStack, Deployment
 from src.deployer.pulumi.deploy_logs import DeploymentDir
+from src.engine_service.binaries.fetcher import Binary
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
@@ -40,6 +41,8 @@ async def create_stack(
     policy: Policy = None
     user_id = await get_user_id(request)
     try:
+        binary_storage = get_binary_storage()
+        binary_storage.ensure_binary(Binary.ENGINE)
         pack = UserPack.get(user_id)
         if pack is not None:
             raise HTTPException(

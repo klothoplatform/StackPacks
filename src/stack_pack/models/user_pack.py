@@ -31,6 +31,7 @@ class UserPack(Model):
         table_name = os.environ.get("USERPACKS_TABLE_NAME", "UserPacks")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
+        region = os.environ.get("AWS_DEFAULT_REGION", None)
 
     id: str = UnicodeAttribute(hash_key=True)
     owner: str = UnicodeAttribute()

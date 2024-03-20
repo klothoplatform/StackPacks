@@ -21,8 +21,8 @@ async def iac():
 @click.option(
     "--file", prompt="yaml file", help="The yaml file noting the iac scaffold."
 )
-@click.option("--engine-path", prompt="engine path", help="The engine path")
-@click.option("--iac-binary-path", prompt="iac binary path", help="The iac path.")
+@click.option("--engine-path", help="The engine path")
+@click.option("--iac-binary-path", help="The iac path.")
 @click.option("--project-name", prompt="project name", help="The project name.")
 @click.option("--output-dir", prompt="output directory", help="The output directory.")
 async def generate_iac(
@@ -37,8 +37,13 @@ async def generate_iac(
     except Exception as e:
         raise ValueError(f"Failed to parse {file}") from e
 
-    os.environ.update({"ENGINE_PATH": engine_path})
-    os.environ.update({"IAC_PATH": iac_binary_path})
+    if engine_path:
+        os.environ.update({"ENGINE_PATH": engine_path})
+    if iac_binary_path:
+        os.environ.update({"IAC_PATH": iac_binary_path})
+
+    os.makedirs(output_dir, exist_ok=True)
+
     request = RunEngineRequest(
         constraints=sp.to_constraints({}),
         tmp_dir=output_dir,

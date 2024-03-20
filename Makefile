@@ -56,3 +56,12 @@ build-frontend-dev:
 
 build-frontend-prod:
 	npm --prefix frontend run build-prod
+
+generate-dev-infra:
+	PYTHONPATH=. pipenv run python scripts/cli.py iac \
+		generate-iac \
+		--file ./deploy/stacksnap.yaml \
+		--project-name stacksnap-dev --output-dir deploy/output
+	npx prettier --write deploy/output/index.ts
+	cp deploy/output/index.ts ./deploy
+	cp deploy/output/package.json ./deploy

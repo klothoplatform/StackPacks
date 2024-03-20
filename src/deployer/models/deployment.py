@@ -25,6 +25,7 @@ class Deployment(Model):
         table_name = os.environ.get("DEPLOYMENTS_TABLE_NAME", "Deployments")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
+        region = os.environ.get("AWS_DEFAULT_REGION", None)
 
     id: str = UnicodeAttribute(hash_key=True)
     iac_stack_composite_key: str = UnicodeAttribute(range_key=True)
@@ -55,6 +56,7 @@ class PulumiStack(Model):
         table_name = os.environ.get("PULUMISTACKS_TABLE_NAME", "PulumiStacks")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
+        region = os.environ.get("AWS_DEFAULT_REGION", None)
 
     project_name: str = UnicodeAttribute(hash_key=True)
     name: str = UnicodeAttribute(range_key=True)

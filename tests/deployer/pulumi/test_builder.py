@@ -54,7 +54,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         self.assertEqual(mock_stack.set_config.call_count, 2)
         mock_stack.set_config.assert_any_call("aws:region", "region")
         mock_stack.set_config.assert_any_call(
-            "aws:assumeRole.roleArn", "arn", path="aws:assumeRole"
+            "aws:assumeRole.roleArn", "arn", path=True
         )
 
     @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")
