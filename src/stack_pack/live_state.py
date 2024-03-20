@@ -15,8 +15,10 @@ class LiveState(BaseModel):
         constraints = []
 
         for res, properties in common_stack.base.resources.items():
-            if self.resources.get(res, None) is not None:
-                self.resources[res].update(properties)
+            current_properties = self.resources.get(res)
+            if current_properties is not None and properties is not None:
+                current_properties.update(properties)
+                self.resources.update({res: current_properties})
 
         for r, properties in common_stack.base.resources.items():
             if r in common_stack.always_inject:
