@@ -583,22 +583,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "stacksnap-pulumi-access-token-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: [
-              "secretsmanager:DescribeSecret",
-              "secretsmanager:GetSecretValue",
-            ],
-            Effect: "Allow",
-            Resource: [stacksnap_pulumi_access_token.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
       name: "project-applications-policy",
       policy: pulumi.jsonStringify({
         Statement: [
@@ -618,19 +602,13 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "workflow-runs-policy",
+      name: "stacksnap-shared-storage-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
-            Action: ["dynamodb:*"],
+            Action: ["efs:Client*"],
             Effect: "Allow",
-            Resource: [
-              workflow_runs.arn,
-              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
-              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
-              pulumi.interpolate`${workflow_runs.arn}/export/*`,
-              pulumi.interpolate`${workflow_runs.arn}/index/*`,
-            ],
+            Resource: [stacksnap_shared_storage.arn],
           },
         ],
         Version: "2012-10-17",
@@ -653,19 +631,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "stacksnap-shared-storage-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["efs:Client*"],
-            Effect: "Allow",
-            Resource: [stacksnap_shared_storage.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
       name: "stacksnap-iac-store-policy",
       policy: pulumi.jsonStringify({
         Statement: [
@@ -682,13 +647,29 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
+      name: "stacksnap-pulumi-access-token-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: [
+              "secretsmanager:DescribeSecret",
+              "secretsmanager:GetSecretValue",
+            ],
+            Effect: "Allow",
+            Resource: [stacksnap_pulumi_access_token.arn],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
       name: "stacksnap-email-identity-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
             Action: ["ses:SendEmail", "ses:SendRawEmail"],
             Effect: "Allow",
-            Resource: [stacksnap_email_identity.arn],
+            Resource: ["*"],
           },
         ],
         Version: "2012-10-17",
@@ -726,6 +707,25 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
               pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
               pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
               pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-runs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_runs.arn,
+              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_runs.arn}/export/*`,
+              pulumi.interpolate`${workflow_runs.arn}/index/*`,
             ],
           },
         ],
@@ -813,6 +813,10 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
         {
           name: "PULUMI_ACCESS_TOKEN_ID",
           value: stacksnap_pulumi_access_token.id,
+        },
+        {
+          name: "SES_SENDER_ADDRESS",
+          value: "stacksnap@klo.dev",
         },
         {
           name: "PROJECT_APPLICATIONS_TABLE_NAME",

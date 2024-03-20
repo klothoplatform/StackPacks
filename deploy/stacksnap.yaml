@@ -55,6 +55,8 @@ base:
             Value: hZwtQWajZBlAM7lKOp6jr98py5v13jCk
           - Name: PULUMI_ACCESS_TOKEN_ID
             Value: aws:secret:stacksnap-pulumi-access-token#Id
+          - Name: SES_SENDER_ADDRESS
+            Value: aws:ses_email_identity:stacksnap-email-identity#EmailIdentity
     aws:ecr_image:stacksnap-task-image:
       BaseImage: python:3.11-slim-bookworm
       Context: ".."
