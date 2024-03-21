@@ -54,6 +54,7 @@ class UserApp(Model):
         table_name = os.environ.get("USERAPPS_TABLE_NAME", "UserApps")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
+        region = os.environ.get("AWS_DEFAULT_REGION", None)
 
     # app_id is a composite key around the id of the user pack and the name of the app
     app_id: str = UnicodeAttribute(hash_key=True)

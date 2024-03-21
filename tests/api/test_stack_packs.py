@@ -95,6 +95,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         self.assertEqual(response.stack, user_stack)
         self.assertEqual(response.policy, "policy2")
 
+    @patch("src.api.stack_packs.get_binary_storage")
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
@@ -107,6 +108,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
         mock_pack = MagicMock(
@@ -131,6 +133,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_pack.assert_called_once_with("user_id")
         mock_get_stack_packs.assert_not_called()
         mock_get_iac_storage.assert_not_called()
+        mock_get_binary_storage.assert_called_once()
         mock_tmp_dir.assert_not_called()
         mock_tmp_dir.return_value.__enter__.assert_not_called()
         mock_pack.run_base.assert_not_called()

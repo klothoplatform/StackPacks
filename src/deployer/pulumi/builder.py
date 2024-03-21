@@ -34,7 +34,7 @@ class AppBuilder:
         stack = auto.create_or_select_stack(
             stack_name=pulumi_stack.name,
             project_name=pulumi_stack.project_name,
-            work_dir=self.output_dir,
+            work_dir=str(self.output_dir),
         )
         log.info(
             f"Successfully created stack for {pulumi_stack.project_name} {pulumi_stack.name}"
@@ -44,7 +44,7 @@ class AppBuilder:
     def configure_aws(self, stack: auto.Stack, role_arn: str, region: str):
         stack.set_config("aws:region", auto.ConfigValue(region))
         stack.set_config(
-            "aws:assumeRole.roleArn", auto.ConfigValue(role_arn), path="aws:assumeRole"
+            "aws:assumeRole.roleArn", auto.ConfigValue(role_arn), path=True
         )
 
     def install_npm_deps(self):

@@ -1,10 +1,8 @@
+import os
+
 import boto3
 
 from src.util.logging import logger
-
-# Replace sender@example.com with your "From" address.
-# This address must be verified with Amazon SES.
-SENDER = "Stack Snap <stacksnap@stacksnap.com>"
 
 
 # The subject line for the email.
@@ -33,15 +31,20 @@ BODY_HTML = """<html>
 # The character encoding for the email.
 CHARSET = "UTF-8"
 
-# Create a new SES resource and specify a region.
-
 
 def send_email(client: boto3.client, recipient: str, applications: list[str]):
+    # This address must be verified with Amazon SES.
+    sender_address = os.getenv("SES_SENDER_ADDRESS", None)
+    sender = f"Stack Snap <{sender_address}>"
+
+    if not sender_address:
+        logger.error("No sender address set. Cannot send email.")
+        return
     # Try to send the email.
     try:
         # Provide the contents of the email.
         response = client.send_email(
-            FromEmailAddress=SENDER,
+            FromEmailAddress=sender,
             Destination={
                 "ToAddresses": [
                     recipient,
