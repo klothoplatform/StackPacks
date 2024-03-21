@@ -65,3 +65,43 @@ generate-dev-infra:
 	npx prettier --write deploy/output/index.ts
 	cp deploy/output/index.ts ./deploy
 	cp deploy/output/package.json ./deploy
+
+generate-personal-infra:
+	PYTHONPATH=. pipenv run python scripts/cli.py iac \
+		generate-iac \
+		--file ./personal/stacksnap.yaml \
+		--project-name stacksnap-personal --output-dir personal/output
+	npx prettier --write personal/output/index.ts
+	cp personal/output/Pulumi* ./personal
+	cp personal/output/index.ts ./personal
+	cp personal/output/package.json ./personal
+	cp deploy/container_start.sh personal
+	cp deploy/Dockerfile personal
+	
+deploy-personal-infra:
+	if [ -z "$(REGION)" ]; then echo "REGION is not set"; exit 1; fi
+	if [ -z "$(PULUMI_ACCESS_TOKEN)" ]; then echo "PULUMI_ACCESS_TOKEN is not set"; exit 1; fi
+	if [ -z "$(STACK_NAME)" ]; then echo "STACK_NAME is not set"; exit 1; fi
+	
+	pipenv requirements > requirements.txt
+
+	cd personal && \
+	npm i && \
+	pulumi config set aws:region $(REGION) -s $(STACK_NAME)  && \
+	pulumi up --yes  -s $(STACK_NAME)
+
+	make frontend/node_modules
+	make build-frontend-dev
+	STACKSNAP_UI_BUCKET_NAME=$(pulumi stack output stacksnap_ui_BucketName)
+	aws s3 sync frontend/dist/ s3://$(STACKSNAP_UI_BUCKET_NAME) --region $(REGION)
+
+
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o engine -ldflags="-s -w" ./binaries/engine
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-musl" CXX="zig c++ -target x86_64-linux-musl" go build --tags extended -o iac -ldflags="-s -w" ./binaries/iac
+	STACKSNAP_BINARIES_BUCKET_NAME=$(pulumi stack output stacksnap_binaries_BucketName)
+	aws s3 sync binaries/ s3://$(STACKSNAP_BINARIES_BUCKET_NAME) --region $(REGION)
+
+	aws secretsmanager put-secret-value --secret-id stacksnap-pulumi-access-token --secret-string "${PULUMI_ACCESS_TOKEN}" --region $(REGION)
+
+	cd personal && \
+	pulumi up --yes -s $(STACK_NAME)

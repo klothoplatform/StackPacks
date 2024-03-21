@@ -85,7 +85,6 @@ class CommonStack(StackPack):
             never_inject.update(base_part.never_inject)
             resources.update(base_part.resources)
             edges.update(base_part.edges)
-            print("FILES", base_part.files)
             files.update(base_part.files)
             configuration.update(base_part.configuration)
 
@@ -103,7 +102,6 @@ class CommonStack(StackPack):
             base_part = base[feature]
             add_dependencies(base_part)
 
-        print("FFFFFFILES", files)
         stack_base = StackParts(files=files, resources=resources, edges=edges)
         super().__init__(
             always_inject=always_inject,
