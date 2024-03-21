@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
 
+from src.util.logging import logger
+
 
 class BaseRequirements(Enum):
     NETWORK = "network"
@@ -233,6 +235,7 @@ class StackPack(BaseModel):
         root = Path("stackpacks") / self.id
         for f, data in self.base.files.items():
             # TODO execute template if `data` has template: true
+            logger.info("writing file: " + str(out_dir / f))
             (out_dir / f).write_bytes((root / f).read_bytes())
         # TODO also read files from `configuration.X.values` based on config
 

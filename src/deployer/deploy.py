@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Tuple
 
 from aiomultiprocess import Pool
+from pulumi import automation as auto
 from pydantic import BaseModel
 
-from pulumi import automation as auto
 from src.dependencies.injection import (
     get_binary_storage,
     get_iac_storage,
@@ -22,7 +22,7 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
-from src.engine_service.binaries.fetcher import BinaryStorage, Binary
+from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
@@ -312,7 +312,7 @@ async def deploy_single(
     iac_storage = get_iac_storage()
     binary_storage = get_binary_storage()
     stack_pack = sps[app.get_app_name()]
-    common_stack = CommonStack(list(sps.values()))
+    common_stack = CommonStack(list(sps.values()), pack.features)
     common_app = UserApp.get(
         UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
         pack.apps[UserPack.COMMON_APP_NAME],
@@ -339,14 +339,16 @@ async def deploy_single(
                 )
                 return
             live_state = await result.manager.read_deployed_state()
+            constraints = live_state.to_constraints(
+                common_stack, common_app.get_configurations()
+            )
+
             _ = await app.run_app(
                 stack_pack=stack_pack,
                 dir=str(tmp_dir),
                 iac_storage=iac_storage,
                 binary_storage=binary_storage,
-                imports=live_state.to_constraints(
-                    common_stack, common_app.get_configurations()
-                ),
+                imports=constraints,
             )
             await deploy_app(pack, app, stack_pack, deployment_id, tmp_dir)
             if email is not None:
@@ -379,7 +381,7 @@ async def deploy_pack(
             UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
             common_version,
         )
-        common_stack = CommonStack(list(sps.values()))
+        common_stack = CommonStack(list(sps.values()), user_pack.features)
 
         for app_name, version in user_pack.apps.items():
             if app_name == UserPack.COMMON_APP_NAME:

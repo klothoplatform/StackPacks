@@ -16,9 +16,9 @@ from pynamodb.attributes import (
 from pynamodb.models import Model
 
 from src.deployer.models.deployment import (
+    Deployment,
     DeploymentAction,
     DeploymentStatus,
-    Deployment,
     PulumiStack,
 )
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
@@ -181,6 +181,7 @@ class UserApp(Model):
                     tmp_dir=dir,
                 )
             )
+            print("FILES2", stack_pack.base.files)
             stack_pack.copy_files(self.get_configurations(), Path(dir))
             iac_bytes = zip_directory_recurse(BytesIO(), dir)
             logger.info(f"Writing IAC for {self.app_id} version {self.version}")

@@ -1,5 +1,6 @@
 id: test_small
 name: Small Testing SP
+id: test_small
 description: A small testing stackpack
 version: '1.0.0'
 

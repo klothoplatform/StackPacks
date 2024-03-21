@@ -8,11 +8,12 @@ from sse_starlette import EventSourceResponse
 from starlette.responses import StreamingResponse
 
 from src.auth.token import get_user_id
-from src.dependencies.injection import get_iac_storage, get_binary_storage
-from src.deployer.models.deployment import PulumiStack, Deployment
+from src.dependencies.injection import get_binary_storage, get_iac_storage
+from src.deployer.models.deployment import Deployment, PulumiStack
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.engine_service.binaries.fetcher import Binary
 from src.stack_pack import ConfigValues, StackConfig, get_stack_packs
+from src.stack_pack.common_stack import Feature
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
 from src.util.aws.iam import Policy
@@ -24,6 +25,7 @@ router = APIRouter()
 
 class StackRequest(BaseModel):
     configuration: dict[str, ConfigValues]
+    health_monitor_enabled: bool = True
     assumed_role_arn: str = None
     region: str = None
 
@@ -58,6 +60,7 @@ async def create_stack(
         created_by=user_id,
         apps={k: 0 for k in body.configuration.keys()},
         region=body.region,
+        features=[Feature.HEALTH_MONITOR.value] if body.health_monitor_enabled else [],
         assumed_role_arn=body.assumed_role_arn,
     )
     policy: Policy = None
@@ -86,6 +89,7 @@ async def create_stack(
 
 class UpdateStackRequest(BaseModel):
     configuration: dict[str, ConfigValues] = None
+    health_monitor_enabled: bool = True
     assumed_role_arn: str = None
     region: str = None
 
@@ -110,25 +114,43 @@ async def update_stack(
     # TODO: Determine if the base stack needs changing (this will only be true when we have samples that arent just ECS + VPC)
     # If this is the case we also need to build in the diff ability of the base stack to ensure that we arent going to delete any imported resources to other stacks
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
-    if body.configuration:
+    if body.configuration or body.health_monitor_enabled:
+        configuration: dict[str, ConfigValues] = body.configuration or {}
+        if body.health_monitor_enabled:
+            logger.info("Enabling health monitor")
+            user_pack.features = [Feature.HEALTH_MONITOR.value]
+        else:
+            user_pack.features = []
+        if body.configuration is None:
+            for app, version in user_pack.apps.items():
+                user_app = UserApp.get(
+                    UserApp.composite_key(user_pack.id, app), version
+                )
+                configuration[app] = user_app.get_configurations()
+                logger.info(f"Configuration for {app} is {configuration[app]}")
         stack_packs = get_stack_packs()
         with TempDir() as tmp_dir:
             common_policy = await user_pack.run_base(
                 stack_packs=list(stack_packs.values()),
-                config=body.configuration.get("base", {}),
+                config=configuration.get("base", {}),
                 iac_storage=get_iac_storage(),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
             policy = await user_pack.run_pack(
                 stack_packs=stack_packs,
-                config=body.configuration,
+                config=configuration,
                 iac_storage=get_iac_storage(),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
         policy.combine(common_policy)
-        user_pack.update(actions=[UserPack.apps.set(user_pack.apps)])
+        user_pack.update(
+            actions=[
+                UserPack.apps.set(user_pack.apps),
+                UserPack.features.set(user_pack.features),
+            ]
+        )
 
     return StackResponse(stack=user_pack.to_user_stack(), policy=policy.__str__())
 

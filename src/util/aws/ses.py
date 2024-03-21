@@ -1,9 +1,9 @@
+import json
 import os
 
 import boto3
 
 from src.util.logging import logger
-
 
 # The subject line for the email.
 SUBJECT = "StackSnapDeployment"
@@ -66,6 +66,46 @@ def send_email(client: boto3.client, recipient: str, applications: list[str]):
                             "Data": "StackSnap\r\n"
                             "We have successfully deployed the following applications: \r\n"
                             f"{', '.join(applications)}",
+                        },
+                    },
+                },
+            },
+        )
+    # Display an error if something goes wrong.
+    except Exception as e:
+        logger.error(e.response["Error"]["Message"])
+    else:
+        logger.info(f"Email sent! Message ID: {response['MessageId']}"),
+
+
+def send_klotho_engineering_email(client: boto3.client, message: str):
+    # This address must be verified with Amazon SES.
+    sender_address = os.getenv("SES_SENDER_ADDRESS", None)
+    sender = f"Stack Snap <{sender_address}>"
+
+    if not sender_address:
+        logger.error("No sender address set. Cannot send email.")
+        return
+    # Try to send the email.
+    try:
+        # Provide the contents of the email.
+        response = client.send_email(
+            FromEmailAddress=sender,
+            Destination={
+                "ToAddresses": [
+                    "klotho-engineering@klo.dev",
+                ],
+            },
+            Content={
+                "Simple": {
+                    "Subject": {
+                        "Charset": CHARSET,
+                        "Data": "SnackStap Customer Alarm",
+                    },
+                    "Body": {
+                        "Text": {
+                            "Charset": CHARSET,
+                            "Data": json.dumps(message, indent=4),
                         },
                     },
                 },

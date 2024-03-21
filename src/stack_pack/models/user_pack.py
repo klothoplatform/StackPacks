@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from pynamodb.attributes import (
     BooleanAttribute,
     JSONAttribute,
+    ListAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
 )
@@ -37,6 +38,7 @@ class UserPack(Model):
     owner: str = UnicodeAttribute()
     region: str = UnicodeAttribute(null=True)
     assumed_role_arn: str = UnicodeAttribute(null=True)
+    features: List[str] = ListAttribute(null=True)
     apps: dict[str, int] = JSONAttribute()
     created_by: str = UnicodeAttribute()
     created_at: datetime.datetime = UTCDateTimeAttribute(
@@ -53,7 +55,7 @@ class UserPack(Model):
         tmp_dir: str,
         dry_run: bool = False,
     ) -> Policy:
-        base_stack = CommonStack(stack_packs)
+        base_stack = CommonStack(stack_packs, self.features)
         base_version = self.apps.get(UserPack.COMMON_APP_NAME, None)
         app: UserApp = None
         if base_version is not None:
@@ -81,6 +83,13 @@ class UserPack(Model):
                 configuration=config,
                 status=AppLifecycleStatus.NEW.value,
             )
+        health_endpoint_url = os.environ.get(
+            "HEALTH_ENDPOINT_URL", "http://localhost:3000"
+        )
+        app.configuration.update(
+            {"PackId": self.id, "HealthEndpointUrl": health_endpoint_url}
+        )
+
         # Run the packs in parallel and only store the iac if we are incrementing the version
         subdir = Path(tmp_dir) / app.get_app_name()
         subdir.mkdir(exist_ok=True)
@@ -205,6 +214,7 @@ class UserPack(Model):
             region=self.region,
             assumed_role_arn=self.assumed_role_arn,
             stack_packs=stack_packs,
+            features=self.features,
             created_by=self.created_by,
             created_at=self.created_at,
         )
@@ -216,5 +226,6 @@ class UserStack(BaseModel):
     region: Optional[str] = None
     assumed_role_arn: Optional[str] = None
     stack_packs: dict[str, AppModel] = Field(default_factory=dict)
+    features: Optional[List[str]] = None
     created_by: str
     created_at: datetime.datetime
