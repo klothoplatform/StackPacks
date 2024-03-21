@@ -58,7 +58,7 @@ export const ConfigureAppsStep: FC<
         .filter((section) => section !== undefined) as ConfigFormSection[];
       setSections(sections);
     })();
-  }, [getStackPacks, userStack]);
+  }, [excludedApps, getStackPacks, userStack]);
 
   return (
     <Card className={"min-h-[50vh] w-full p-4"}>

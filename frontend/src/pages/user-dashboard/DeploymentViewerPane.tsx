@@ -377,7 +377,7 @@ const LogPane: FC<{
               size={"xs"}
               color={"dark"}
               className={
-                "absolute bottom-[4rem] right-[6rem] float-right size-fit whitespace-nowrap"
+                "absolute bottom-16 right-24 float-right size-fit whitespace-nowrap"
               }
               onClick={() =>
                 virtuosoRef.current.scrollToIndex({

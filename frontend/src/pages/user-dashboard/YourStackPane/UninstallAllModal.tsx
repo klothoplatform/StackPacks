@@ -28,11 +28,10 @@ export default function UninstallAllModal({
     formState: { errors, isValid },
   } = useForm<UninstallAllFormState>();
 
-  const { addError, tearDownStack, getUserStack, updateStack } =
-    useApplicationStore();
+  const { addError, tearDownStack, getUserStack } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const onSubmit = async (data: UninstallAllFormState) => {
+  const onSubmit = async () => {
     let success = false;
     setIsSubmitting(true);
     try {
