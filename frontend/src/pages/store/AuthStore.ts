@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import type { Auth0ContextInterface, User } from "@auth0/auth0-react";
 import type { ErrorStore } from "./ErrorStore";
 import { env } from "../../shared/environment";
+import { analytics } from "../../shared/analytics.ts";
 
 const logoutUrl = env.auth0.logoutUrl;
 
@@ -134,7 +135,13 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
     }
 
     const oldUser = get().user;
-    if (oldUser?.sub !== user?.sub) {
+    if (user?.sub && oldUser?.sub !== user?.sub) {
+      (async () =>
+        analytics.identify(user?.sub, {
+          name: user?.name,
+          email: user?.email,
+          environment: env.environment,
+        }))();
       if (user?.email) {
         (window as any).sessionRewind?.identifyUser({
           userId: user.email,

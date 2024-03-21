@@ -35,7 +35,8 @@ export const env: Environment = {
     logoutUrl: viteEnv.VITE_AUTH0_LOGOUT_URL,
   },
   analytics: {
-    writeKey: "GKCsKtwCdTQO75tRzBPKAw82xVPYPqEz",
+    writeKey: "2e0T95ezbV8leMpdzqHDGfHiZcB",
+    dataplaneUrl: "https://kloashibotqvww.dataplane.rudderstack.com",
     trackErrors: viteEnv.VITE_ANALYTICS_TRACK_ERRORS?.toLowerCase() !== "false",
   },
   awsAccountId: viteEnv.VITE_AWS_ACCOUNT_ID,
@@ -55,6 +56,7 @@ export interface Environment {
   };
   analytics: {
     writeKey: string;
+    dataplaneUrl: string;
     trackErrors: boolean;
   };
   environment: string;

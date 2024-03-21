@@ -1,16 +1,11 @@
-import { AnalyticsBrowser } from "@segment/analytics-next";
 import { env } from "./environment";
+import { RudderAnalytics } from "@rudderstack/analytics-js";
 
-export const analytics = AnalyticsBrowser.load(
-  {
-    writeKey: env.analytics.writeKey,
-    cdnURL: "https://analytics.infracopilot.io",
-  },
-  {
-    integrations: {
-      "Segment.io": {
-        apiHost: "api.analytics.infracopilot.io/v1",
-      },
+export const analytics = new RudderAnalytics();
+analytics.load(env.analytics.writeKey, env.analytics.dataplaneUrl, {
+  storage: {
+    encryption: {
+      version: "v3",
     },
   },
-);
+});
