@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import MagicMock
 
@@ -6,7 +7,7 @@ from src.util.aws.ses import send_email
 
 class TestSendEmail(unittest.TestCase):
     def test_send_email(self):
-
+        os.environ["SES_SENDER_ADDRESS"] = "stacksnap@stacksnap.com"
         mock_client = MagicMock()
         send_email(mock_client, "recipient@example.com", ["app1", "app2"])
         mock_client.send_email.assert_called_once_with(
