@@ -69,6 +69,8 @@ health_monitor:
     aws:lambda_function:health_monitor:
       Image: aws:ecr_image:health_monitor
       EnvironmentVariables:
+        # TODO: Find a way to know how to set constraints smarter or fix the engine
+        constraint_top_level:
         PACK_ID: ${PackId}
         HEALTH_ENDPOINT_URL: ${HealthEndpointUrl}
   edges:

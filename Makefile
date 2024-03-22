@@ -82,6 +82,7 @@ deploy-personal-infra:
 	if [ -z "$(REGION)" ]; then echo "REGION is not set"; exit 1; fi
 	if [ -z "$(PULUMI_ACCESS_TOKEN)" ]; then echo "PULUMI_ACCESS_TOKEN is not set"; exit 1; fi
 	if [ -z "$(STACK_NAME)" ]; then echo "STACK_NAME is not set"; exit 1; fi
+	if [ -z "$(KLOTHO_DIR)" ]; then echo "KLOTHO_DIR is not set"; exit 1; fi
 	
 	pipenv requirements > requirements.txt
 
@@ -90,18 +91,17 @@ deploy-personal-infra:
 	pulumi config set aws:region $(REGION) -s $(STACK_NAME)  && \
 	pulumi up --yes  -s $(STACK_NAME)
 
+
 	make frontend/node_modules
 	make build-frontend-dev
-	STACKSNAP_UI_BUCKET_NAME=$(pulumi stack output stacksnap_ui_BucketName)
-	aws s3 sync frontend/dist/ s3://$(STACKSNAP_UI_BUCKET_NAME) --region $(REGION)
+	aws s3 sync frontend/dist/ s3://$(shell cd personal && pulumi stack output stacksnap_ui_BucketName -s $(STACK_NAME)) --region $(REGION)
 
+    
+	cd $(KLOTHO_DIR) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o binaries/engine -ldflags="-s -w" ./cmd/engine
+	cd $(KLOTHO_DIR) && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-musl" CXX="zig c++ -target x86_64-linux-musl" go build --tags extended -o binaries/iac -ldflags="-s -w" ./cmd/iac
+	cd $(KLOTHO_DIR) && aws s3 sync binaries/ s3://$(shell cd personal && pulumi stack output stacksnap_binaries_BucketName -s $(STACK_NAME)) --region $(REGION)
 
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o engine -ldflags="-s -w" ./binaries/engine
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC="zig cc -target x86_64-linux-musl" CXX="zig c++ -target x86_64-linux-musl" go build --tags extended -o iac -ldflags="-s -w" ./binaries/iac
-	STACKSNAP_BINARIES_BUCKET_NAME=$(pulumi stack output stacksnap_binaries_BucketName)
-	aws s3 sync binaries/ s3://$(STACKSNAP_BINARIES_BUCKET_NAME) --region $(REGION)
-
-	aws secretsmanager put-secret-value --secret-id stacksnap-pulumi-access-token --secret-string "${PULUMI_ACCESS_TOKEN}" --region $(REGION)
+	aws secretsmanager put-secret-value --secret-id stacksnap-pulumi-access-token --secret-string "$(PULUMI_ACCESS_TOKEN)" --region $(REGION)
 
 	cd personal && \
 	pulumi up --yes -s $(STACK_NAME)

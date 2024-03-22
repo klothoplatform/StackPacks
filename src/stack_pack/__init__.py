@@ -62,6 +62,20 @@ class Properties(dict[str, Any]):
 
         def to_c(p: str, v: Any) -> List[dict]:
             if isinstance(v, dict):
+                # TODO: Find a way to know how to set constraints smarter or fix the engine
+                if "constraint_top_level" in list(v.keys()):
+                    v.pop("constraint_top_level")
+                    logger.info(
+                        f"generating constraint for {p} as it is a top level constraint"
+                    )
+                    return [
+                        {
+                            "scope": "resource",
+                            "operator": "equals",
+                            "property": convert_value(p),
+                            "value": convert_value(v),
+                        }
+                    ]
                 return [c for k, vv in v.items() for c in to_c(f"{p}.{k}", vv)]
             if isinstance(v, list):
                 return [

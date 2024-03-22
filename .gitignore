@@ -1,4 +1,5 @@
-
+docker/
+personal/
 *.key
 
 # Byte-compiled / optimized / DLL files

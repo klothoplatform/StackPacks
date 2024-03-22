@@ -31,6 +31,7 @@ class TestLiveState(aiounittest.AsyncTestCase):
                 edges=Edges({"resource1->resource2": None}),
             ),
             always_inject={},
+            never_inject={},
         )
         configuration = ConfigValues()
 
@@ -83,7 +84,8 @@ class TestLiveState(aiounittest.AsyncTestCase):
                 ),
                 edges=Edges({"resource1->resource2": None}),
             ),
-            always_inject={"aws:region:region"},
+            always_inject={"aws:region:region", "resource1->resource2"},
+            never_inject={},
         )
         configuration = ConfigValues()
 
@@ -105,5 +107,42 @@ class TestLiveState(aiounittest.AsyncTestCase):
                 "value": "Value1",
                 "target": "aws:region:region",
             },
+            {
+                "operator": "must_exist",
+                "scope": "edge",
+                "target": {"source": "resource1", "target": "resource2"},
+            },
         ]
+        self.assertEqual(result, expected_result)
+
+    def test_never_inject(self):
+        # Arrange
+        live_state = LiveState(
+            resources=Resources(
+                {
+                    "aws:lambda_function:default": Properties({}),
+                }
+            ),
+            edges=Edges(),
+        )
+        stack_pack = Mock(
+            spec=CommonStack,
+            base=Mock(
+                resources=Resources(
+                    {
+                        "aws:region:region": Properties({"Property1": "Value1"}),
+                    }
+                ),
+                edges=Edges({"resource1->resource2": None}),
+            ),
+            always_inject={},
+            never_inject={"aws:lambda_function:default"},
+        )
+        configuration = ConfigValues()
+
+        # Act
+        result = live_state.to_constraints(stack_pack, configuration)
+
+        # Assert
+        expected_result = []
         self.assertEqual(result, expected_result)

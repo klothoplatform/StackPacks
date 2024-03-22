@@ -105,5 +105,5 @@ ENGINE_PATH=/path/to/engine IAC_PATH=/path/to/iac make generate-personal-infra
 
 To deploy, run:
 ```
-STACK_NAME=MY-STACK PULUMI_ACCESS_TOKEN=${ACCESS_TOKEN} REGION=us-east-2 make deploy-personal-infra
+KLOTHO_DIR=../klotho STACK_NAME=MY-STACK PULUMI_ACCESS_TOKEN=${ACCESS_TOKEN} REGION=us-east-2 make deploy-personal-infra
 ```

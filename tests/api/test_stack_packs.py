@@ -12,8 +12,8 @@ from src.api.stack_packs import (
     add_app,
     create_stack,
     remove_app,
-    update_app,
     stream_deployment_logs,
+    update_app,
 )
 from src.stack_pack.models.user_app import UserApp
 from src.stack_pack.models.user_pack import UserPack, UserStack
@@ -70,6 +70,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             created_by="user_id",
             apps={"app1": 0},
             region=None,
+            features=["health_monitor"],
             assumed_role_arn=None,
         )
         mock_get_stack_packs.assert_called_once()

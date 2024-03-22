@@ -181,7 +181,6 @@ class UserApp(Model):
                     tmp_dir=dir,
                 )
             )
-            print("FILES2", stack_pack.base.files)
             stack_pack.copy_files(self.get_configurations(), Path(dir))
             iac_bytes = zip_directory_recurse(BytesIO(), dir)
             logger.info(f"Writing IAC for {self.app_id} version {self.version}")
