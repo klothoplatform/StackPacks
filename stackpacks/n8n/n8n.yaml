@@ -1,0 +1,109 @@
+name: n8n
+id: n8n
+description: Node-based workflow automation tool for developers
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:n8n:
+      BaseImage: docker.n8n.io/n8nio/n8n
+      Dockerfile: Dockerfile
+    aws:ecs_service:n8n-service:
+      LoadBalancers[0]:
+        ContainerPort: 5678
+        ContainerName: n8n-task
+      TaskDefinition: aws:ecs_task_definition:n8n-task
+    aws:ecs_task_definition:n8n-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:n8n
+        PortMappings[0]:
+          ContainerPort: 5678
+          HostPort: 5678
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: DB_POSTGRESDB_DATABASE
+          Value: aws:rds_instance:n8n-db#DatabaseName
+        - Name: DB_POSTGRESDB_HOST
+          Value: aws:rds_instance:n8n-db#Host
+        - Name: DB_POSTGRESDB_PORT
+          Value: aws:rds_instance:n8n-db#Port
+        - Name: DB_POSTGRESDB_USER
+          Value: aws:rds_instance:n8n-db#Username
+        - Name: DB_POSTGRESDB_PASSWORD
+          Value: aws:rds_instance:n8n-db#Password
+        - Name: DB_TYPE
+          Value: postgresdb
+        - Name: QUEUE_HEALTH_CHECK_ACTIVE
+          Value: true
+    aws:target_group:n8n-tg:
+      Port: 5678
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /healthz
+        Matcher: 200
+    aws:load_balancer_listener:n8n-lb:n8n-listener:
+      LoadBalancer: aws:load_balancer:n8n-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:n8n-tg
+    aws:load_balancer:n8n-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:rds_instance:n8n-db:
+    aws:cloudfront_distribution:n8n-cf:
+  edges:
+    aws:cloudfront_distribution:n8n-cf -> aws:load_balancer:n8n-lb:
+    aws:load_balancer:n8n-lb -> aws:ecs_service:n8n-service:
+    aws:load_balancer:n8n-lb -> aws:load_balancer_listener:n8n-lb:n8n-listener:
+    aws:load_balancer_listener:n8n-lb:n8n-listener -> aws:target_group:n8n-tg:
+    aws:target_group:n8n-tg -> aws:ecs_service:n8n-service:
+    aws:ecs_service:n8n-service -> aws:rds_instance:n8n-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the n8n service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the n8n service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the n8n database
+    type: string
+    default: n8nuser
+    pulumi_key: klo:n8n-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the n8n database
+    type: string
+    pulumi_key: klo:n8n-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128

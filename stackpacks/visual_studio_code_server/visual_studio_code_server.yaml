@@ -1,0 +1,88 @@
+name: vscode
+id: vscode
+description: VsCode editor that provides a cloud-based development environment
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:vscode:
+      BaseImage: lscr.io/linuxserver/code-server:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:vscode-service:
+      LoadBalancers[0]:
+        ContainerPort: 8443
+        ContainerName: vscode-task
+      TaskDefinition: aws:ecs_task_definition:vscode-task
+    aws:ecs_task_definition:vscode-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:vscode
+        PortMappings[0]:
+          ContainerPort: 8443
+          HostPort: 8443
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: vscode_DATA_DIR 
+          Value: /mnt/data
+        - Name: vscode_API_KEY 
+          Value: ${YOUR_API_KEY}
+        MountPoints[0]:
+          ContainerPath: /config
+          SourceVolume: vscode-data
+    aws:load_balancer:vscode-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:target_group:vscode-tg:
+      Port: 8443
+      Protocol: HTTP
+    aws:load_balancer_listener:vscode-lb:vscode-listener:
+      LoadBalancer: aws:load_balancer:vscode-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:vscode-tg
+    aws:cloudfront_distribution:vscode-cf:
+    aws:efs_file_system:vscode-efs:
+    aws:efs_access_point:vscode-efs:vscode-data:
+      FileSystem: aws:efs_file_system:vscode-efs
+      PosixUser:
+          Gid: 1000
+          Uid: 1000
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 1000
+              OwnerUid: 1000
+              Permissions: "777"
+          Path: /mnt/data
+  edges:
+    aws:cloudfront_distribution:vscode-cf -> aws:load_balancer:vscode-lb:
+    aws:load_balancer:vscode-lb -> aws:ecs_service:vscode-service:
+    aws:ecs_task_definition:vscode-task -> aws:efs_access_point:vscode-efs:vscode-data:
+    aws:efs_access_point:vscode-efs:vscode-data -> aws:efs_file_system:vscode-efs:
+    # Service to FS edge sets up the mount_target
+    aws:ecs_service:vscode-service -> aws:efs_file_system:vscode-efs:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the VsCode service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the VsCode service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096

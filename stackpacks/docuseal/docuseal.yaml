@@ -1,0 +1,102 @@
+name: Docuseal
+id: docuseal
+description: Document protection and verification platform
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:docuseal:
+      BaseImage: docuseal/docuseal:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:docuseal-service:
+      LoadBalancers[0]:
+        ContainerPort: 3000
+        ContainerName: docuseal-task
+      TaskDefinition: aws:ecs_task_definition:docuseal-task
+    aws:ecs_task_definition:docuseal-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:docuseal
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: ECS_DATABASE_URL
+          Value: aws:rds_instance:docuseal-db#ConnectionString
+        - Name: HOST
+          Value: aws:cloudfront_distribution:docuseal-cf#URLBase
+    aws:target_group:docuseal-tg:
+      Port: 3000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /up
+        Matcher: 200
+    aws:load_balancer_listener:docuseal-lb:docuseal-listener:
+      LoadBalancer: aws:load_balancer:docuseal-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:docuseal-tg
+    aws:load_balancer:docuseal-lb:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - aws:subnet:stackpacks-vpc:stackpacks-private-subnet-1
+        - aws:subnet:stackpacks-vpc:stackpacks-private-subnet-2
+    aws:rds_instance:docuseal-db:
+    aws:cloudfront_distribution:docuseal-cf:
+  edges:
+    aws:cloudfront_distribution:docuseal-cf -> aws:load_balancer:docuseal-lb:
+    aws:load_balancer:docuseal-lb -> aws:ecs_service:docuseal-service:
+    aws:load_balancer:docuseal-lb -> aws:load_balancer_listener:docuseal-lb:docuseal-listener:
+    aws:load_balancer_listener:docuseal-lb:docuseal-listener -> aws:target_group:docuseal-tg:
+    aws:target_group:docuseal-tg -> aws:ecs_service:docuseal-service:
+    aws:ecs_service:docuseal-service -> aws:rds_instance:docuseal-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the docuseal service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the docuseal service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the docuseal database
+    type: string
+    default: docusealuser
+    pulumi_key: klo:docuseal-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the docuseal database
+    type: string
+    pulumi_key: klo:docuseal-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
