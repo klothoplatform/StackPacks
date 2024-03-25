@@ -2,15 +2,11 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import List, NamedTuple, Dict, Optional
-from src.util.tmp import TempDir
+from typing import Dict, List, NamedTuple
 
 import yaml
 
-from src.engine_service.engine_commands.util import (
-    run_engine_command,
-    EngineException,
-)
+from src.engine_service.engine_commands.util import EngineException, run_engine_command
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +65,7 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
         if e.returncode == 1:
             raise e
         error_details = json.loads(e.stdout)
+        log.error("Engine failed with error details: %s", error_details)
 
     with open(dir / "dataflow-topology.yaml") as file:
         topology_yaml = file.read()

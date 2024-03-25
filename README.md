@@ -75,3 +75,35 @@ To generate infrastructure output from a stackpack file run from the root of the
 ```sh
 PYTHONPATH=. python3.11 scripts/cli.py iac generate-iac --file ./path/to/file.yaml --engine-path /path/to/engine --iac-binary-path path/to/iac --project-name sample-project --output-dir output
 ```
+
+
+## Personal Stacks
+
+To create the setup for you personal stack:
+```
+mdkir personal
+cp deploy/stacksnap.yaml personal/stacksnap.yaml
+```
+
+Make any modifications to the personal/stacksnap.yaml, including
+```
+REMOVE ALIAS
+    aws:cloudfront_distribution:stacksnap-distribution:
+      # TODO: figure out a way to make this less brittle
+      Aliases:
+        - dev.stacksnap.io
+
+MODIFY EMAIL (IF NECESSARY)
+    aws:ses_email_identity:stacksnap-email-identity:
+      EmailIdentity: stacksnap@klo.dev
+```
+
+To generate infra directory, run:
+```
+ENGINE_PATH=/path/to/engine IAC_PATH=/path/to/iac make generate-personal-infra
+```
+
+To deploy, run:
+```
+KLOTHO_DIR=../klotho STACK_NAME=MY-STACK PULUMI_ACCESS_TOKEN=${ACCESS_TOKEN} REGION=us-east-2 make deploy-personal-infra
+```

@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Tuple
 
 from aiomultiprocess import Pool
+from pulumi import automation as auto
 from pydantic import BaseModel
 
-from pulumi import automation as auto
 from src.dependencies.injection import (
     get_binary_storage,
     get_iac_storage,
@@ -22,13 +22,13 @@ from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
-from src.engine_service.binaries.fetcher import BinaryStorage, Binary
+from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.stack_pack import ConfigValues, StackPack, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
-from src.util.aws.ses import send_email
+from src.util.aws.ses import AppData, send_email
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
@@ -312,7 +312,7 @@ async def deploy_single(
     iac_storage = get_iac_storage()
     binary_storage = get_binary_storage()
     stack_pack = sps[app.get_app_name()]
-    common_stack = CommonStack(list(sps.values()))
+    common_stack = CommonStack(list(sps.values()), pack.features)
     common_app = UserApp.get(
         UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
         pack.apps[UserPack.COMMON_APP_NAME],
@@ -339,18 +339,24 @@ async def deploy_single(
                 )
                 return
             live_state = await result.manager.read_deployed_state()
+            constraints = live_state.to_constraints(
+                common_stack, common_app.get_configurations()
+            )
+
             _ = await app.run_app(
                 stack_pack=stack_pack,
                 dir=str(tmp_dir),
                 iac_storage=iac_storage,
                 binary_storage=binary_storage,
-                imports=live_state.to_constraints(
-                    common_stack, common_app.get_configurations()
-                ),
+                imports=constraints,
             )
             await deploy_app(pack, app, stack_pack, deployment_id, tmp_dir)
             if email is not None:
-                send_email(get_ses_client(), email, sps.keys())
+                app_data = AppData(
+                    app_name=app.get_app_name(), login_url=app.outputs.get("URL")
+                )
+                ses_client = get_ses_client()
+                send_email(ses_client, email, [app_data])
     except Exception as e:
         if app.status == AppLifecycleStatus.PENDING.value:
             app.transition_status(
@@ -379,12 +385,13 @@ async def deploy_pack(
             UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
             common_version,
         )
-        common_stack = CommonStack(list(sps.values()))
-
+        common_stack = CommonStack(list(sps.values()), user_pack.features)
+        apps: list[UserApp] = []
         for app_name, version in user_pack.apps.items():
             if app_name == UserPack.COMMON_APP_NAME:
                 continue
             app = UserApp.get(UserApp.composite_key(pack_id, app_name), version)
+            apps.append(app)
             app.update(
                 actions=[
                     UserApp.status.set(AppLifecycleStatus.PENDING.value),
@@ -407,10 +414,7 @@ async def deploy_pack(
             )
 
             if result.status == DeploymentStatus.FAILED:
-                for app_name, version in user_pack.apps.items():
-                    if app_name == UserPack.COMMON_APP_NAME:
-                        continue
-                    app = UserApp.get(UserApp.composite_key(pack_id, app_name), version)
+                for app in apps:
                     app.transition_status(
                         DeploymentStatus.FAILED, DeploymentAction.DEPLOY, result.reason
                     )
@@ -433,7 +437,13 @@ async def deploy_pack(
             logger.info(f"Deploying app stacks")
             sucess = await deploy_applications(user_pack, sps, deployment_id, tmp_dir)
             if email is not None and sucess:
-                send_email(get_ses_client(), email, sps.keys())
+                app_data = [
+                    AppData(
+                        app_name=app.get_app_name(), login_url=app.outputs.get("URL")
+                    )
+                    for app in apps
+                ]
+                send_email(get_ses_client(), email, app_data)
         except Exception as e:
             for app_name, version in user_pack.apps.items():
                 if app_name == UserPack.COMMON_APP_NAME:

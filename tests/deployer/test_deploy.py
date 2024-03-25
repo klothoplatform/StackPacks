@@ -28,6 +28,7 @@ from src.stack_pack.live_state import LiveState
 from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
 from src.stack_pack.models.user_pack import UserPack
 from src.stack_pack.storage.iac_storage import IacStorage
+from src.util.aws.ses import AppData
 
 
 class TestDeploy(aiounittest.AsyncTestCase):
@@ -572,8 +573,17 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_get_iac_storage,
         mock_deploy_app,
     ):
-        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
-        app = MagicMock(spec=UserApp, get_app_name=MagicMock(return_value="app1"))
+        pack = MagicMock(
+            spec=UserPack,
+            id="id",
+            apps={"common": 1},
+            features=["feature1", "feature2"],
+        )
+        app = MagicMock(
+            spec=UserApp,
+            get_app_name=MagicMock(return_value="app1"),
+            outputs={"URL": "url"},
+        )
         deployment_id = "deployment_id"
         email = "email"
 
@@ -602,7 +612,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
 
         mock_get_stack_packs.assert_called_once()
         mock_get_iac_storage.assert_called_once()
-        mock_common_stack.assert_called_once_with([sp1])
+        mock_common_stack.assert_called_once_with([sp1], pack.features)
         mock_user_app.assert_called_once_with("id#common", 1)
         mock_temp_dir.return_value.__enter__.assert_called_once()
         self.assertEqual(
@@ -622,7 +632,9 @@ class TestDeploy(aiounittest.AsyncTestCase):
         )
         mock_get_ses_client.assert_called_once()
         mock_send_email.assert_called_once_with(
-            mock_get_ses_client.return_value, email, mock_sps.keys()
+            mock_get_ses_client.return_value,
+            email,
+            [AppData(app_name="app1", login_url="url")],
         )
         app.update.assert_called_once_with(
             actions=[
@@ -655,7 +667,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_deploy_app,
     ):
         mock_get_binary_storage.return_value = MagicMock()
-        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        pack = MagicMock(
+            spec=UserPack,
+            id="id",
+            apps={"common": 1},
+            features=["feature1", "feature2"],
+        )
         app = MagicMock(spec=UserApp, get_app_name=MagicMock(return_value="app1"))
         deployment_id = "deployment_id"
         email = "email"
@@ -684,7 +701,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
 
         mock_get_stack_packs.assert_called_once()
         mock_get_iac_storage.assert_called_once()
-        mock_common_stack.assert_called_once_with([sp1])
+        mock_common_stack.assert_called_once_with([sp1], pack.features)
         mock_user_app.assert_called_once_with("id#common", 1)
         mock_temp_dir.return_value.__enter__.assert_called_once()
         mock_deploy_app.assert_called_once_with(
@@ -741,10 +758,16 @@ class TestDeploy(aiounittest.AsyncTestCase):
             id="id",
             apps={"common": 1, "app1": 1},
             tear_down_in_progress=False,
+            features=["feature1", "feature2"],
         )
         mock_user_pack.return_value = user_pack
         mock_common_pack = MagicMock(spec=UserApp)
-        mock_app1 = MagicMock(spec=UserApp, app_name="app1")
+        mock_app1 = MagicMock(
+            spec=UserApp,
+            app_name="app1",
+            get_app_name=MagicMock(return_value="app1"),
+            outputs={"URL": "url"},
+        )
         mock_user_app.side_effect = [mock_common_pack, mock_app1]
         common_stack = MagicMock(spec=CommonStack)
         live_state = MagicMock(
@@ -775,7 +798,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         self.assertEqual(
             mock_user_app.mock_calls, [call("id#common", 1), call("id#app1", 1)]
         )
-        mock_common_stack.assert_called_once_with([sp1])
+        mock_common_stack.assert_called_once_with([sp1], user_pack.features)
         mock_deploy_app.assert_called_once_with(
             user_pack,
             mock_common_pack,
@@ -797,7 +820,9 @@ class TestDeploy(aiounittest.AsyncTestCase):
             user_pack, mock_sps, "deploy_id", Path("/tmp")
         )
         mock_send_email.assert_called_once_with(
-            mock_get_ses_client.return_value, "email", mock_sps.keys()
+            mock_get_ses_client.return_value,
+            "email",
+            [AppData(app_name="app1", login_url="url")],
         )
 
     @patch("src.deployer.deploy.deploy_applications")
@@ -825,7 +850,11 @@ class TestDeploy(aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         user_pack = MagicMock(
-            spec=UserPack, id="id", apps={"common": 1}, tear_down_in_progress=True
+            spec=UserPack,
+            id="id",
+            apps={"common": 1},
+            tear_down_in_progress=True,
+            features=["feature1", "feature2"],
         )
         mock_user_pack.get.return_value = user_pack
 
@@ -839,7 +868,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
             mock_get_iac_storage.assert_called_once()
             mock_user_pack.get.assert_called_once_with("id")
             mock_user_app.get.assert_not_called()
-            mock_common_stack.assert_called_once_with([sp1])
+            mock_common_stack.assert_called_once_with([sp1], user_pack.features)
             mock_deploy_app.assert_not_called()
             mock_rerun_pack_with_live_state.assert_not_called()
             mock_deploy_applications.assert_not_called()
@@ -881,11 +910,12 @@ class TestDeploy(aiounittest.AsyncTestCase):
             id="id",
             apps={"common": 1, "app1": 1},
             tear_down_in_progress=False,
+            features=["feature1", "feature2"],
         )
         mock_user_pack.return_value = user_pack
         mock_common_pack = MagicMock(spec=UserApp)
         mock_app1 = MagicMock(spec=UserApp, app_name="app1")
-        mock_user_app.side_effect = [mock_common_pack, mock_app1, mock_app1]
+        mock_user_app.side_effect = [mock_common_pack, mock_app1]
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
         mock_deploy_app.return_value = DeploymentResult(
@@ -908,9 +938,9 @@ class TestDeploy(aiounittest.AsyncTestCase):
         mock_user_pack.assert_called_once_with("id")
         self.assertEqual(
             mock_user_app.mock_calls,
-            [call("id#common", 1), call("id#app1", 1), call("id#app1", 1)],
+            [call("id#common", 1), call("id#app1", 1)],
         )
-        mock_common_stack.assert_called_once_with([sp1])
+        mock_common_stack.assert_called_once_with([sp1], user_pack.features)
         mock_deploy_app.assert_called_once_with(
             user_pack,
             mock_common_pack,

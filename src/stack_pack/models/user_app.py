@@ -16,9 +16,9 @@ from pynamodb.attributes import (
 from pynamodb.models import Model
 
 from src.deployer.models.deployment import (
+    Deployment,
     DeploymentAction,
     DeploymentStatus,
-    Deployment,
     PulumiStack,
 )
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage

@@ -22,9 +22,18 @@ class LiveState(BaseModel):
 
         for r, properties in common_stack.base.resources.items():
             if r in common_stack.always_inject:
+                logger.info(f"Adding from common resource {r} due to always inject")
                 self.resources.update({r: properties})
 
-        for c in self.resources.to_constraints(ConfigValues({})):
+        resources_from_state = Resources(
+            {
+                r: properties
+                for r, properties in self.resources.items()
+                if r not in common_stack.never_inject
+            }
+        )
+
+        for c in resources_from_state.to_constraints(ConfigValues({})):
             if c["scope"] == "application" and c["operator"] == "must_exist":
                 logger.info(f"Adding import constraint from live state resource {c}")
                 c["operator"] = "import"
@@ -36,9 +45,14 @@ class LiveState(BaseModel):
             source = c["target"]["source"]
             target = c["target"]["target"]
             if (
-                self.resources.get(target, None) is not None
-                and self.resources.get(source, None) is not None
+                resources_from_state.get(target, None) is not None
+                and resources_from_state.get(source, None) is not None
             ):
                 constraints.append(c)
+
+        for edge, key in common_stack.base.edges.items():
+            if edge in common_stack.always_inject:
+                logger.info(f"Adding from common edge {edge} due to always inject")
+                constraints.extend(Edges({edge: key}).to_constraints())
 
         return constraints

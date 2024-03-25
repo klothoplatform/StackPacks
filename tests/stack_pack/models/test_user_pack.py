@@ -23,6 +23,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
             apps={"common": 1, "app1": 1, "app2": 2},
             region="region",
             assumed_role_arn="arn",
+            features=["feature1"],
         )
         self.mock_stack_packs = {
             "app1": MagicMock(
@@ -83,7 +84,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs)
+        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
@@ -130,7 +131,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs)
+        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         mock_get.assert_called_once_with("id#common", 1)
         mock_get_latest.assert_called_once_with(common_app.app_id)
         common_app.run_app.assert_called_once_with(
@@ -174,7 +175,7 @@ class TestUserPack(aiounittest.AsyncTestCase):
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs)
+        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         mock_user_app.get.assert_called_once_with("id#common", 1)
         mock_user_app.assert_called_once_with(
             app_id="id#common",

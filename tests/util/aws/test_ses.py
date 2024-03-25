@@ -2,14 +2,18 @@ import os
 import unittest
 from unittest.mock import MagicMock
 
-from src.util.aws.ses import send_email
+from src.util.aws.ses import AppData, send_email
 
 
 class TestSendEmail(unittest.TestCase):
     def test_send_email(self):
         os.environ["SES_SENDER_ADDRESS"] = "stacksnap@stacksnap.com"
         mock_client = MagicMock()
-        send_email(mock_client, "recipient@example.com", ["app1", "app2"])
+        mock_data = [
+            AppData(app_name="app1", login_url="login1"),
+            AppData(app_name="app2", login_url="login2"),
+        ]
+        send_email(mock_client, "recipient@example.com", mock_data)
         mock_client.send_email.assert_called_once_with(
             FromEmailAddress="Stack Snap <stacksnap@stacksnap.com>",
             Destination={"ToAddresses": ["recipient@example.com"]},
@@ -19,11 +23,11 @@ class TestSendEmail(unittest.TestCase):
                     "Body": {
                         "Html": {
                             "Charset": "UTF-8",
-                            "Data": "<html>\n<head></head>\n<body>\n  <h1>Amazon SES Test (SDK for Python)</h1>\n  <p>This email was sent with\n    <a href='https://aws.amazon.com/ses/'>Amazon SES</a> using the\n    <a href='https://aws.amazon.com/sdk-for-python/'>\n      AWS SDK for Python (Boto)</a>.</p>\n</body>\n</html>\n            ",
+                            "Data": "\n    <h3>Hello!</h3>\n    <p>Stacksnap finished installing app1, app2!</p>\n    Application Name: app1\nLogin URL: login1\n\nApplication Name: app2\nLogin URL: login2\n\n    <p>To keep your software secure, we do not email passwords.</p>\n    <p>We’re working on adding nicer URLs and custom domains - that’s coming soon!</p>\n    <h2>Support and Community</h2>\n    <p>Join us on our discord to ask for features, chat with the team or ask for support! We’re happy to help!</p>\n    <p>Thanks again!<br>Stacksnap team</p>\n    <p><i>NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's web site for support.</i></p>\n    ",
                         },
                         "Text": {
                             "Charset": "UTF-8",
-                            "Data": "StackSnap\r\nWe have successfully deployed the following applications: \r\napp1, app2",
+                            "Data": "\n    Hello!\n    Stacksnap finished installing app1, app2!\n    Application Name: app1\nLogin URL: login1\n\nApplication Name: app2\nLogin URL: login2\n\n    To keep your software secure, we do not email passwords.\n    We’re working on adding nicer URLs and custom domains - that’s coming soon!\n    Support and Community\n    Join us on our discord to ask for features, chat with the team or ask for support! We’re happy to help!\n    Thanks again!\n    Stacksnap team\n    NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's web site for support.\n    ",
                         },
                     },
                 }

@@ -1,5 +1,5 @@
 network:
-  always_injected:
+  always_inject:
     - aws:region:region
     - aws:availability_zone:region:az1
     - aws:availability_zone:region:az2
@@ -45,7 +45,7 @@ ecs:
         InstanceType: t3.medium
     aws:auto_scaling_group:stackpacks-asg:
       MinSize: 1
-      MaxSize: 2
+      MaxSize: 3
     aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
     aws:ecs_capacity_provider:stackpacks-capacity-provider:
   edges:
@@ -54,18 +54,39 @@ ecs:
     aws:ecs_capacity_provider:stackpacks-capacity-provider -> aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
     aws:auto_scaling_group:stackpacks-asg -> aws:ec2_launch_template:stackpacks-ecs-launch-template:
 
-  configuration:
-    NumServices: 
-      name: NumServices
-      description: The number of oss services that will be deployed to the ecs cluster
-      type: number
-  
-    MinMemoryMiB:
-      name: MinMemoryMiB
-      description: The minimum amount of memory to allocate to the ecs cluster
-      type: number
+health_monitor:
+  always_inject:
+    - aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic
+  never_inject:
+    - aws:ecr_image:health_monitor
+    - aws:lambda_function:health_monitor
+  resources:
+    aws:ecr_image:health_monitor:
+      BaseImage: public.ecr.aws/lambda/python:3.12
+      Dockerfile: health_monitor/Dockerfile
+      Context: health_monitor
+    aws:sns_topic:alarm_actions_topic:
+    aws:lambda_function:health_monitor:
+      Image: aws:ecr_image:health_monitor
+      EnvironmentVariables:
+        # TODO: Find a way to know how to set constraints smarter or fix the engine
+        constraint_top_level:
+        PACK_ID: ${PackId}
+        HEALTH_ENDPOINT_URL: ${HealthEndpointUrl}
+  edges:
+    aws:sns_topic:alarm_actions_topic -> aws:lambda_function:health_monitor:
+    aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic:
+  files: 
+    health_monitor/main.py:
+    health_monitor/requirements.txt:
+    health_monitor/Dockerfile:
 
-    MinVcpu:
-      name: MinVcpu
-      description: The minimum amount of vcpu to allocate to the ecs cluster
-      type: number
+  configuration:
+    PackId: 
+      name: PackId
+      description: The pack id that this health monitor is monitoring
+      type: string
+    HealthEndpointUrl: 
+      name: HealthEndpointUrl
+      description: The health endpoint url that this health monitor is monitoring
+      type: string

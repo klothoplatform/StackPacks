@@ -26,8 +26,6 @@ class AppManager:
     def get_outputs(self, outputs: dict[str, str]) -> dict[str, str]:
         result: dict[str, str] = {}
         stack_outputs = self.stack.outputs()
-        print(stack_outputs)
         for name, output in outputs.items():
-            print(name, output)
             result[name] = stack_outputs[output].value
         return result

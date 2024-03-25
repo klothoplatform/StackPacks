@@ -5,6 +5,7 @@ from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 
 from src.api.deployer import router as deployer_router
+from src.api.health import router as health_router
 from src.api.stack_packs import router as stack_packs_router
 from src.auth.token import AuthError
 from src.deployer.models.deployment import Deployment, PulumiStack
@@ -29,6 +30,7 @@ logger.debug("Starting API")
 
 app.include_router(deployer_router)
 app.include_router(stack_packs_router)
+app.include_router(health_router)
 
 
 @app.get("/api/ping")
