@@ -1,4 +1,5 @@
 name: Rallly
+id: rallly
 description: Schedule group meetings with friends, colleagues and teams. Create meeting polls to find the best date and time to organize an event based on your participants' availability. Save time and avoid back-and-forth emails.
 version: '1.0.0'
 requires:
@@ -34,6 +35,12 @@ base:
           Value: aws:rds_instance:rallly-db#Username
         - Name: RALLLY_DB_PASSWORD
           Value: aws:rds_instance:rallly-db#Password
+        - Name: DOMAIN_NAME
+          Value: aws:cloudfront_distribution:rallly-cf#DomainName
+        - Name: SECRET_PASSWORD
+          Value: ${SecretPassword}
+        - Name: SUPPORT_EMAIL
+          Value: ${SupportEmail}
     aws:load_balancer:rallly-lb:
       Scheme: internet-facing
       Type: application
@@ -93,7 +100,6 @@ configuration:
       minLength: 1
       maxLength: 63
 
-
   DBPassword:
     name: Database Password
     description: The password to use for the Rallly database
@@ -104,4 +110,20 @@ configuration:
       minLength: 8
       maxLength: 128
 
+  SecretPassword:
+    name: Secret Password
+    description: A random 32-character secret key used to encrypt user sessions
+    type: string
+    secret: true
+    validation:
+      minLength: 32
+      maxLength: 32
+
+  SupportEmail:
+    name: Support Email
+    description: The email address used for sending support emails
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
 

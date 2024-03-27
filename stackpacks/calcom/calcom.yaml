@@ -1,4 +1,5 @@
 name: Cal.com
+id: calcom
 description: The open source Calendly successor.
 version: '1.0.0'
 requires:
@@ -44,8 +45,15 @@ base:
           Value: ${SMTPUser}
         - Name: EMAIL_SERVER_PASSWORD
           Value: ${SMTPPassword}
+        - Name: DNS_NAME
+          Value: aws:load_balancer:calcom-lb#DnsName
+        - Name: NEXTAUTH_SECRET
+          Value: ${AuthSecret}
+        - Name: CALENDSO_ENCRYPTION_KEY
+          Value: ${EncryptionKey}
     aws:load_balancer:calcom-lb:
       Scheme: internet-facing
+      Type: application
     aws:load_balancer_listener:calcom-lb:calcom-web:
       LoadBalancer: aws:load_balancer:calcom-lb
       Port: 80
@@ -155,4 +163,21 @@ configuration:
       minLength: 8
       maxLength: 128   
 
+  AuthSecret:
+    name: Auth Secret
+    description: The secret to use for authentication. Highly recommend using `openssl rand -base64 32` to generate a key.
+    type: string
+    secret: true
+    validation:
+      minLength: 6
+      maxLength: 128
+
+  EncryptionKey:
+    name: Calendso Encryption Key
+    description: Encryption key that will be used to encrypt CalDAV credentials, choose a random string, for example with `dd if=/dev/urandom bs=1K count=1 | md5sum`
+    type: string
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
 

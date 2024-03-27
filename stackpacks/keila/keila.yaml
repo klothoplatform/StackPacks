@@ -1,4 +1,5 @@
 name: Keila
+id: keila
 description: Keila is an Open Source alternative to newsletter tools like Mailchimp or Sendinblue.
 version: '1.0.0'
 requires:
@@ -106,7 +107,7 @@ configuration:
 
   SecretKeyBase:
     name: Secret Key Base
-    description: Strong secret with at least 64 characters. Can be generated with head -c 48 /dev/urandom &#124; base64
+    description: Strong secret with at least 64 characters. Can be generated with head -c 48 /dev/urandom | base64
     type: string
     pulumi_key: klo:keila-db-password
     secret: true

@@ -1,4 +1,5 @@
 name: ownCloud
+id: owncloud
 description: ownCloud is an open-source file sync, share and content collaboration software that lets teams work on data easily from anywhere, on any device
 version: '1.0.0'
 requires:
@@ -30,7 +31,7 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: OWNCLOUD_DB_TYPE
-          Value: postgres
+          Value: pgsql
         - Name: OWNCLOUD_DB_HOST
           Value: aws:rds_instance:owncloud-db#Host
         - Name: OWNCLOUD_DB_NAME
@@ -47,6 +48,10 @@ base:
           Value: "true"
         - Name: OWNCLOUD_REDIS_HOST
           Value: aws:elasticache_cluster:owncloud-redis#CacheNodeAddress
+        - Name: OWNCLOUD_DOMAIN
+          Value: aws:cloudfront_distribution:owncloud-cf#DomainName
+        - Name: OWNCLOUD_TRUSTED_DOMAINS
+          Value: aws:cloudfront_distribution:owncloud-cf#DomainName
     aws:load_balancer:owncloud-lb:
       Scheme: internet-facing
       Type: application
@@ -92,7 +97,8 @@ base:
 
     aws:ecs_service:owncloud-service -> aws:rds_instance:owncloud-db:
     aws:ecs_service:owncloud-service -> aws:elasticache_cluster:owncloud-redis:
-  files: {}
+  files:
+    Dockerfile:
 
 configuration:
   CPU: # This is an example of a value used in the base config
