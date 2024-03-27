@@ -1,0 +1,129 @@
+name: Rallly
+id: rallly
+description: Schedule group meetings with friends, colleagues and teams. Create meeting polls to find the best date and time to organize an event based on your participants' availability. Save time and avoid back-and-forth emails.
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:rallly:
+      BaseImage: lukevella/rallly:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:rallly-service:
+      LoadBalancers[0]:
+        ContainerPort: 3000
+        TargetGroup: aws:target_group:rallly-web
+        ContainerName: rallly-task
+      TaskDefinition: aws:ecs_task_definition:rallly-task
+    aws:ecs_task_definition:rallly-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:rallly
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: RALLLY_DB_ENDPOINT
+          Value: aws:rds_instance:rallly-db#Endpoint
+        - Name: RALLLY_DB_NAME
+          Value: aws:rds_instance:rallly-db#DatabaseName
+        - Name: RALLLY_DB_USER
+          Value: aws:rds_instance:rallly-db#Username
+        - Name: RALLLY_DB_PASSWORD
+          Value: aws:rds_instance:rallly-db#Password
+        - Name: DOMAIN_NAME
+          Value: aws:cloudfront_distribution:rallly-cf#DomainName
+        - Name: SECRET_PASSWORD
+          Value: ${SecretPassword}
+        - Name: SUPPORT_EMAIL
+          Value: ${SupportEmail}
+    aws:load_balancer:rallly-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:rallly-lb:rallly-web:
+      LoadBalancer: aws:load_balancer:rallly-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:rallly-web
+    aws:target_group:rallly-web:
+      Port: 3000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200-399
+    aws:rds_instance:rallly-db:
+    aws:cloudfront_distribution:rallly-cf:
+  edges:
+    aws:load_balancer:rallly-lb -> aws:load_balancer_listener:rallly-lb:rallly-web:
+    aws:load_balancer_listener:rallly-lb:rallly-web -> aws:target_group:rallly-web:
+    aws:target_group:rallly-web -> aws:ecs_service:rallly-service:
+    aws:load_balancer:rallly-lb -> aws:ecs_service:rallly-service:
+    aws:cloudfront_distribution:rallly-cf -> aws:load_balancer:rallly-lb:
+    aws:ecs_service:rallly-service -> aws:rds_instance:rallly-db:
+  files:
+    Dockerfile:
+    container_start.sh:
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the rallly service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the rallly service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Rallly database
+    type: string
+    default: ralllyuser
+    pulumi_key: klo:rallly-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Rallly database
+    type: string
+    pulumi_key: klo:rallly-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+  SecretPassword:
+    name: Secret Password
+    description: A random 32-character secret key used to encrypt user sessions
+    type: string
+    secret: true
+    validation:
+      minLength: 32
+      maxLength: 32
+
+  SupportEmail:
+    name: Support Email
+    description: The email address used for sending support emails
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
+

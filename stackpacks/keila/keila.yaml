@@ -1,0 +1,143 @@
+name: Keila
+id: keila
+description: Keila is an Open Source alternative to newsletter tools like Mailchimp or Sendinblue.
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:keila:
+      BaseImage: pentacent/keila:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:keila-service:
+      LoadBalancers[0]:
+        ContainerPort: 4000
+        TargetGroup: aws:target_group:keila-web
+        ContainerName: keila-task
+      TaskDefinition: aws:ecs_task_definition:keila-task
+    aws:ecs_task_definition:keila-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:keila
+        PortMappings[0]:
+          ContainerPort: 4000
+          HostPort: 4000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: DB_URL
+          Value: aws:rds_instance:keila-db#ConnectionString
+        - Name: URL_HOST
+          Value: aws:load_balancer:keila-lb#DnsName
+        - Name: SECRET_KEY_BASE
+          Value: ${SecretKeyBase}
+        - Name: MAILER_SMTP_HOST
+          Value: ${SMTPHost}
+        - Name: MAILER_SMTP_USER
+          Value: ${SMTPUser}
+        - Name: MAILER_SMTP_PASSWORD
+          Value: ${SMTPPassword}
+    aws:load_balancer:keila-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:keila-lb:keila-web:
+      LoadBalancer: aws:load_balancer:keila-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:keila-web
+    aws:target_group:keila-web:
+      Port: 4000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200-399
+    aws:rds_instance:keila-db:
+  edges:
+    aws:load_balancer:keila-lb -> aws:load_balancer_listener:keila-lb:keila-web:
+    aws:load_balancer_listener:keila-lb:keila-web -> aws:target_group:keila-web:
+    aws:target_group:keila-web -> aws:ecs_service:keila-service:
+    aws:load_balancer:keila-lb -> aws:ecs_service:keila-service:
+
+    aws:ecs_service:keila-service -> aws:rds_instance:keila-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the keila service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the keila service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Keila database
+    type: string
+    default: keilauser
+    pulumi_key: klo:keila-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Keila database
+    type: string
+    pulumi_key: klo:keila-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+  SecretKeyBase:
+    name: Secret Key Base
+    description: Strong secret with at least 64 characters. Can be generated with head -c 48 /dev/urandom | base64
+    type: string
+    pulumi_key: klo:keila-db-password
+    secret: true
+    validation:
+      minLength: 64
+      maxLength: 128
+
+  SMTPHost:
+    name: SMTP Host
+    description: The SMTP host to use for sending emails. See https://docs.aws.amazon.com/general/latest/gr/ses.html
+    type: string
+    default: email.<region>.amazonaws.com
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  SMTPUser:
+    name: SMTP User
+    description: The SMTP user to use for sending emails. See https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html
+    type: string
+    default: smtpuser
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  SMTPPassword:
+    name: SMTP Password
+    description: The SMTP password to use for sending emails. See https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html
+    type: string
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128    

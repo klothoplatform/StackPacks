@@ -1,0 +1,183 @@
+name: Cal.com
+id: calcom
+description: The open source Calendly successor.
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:calcom:
+      BaseImage: calcom.docker.scarf.sh/calcom/cal.com
+      Dockerfile: Dockerfile
+    aws:ecs_service:calcom-service:
+      LoadBalancers[0]:
+        ContainerPort: 3000
+        TargetGroup: aws:target_group:calcom-web
+        ContainerName: calcom-task
+      TaskDefinition: aws:ecs_task_definition:calcom-task
+    aws:ecs_task_definition:calcom-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:calcom
+        PortMappings[0]:
+          ContainerPort: 3000
+          HostPort: 3000
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: DATABASE_ENDPOINT
+          Value: aws:rds_instance:calcom-db#Endpoint
+        - Name: POSTGRES_DB
+          Value: aws:rds_instance:calcom-db#DatabaseName
+        - Name: POSTGRES_USER
+          Value: aws:rds_instance:calcom-db#Username
+        - Name: POSTGRES_PASSWORD
+          Value: aws:rds_instance:calcom-db#Password
+        - Name: EMAIL_FROM
+          Value: ${EmailFrom}
+        - Name: EMAIL_SERVER_HOST
+          Value: ${SMTPHost}
+        - Name: EMAIL_SERVER_HOST
+          Value: ${SMTPPort}
+        - Name: EMAIL_SERVER_USER
+          Value: ${SMTPUser}
+        - Name: EMAIL_SERVER_PASSWORD
+          Value: ${SMTPPassword}
+        - Name: DNS_NAME
+          Value: aws:load_balancer:calcom-lb#DnsName
+        - Name: NEXTAUTH_SECRET
+          Value: ${AuthSecret}
+        - Name: CALENDSO_ENCRYPTION_KEY
+          Value: ${EncryptionKey}
+    aws:load_balancer:calcom-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:calcom-lb:calcom-web:
+      LoadBalancer: aws:load_balancer:calcom-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:calcom-web
+    aws:target_group:calcom-web:
+      Port: 3000
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200-399
+    aws:rds_instance:calcom-db:
+  edges:
+    aws:load_balancer:calcom-lb -> aws:load_balancer_listener:calcom-lb:calcom-web:
+    aws:load_balancer_listener:calcom-lb:calcom-web -> aws:target_group:calcom-web:
+    aws:target_group:calcom-web -> aws:ecs_service:calcom-service:
+    aws:load_balancer:calcom-lb -> aws:ecs_service:calcom-service:
+
+    aws:ecs_service:calcom-service -> aws:rds_instance:calcom-db:
+  files:
+    Dockerfile:
+    container_start.sh:
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the calcom service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the calcom service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the cal.com database
+    type: string
+    default: calcomuser
+    pulumi_key: klo:calcom-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the cal.com database
+    type: string
+    pulumi_key: klo:calcom-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+  EmailFrom:
+    name: Email From
+    description: The email address to send emails from
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
+
+  SMTPHost:
+    name: SMTP Host
+    description: The SMTP host to use for sending emails. See https://docs.aws.amazon.com/general/latest/gr/ses.html
+    type: string
+    default: email.<region>.amazonaws.com
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  SMTPPort:
+    name: SMTP Port
+    description: The SMTP host to use for sending emails. See https://docs.aws.amazon.com/general/latest/gr/ses.html
+    type: number
+    default: 587
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  SMTPUser:
+    name: SMTP User
+    description: The SMTP user to use for sending emails. See https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html
+    type: string
+    default: smtpuser
+    validation:
+      minLength: 1
+      maxLength: 63
+
+  SMTPPassword:
+    name: SMTP Password
+    description: The SMTP password to use for sending emails. See https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html
+    type: string
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128   
+
+  AuthSecret:
+    name: Auth Secret
+    description: The secret to use for authentication. Highly recommend using `openssl rand -base64 32` to generate a key.
+    type: string
+    secret: true
+    validation:
+      minLength: 6
+      maxLength: 128
+
+  EncryptionKey:
+    name: Calendso Encryption Key
+    description: Encryption key that will be used to encrypt CalDAV credentials, choose a random string, for example with `dd if=/dev/urandom bs=1K count=1 | md5sum`
+    type: string
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+

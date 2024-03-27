@@ -1,0 +1,123 @@
+name: Matomo
+id: matomo
+description: Empowering People Ethically with the leading open source alternative to Google Analytics that gives you full control over your data. Matomo lets you easily collect data from websites & apps and visualise this data and extract insights.
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:matomo:
+      BaseImage: matomo
+      Dockerfile: Dockerfile
+    aws:ecs_service:matomo-service:
+      LoadBalancers[0]:
+        ContainerPort: 80
+        TargetGroup: aws:target_group:matomo-web
+        ContainerName: matomo-task
+      TaskDefinition: aws:ecs_task_definition:matomo-task
+    aws:ecs_task_definition:matomo-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:matomo
+        PortMappings[0]:
+          ContainerPort: 80
+          HostPort: 80
+        MountPoints[0]:
+          ContainerPath: /data
+          SourceVolume: matomo-data
+        MountPoints[1]:
+          ContainerPath: /data/ssh
+          SourceVolume: matomo-ssh
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: MYSQL_DATABASE
+          Value: aws:rds_instance:matomo-db#DatabaseName
+        - Name: MYSQL_USER
+          Value: aws:rds_instance:matomo-db#Username
+        - Name: MYSQL_PASSWORD
+          Value: aws:rds_instance:matomo-db#Password
+        - Name: MATOMO_DATABASE_HOST
+          Value: aws:rds_instance:matomo-db#Endpoint
+        - Name: MATOMO_DATABASE_DBNAME
+          Value: aws:rds_instance:matomo-db#DatabaseName
+        - Name: MATOMO_DATABASE_USERNAME
+          Value: aws:rds_instance:matomo-db#Username
+        - Name: MATOMO_DATABASE_PASSWORD
+          Value: aws:rds_instance:matomo-db#Password
+        - Name: MATOMO_DATABASE_ADAPTER
+          Value: mysql
+    aws:load_balancer:matomo-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:matomo-lb:matomo-web:
+      LoadBalancer: aws:load_balancer:matomo-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:matomo-web
+    aws:target_group:matomo-web:
+      Port: 80
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200-399
+    aws:rds_instance:matomo-db:
+      Engine: mysql
+      EngineVersion: '8.0.36'
+    aws:cloudfront_distribution:matomo-cf:
+  edges:
+    aws:load_balancer:matomo-lb -> aws:load_balancer_listener:matomo-lb:matomo-web:
+    aws:load_balancer_listener:matomo-lb:matomo-web -> aws:target_group:matomo-web:
+    aws:target_group:matomo-web -> aws:ecs_service:matomo-service:
+    aws:load_balancer:matomo-lb -> aws:ecs_service:matomo-service:
+    aws:cloudfront_distribution:matomo-cf -> aws:load_balancer:matomo-lb:
+
+    aws:ecs_service:matomo-service -> aws:rds_instance:matomo-db:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the matomo service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the matomo service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Matomo database
+    type: string
+    default: matomouser
+    pulumi_key: klo:matomo-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Matomo database
+    type: string
+    pulumi_key: klo:matomo-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+
