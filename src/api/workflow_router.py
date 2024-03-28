@@ -1,9 +1,11 @@
 import uuid
+from typing import Optional
 
+import jsons
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sse_starlette import EventSourceResponse
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, Response
 
 from src.api.models.workflow_models import WorkflowRunView, WorkflowRunSummary
 from src.auth.token import get_email, get_user_id
@@ -41,9 +43,10 @@ async def install(
 
     background_tasks.add_task(execute_deployment_workflow, run)
 
-    return JSONResponse(
+    return Response(
+        media_type="application/json",
         status_code=201,
-        content={"message": "Deployment started", "run_id": run.composite_key()},
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
     )
 
 
@@ -78,9 +81,10 @@ async def install_app(
 
     background_tasks.add_task(execute_deploy_single_workflow, run)
 
-    return JSONResponse(
+    return Response(
+        media_type="application/json",
         status_code=201,
-        content={"message": "Deployment started", "run_id": run.composite_key()},
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
     )
 
 
@@ -101,9 +105,10 @@ async def uninstall_all_apps(
 
     background_tasks.add_task(execute_destroy_all_workflow, run)
 
-    return JSONResponse(
+    return Response(
+        media_type="application/json",
         status_code=201,
-        content={"message": "Destroy started", "run_id": run.composite_key()},
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
     )
 
 
@@ -138,21 +143,55 @@ async def uninstall_app(
 
     background_tasks.add_task(execute_destroy_single_workflow, run, destroy_common)
 
-    return JSONResponse(
+    return Response(
+        media_type="application/json",
         status_code=201,
-        content={"message": "Destroy started", "run_id": run.composite_key()},
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
     )
 
 
 @router.get(
     "/api/project/apps/{app_id}/workflows/{workflow_type}/runs/{run_number}/jobs/{job_number}/logs"
 )
-async def stream_deployment_logs(
+async def stream_app_job_logs(
     request: Request,
     app_id: str,
     workflow_type: str,
     run_number: str,
     job_number: int,
+):
+    return await stream_deployment_logs(
+        request=request,
+        workflow_type=workflow_type,
+        run_number=run_number,
+        job_number=job_number,
+        owning_app_id=app_id,
+    )
+
+
+@router.get(
+    "/api/project/workflows/{workflow_type}/runs/{run_number}/jobs/{job_number}/logs"
+)
+async def stream_project_job_logs(
+    request: Request,
+    workflow_type: str,
+    run_number: str,
+    job_number: int,
+):
+    return await stream_deployment_logs(
+        request=request,
+        workflow_type=workflow_type,
+        run_number=run_number,
+        job_number=job_number,
+    )
+
+
+async def stream_deployment_logs(
+    request: Request,
+    workflow_type: str,
+    run_number: str,
+    job_number: int,
+    owning_app_id: Optional[str] = None,
 ):
     user_id = await get_user_id(request)
     project_id = user_id
@@ -161,20 +200,20 @@ async def stream_deployment_logs(
         None if workflow_type.lower() == "any" else WorkflowType.from_str(workflow_type)
     )
 
-    if app_id == "any":
-        app_id = ""
+    if owning_app_id == "any":
+        owning_app_id = ""
 
     if not job_number:
         raise HTTPException(status_code=400, detail="Job number is required")
 
     if run_number == "latest":
-        if app_id == "":
+        if owning_app_id == "":
             latest_run = WorkflowRun.get_latest_run(
                 project_id=user_id, workflow_type=workflow_type
             )
         else:
             user_app = AppDeployment.get_latest_deployed_version(
-                project_id=user_id, app_id=app_id
+                project_id=user_id, app_id=owning_app_id
             )
             if user_app is None:
                 raise HTTPException(status_code=404, detail="App not found")
@@ -184,13 +223,15 @@ async def stream_deployment_logs(
             latest_run = WorkflowRun.get_latest_run(
                 project_id=user_id,
                 workflow_type=workflow_type,
-                app_id=app_id if app_id != Project.COMMON_APP_NAME else None,
+                app_id=(
+                    owning_app_id if owning_app_id != Project.COMMON_APP_NAME else None
+                ),
             )
         run_composite_id = latest_run.composite_key()
     else:
         run_range_key = WorkflowRun.compose_range_key(
             workflow_type=workflow_type.value,
-            app_id=app_id if app_id != Project.COMMON_APP_NAME else None,
+            app_id=owning_app_id if owning_app_id != Project.COMMON_APP_NAME else None,
             run_number=int(run_number),
         )
         run_composite_id = f"{project_id}#{run_range_key}"

@@ -12,7 +12,7 @@ from src.util.logging import logger
 
 
 class WorkflowRunStatus(Enum):
-    CANCELLED = "CANCELLED"
+    CANCELED = "CANCELED"
     IN_PROGRESS = "IN_PROGRESS"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"

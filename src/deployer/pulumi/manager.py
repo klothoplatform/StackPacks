@@ -27,5 +27,7 @@ class AppManager:
         result: dict[str, str] = {}
         stack_outputs = self.stack.outputs()
         for name, output in outputs.items():
-            result[name] = stack_outputs[output].value
+            result[name] = (
+                stack_outputs[output].value if output in stack_outputs else ""
+            )
         return result

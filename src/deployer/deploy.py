@@ -177,7 +177,11 @@ async def build_and_deploy_application(
     job_composite_key = deployment_job.composite_key()
     iac_composite_key = result.stack.composite_key() if result.stack else None
     logger.info(f"mapping outputs: {outputs}")
-    stack_outputs = result.manager.get_outputs(outputs) if result.manager else {}
+    try:
+        stack_outputs = result.manager.get_outputs(outputs) if result.manager else {}
+    except Exception as e:
+        logger.error(f"Error getting outputs for {app_id}: {e}", exc_info=True)
+        stack_outputs = {}
     logger.info(
         f"Deployment of {app.app_id()} complete. Status: {result.status}, with outputs: {stack_outputs}"
     )

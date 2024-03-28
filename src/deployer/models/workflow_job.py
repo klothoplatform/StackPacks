@@ -24,7 +24,7 @@ class WorkflowJobStatus(Enum):
     FAILED = "FAILED"
     NEW = "NEW"
     PENDING = "PENDING"
-    CANCELLED = "CANCELLED"
+    CANCELED = "CANCELED"
 
 
 class WorkflowJobType(Enum):

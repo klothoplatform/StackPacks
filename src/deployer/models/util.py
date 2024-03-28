@@ -13,7 +13,7 @@ def abort_workflow_run(
     default_run_status: WorkflowRunStatus = None,
 ):
     if default_run_status is None:
-        default_run_status = WorkflowRunStatus.CANCELLED
+        default_run_status = WorkflowRunStatus.CANCELED
     logger.info(f"Aborting workflow run {run.composite_key()}")
     jobs = run.get_jobs()
     failed = False
@@ -23,9 +23,9 @@ def abort_workflow_run(
         if job.status in [WorkflowJobStatus.PENDING.value, WorkflowRunStatus.NEW.value]:
             job.update(
                 actions=[
-                    WorkflowJob.status.set(WorkflowJobStatus.CANCELLED.value),
+                    WorkflowJob.status.set(WorkflowJobStatus.CANCELED.value),
                     WorkflowJob.status_reason.set(
-                        "Workflow job cancelled due to early termination of workflow run"
+                        "Workflow job canceled due to early termination of workflow run"
                     ),
                     WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
                 ]
@@ -39,9 +39,9 @@ def abort_workflow_run(
             if cancel_in_progress_jobs:
                 job.update(
                     actions=[
-                        WorkflowJob.status.set(WorkflowJobStatus.CANCELLED.value),
+                        WorkflowJob.status.set(WorkflowJobStatus.CANCELED.value),
                         WorkflowJob.status_reason.set(
-                            "Workflow job cancelled due to early termination of workflow run"
+                            "Workflow job canceled due to early termination of workflow run"
                         ),
                         WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
                     ]
@@ -79,7 +79,7 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
         for job in jobs:
             if job.status == WorkflowJobStatus.FAILED.value:
                 failed = True
-            elif job.status == WorkflowJobStatus.CANCELLED.value:
+            elif job.status == WorkflowJobStatus.CANCELED.value:
                 canceled = True
             elif job.status not in [
                 WorkflowJobStatus.SUCCEEDED.value,
@@ -92,8 +92,8 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
         if canceled and not failed:
             run.update(
                 actions=[
-                    WorkflowRun.status.set(WorkflowRunStatus.CANCELLED.value),
-                    WorkflowRun.status_reason.set("Workflow run cancelled"),
+                    WorkflowRun.status.set(WorkflowRunStatus.CANCELED.value),
+                    WorkflowRun.status_reason.set("Workflow run canceled"),
                     WorkflowRun.completed_at.set(datetime.now(timezone.utc)),
                 ]
             )
@@ -116,7 +116,7 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
             )
 
         end_status = (
-            WorkflowRunStatus.CANCELLED
+            WorkflowRunStatus.CANCELED
             if canceled
             else WorkflowRunStatus.FAILED if failed else WorkflowRunStatus.SUCCEEDED
         )
