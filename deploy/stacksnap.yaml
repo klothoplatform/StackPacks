@@ -84,7 +84,7 @@ base:
         - Name: project_id
           Type: S
         - Name: range_key
-          Type: N
+          Type: S
       HashKey: project_id
       RangeKey: range_key
     aws:dynamodb_table:workflow-runs:
