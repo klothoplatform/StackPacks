@@ -40,7 +40,7 @@ class WorkflowRunRangeKey(NamedTuple):
 
 class WorkflowRun(Model):
     class Meta:
-        table_name = os.environ.get("WORKFLOW_RUNS_TABLE", "WorkflowRuns")
+        table_name = os.environ.get("WORKFLOW_RUNS_TABLE_NAME", "WorkflowRuns")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
         region = os.environ.get("AWS_DEFAULT_REGION", None)

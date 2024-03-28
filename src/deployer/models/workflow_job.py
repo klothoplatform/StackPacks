@@ -34,7 +34,7 @@ class WorkflowJobType(Enum):
 
 class WorkflowJob(Model):
     class Meta:
-        table_name = os.environ.get("WORKFLOW_JOBS_TABLE", "WorkflowJobs")
+        table_name = os.environ.get("WORKFLOW_JOBS_TABLE_NAME", "WorkflowJobs")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
         region = os.environ.get("AWS_DEFAULT_REGION", None)
