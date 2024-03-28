@@ -3,8 +3,8 @@ import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
-import type { UserStack } from "../shared/models/UserStack.ts";
-import { parseStack } from "../shared/models/UserStack.ts";
+import type { Project } from "../shared/models/Project.ts";
+import { parseProject } from "../shared/models/Project.ts";
 
 export interface RemoveAppRequest {
   idToken: string;
@@ -12,7 +12,7 @@ export interface RemoveAppRequest {
 }
 
 export interface RemoveAppResponse {
-  stack: UserStack;
+  stack: Project;
   policy: string;
 }
 
@@ -22,7 +22,7 @@ export async function removeApp({
 }: RemoveAppRequest): Promise<RemoveAppResponse> {
   let response: AxiosResponse;
   try {
-    response = await axios.delete(`/api/stack/${appId}`, {
+    response = await axios.delete(`/api/project/${appId}`, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
@@ -47,7 +47,7 @@ export async function removeApp({
     },
   });
   return {
-    stack: parseStack(response.data.stack),
+    stack: parseProject(response.data.stack),
     policy: response.data.policy,
   };
 }

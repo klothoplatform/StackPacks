@@ -1,9 +1,9 @@
-import type { AppTemplate } from "../shared/models/AppTemplate.ts";
+import type { Stackpack } from "../shared/models/Stackpack.ts";
 import { createContext } from "react";
 
 type AppChooserContextProps = {
-  apps: AppTemplate[];
-  setApps: (apps: AppTemplate[]) => void;
+  apps: Stackpack[];
+  setApps: (apps: Stackpack[]) => void;
   selectedApps: string[];
   setSelectedApps: (apps: string[]) => void;
 };

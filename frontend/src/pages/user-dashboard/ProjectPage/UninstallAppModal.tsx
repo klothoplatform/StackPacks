@@ -6,44 +6,55 @@ import useApplicationStore from "../../store/ApplicationStore.ts";
 import { UIError } from "../../../shared/errors.ts";
 import { FormFooter } from "../../../components/FormFooter.tsx";
 
-interface UninstallAllModalProps {
+interface UninstallAppModalProps {
   onClose: () => void;
   show?: boolean;
+  id: string;
+  name?: string;
 }
 
-export interface UninstallAllFormState {
+export interface UninstallAppFormState {
   confirmation: string;
   removeFromStack: boolean;
 }
 
-export default function UninstallAllModal({
+export default function UninstallAppModal({
   onClose,
   show,
-}: UninstallAllModalProps) {
+  id,
+  name,
+}: UninstallAppModalProps) {
   const {
     reset,
     register,
     handleSubmit,
     watch,
-    formState: { errors, isValid },
-  } = useForm<UninstallAllFormState>();
+    formState: { errors },
+  } = useForm<UninstallAppFormState>();
 
-  const { addError, tearDownStack, getUserStack } = useApplicationStore();
+  const { addError, uninstallApp, getProject } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const onSubmit = async () => {
     let success = false;
     setIsSubmitting(true);
     try {
-      await tearDownStack();
+      await uninstallApp(id);
       success = true;
     } catch (e: any) {
       addError(
         new UIError({
-          errorId: "UninstallAllModal:Submit",
-          message: `Uninstalling all apps failed`,
-          messageComponent: <span>Uninstalling all apps failed!</span>,
+          errorId: "UninstallAppModal:Submit",
+          message: `Uninstalling ${name} failed`,
+          messageComponent: (
+            <span>
+              Uninstalling <strong>{name}</strong> failed!
+            </span>
+          ),
           cause: e,
+          data: {
+            id,
+          },
         }),
       );
     } finally {
@@ -51,7 +62,7 @@ export default function UninstallAllModal({
     }
     if (success) {
       onClose();
-      await getUserStack(true);
+      await getProject(true);
     }
   };
 
@@ -84,12 +95,12 @@ export default function UninstallAllModal({
           onClose?.();
         }}
       >
-        <Modal.Header>Uninstall All Apps</Modal.Header>
+        <Modal.Header>Uninstall "{name}"</Modal.Header>
         <Modal.Body>
           <div className={"flex flex-col gap-6"}>
             <p className={"mb-4 text-sm dark:text-white"}>
-              Uninstalling all apps will remove all cloud resources and data
-              associated with your entire stack.
+              Uninstalling <strong>{name}</strong> will remove all cloud
+              resources and data associated with it.
             </p>
 
             <div>
@@ -121,7 +132,7 @@ export default function UninstallAllModal({
             {/*  <Label htmlFor="removeFromStack">Remove from stack</Label>*/}
             {/*  <span className="text-xs text-gray-400 dark:text-gray-500">*/}
             {/*    <i>*/}
-            {/*      (This will remove all apps and their configuration from your*/}
+            {/*      (This will remove the app and its configuration from your*/}
             {/*      stack.)*/}
             {/*    </i>*/}
             {/*  </span>*/}
@@ -140,8 +151,7 @@ export default function UninstallAllModal({
                 disabled={
                   Object.entries(errors).length > 0 ||
                   !watchConfirmation ||
-                  isSubmitting ||
-                  !isValid
+                  isSubmitting
                 }
                 isProcessing={isSubmitting}
                 processingSpinner={

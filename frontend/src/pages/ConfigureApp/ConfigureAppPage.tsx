@@ -12,12 +12,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button, useThemeMode } from "flowbite-react";
 import { MdChevronLeft } from "react-icons/md";
 import useApplicationStore from "../store/ApplicationStore.ts";
-import { resolveAppTemplates } from "../../shared/models/AppTemplate.ts";
+import { resolveStackpacks } from "../../shared/models/Stackpack.ts";
 
 export const ConfigureAppPage: FC = () => {
   const { appId } = useParams();
 
-  const { userStack, stackPacks } = useApplicationStore();
+  const { project, stackPacks } = useApplicationStore();
 
   const workflowSteps: Array<
     Step & { component: React.FC<any>; props?: Record<string, any> }
@@ -25,7 +25,7 @@ export const ConfigureAppPage: FC = () => {
     () => [
       {
         id: "configure-app",
-        title: `Configure ${resolveAppTemplates([appId], stackPacks)[0]?.name ?? appId}`,
+        title: `Configure ${resolveStackpacks([appId], stackPacks)[0]?.name ?? appId}`,
         component: ConfigureAppStep,
         props: {
           appId,
@@ -42,7 +42,7 @@ export const ConfigureAppPage: FC = () => {
 
   const CurrentStepComponent = workflowSteps[currentStep]?.component;
 
-  if (userStack?.stack_packs?.[appId] === undefined) {
+  if (project?.stack_packs?.[appId] === undefined) {
     navigate("../../add-apps");
   }
 

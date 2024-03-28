@@ -14,7 +14,7 @@ import { awsDefaultRegions, awsRegions } from "../../shared/aws-regions.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { InlineDropdown } from "../../components/InlineDropdown.tsx";
 import { InstructionalStep } from "../../components/InstructionalStep.tsx";
-import { AppLifecycleStatus } from "../../shared/models/UserStack.ts";
+import { AppLifecycleStatus } from "../../shared/models/Project.ts";
 
 export interface DeploymentFormState {
   region: string;
@@ -23,7 +23,7 @@ export interface DeploymentFormState {
 const defaultRegion = "us-east-1";
 
 export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
-  const { installStack, addError, updateStack, userStack } =
+  const { installProject, addError, updateProject, project } =
     useApplicationStore();
   const [deploymentState, setDeploymentState] = useState<
     "initial" | "installing" | "installed" | "failed"
@@ -31,7 +31,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   const navigate = useNavigate();
 
   const defaultValues: DeploymentFormState = {
-    region: userStack.region || defaultRegion,
+    region: project.region || defaultRegion,
   };
 
   const methods = useForm<DeploymentFormState>({ defaultValues });
@@ -55,13 +55,13 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
     setDeploymentState("installing");
 
     try {
-      if (userStack?.region !== data.region) {
-        await updateStack({
+      if (project?.region !== data.region) {
+        await updateProject({
           region: data.region,
         });
       }
 
-      const deployId = await installStack();
+      const deployId = await installProject();
       setDeploymentState("installed");
       navigate(`/user/dashboard/deploy/${deployId}`);
     } catch (e) {
@@ -77,8 +77,8 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   };
 
   const canSelectRegion =
-    !userStack.region ||
-    !Object.values(userStack.stack_packs).some((a) =>
+    !project.region ||
+    !Object.values(project.stack_packs).some((a) =>
       new Set([AppLifecycleStatus.New, AppLifecycleStatus.Uninstalled]).has(
         a.status,
       ),
@@ -165,7 +165,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                     color={"gray"}
                     size={"xs"}
                   >
-                    {awsRegions[userStack.region]}
+                    {awsRegions[project.region]}
                   </Badge>{" "}
                   AWS region.
                 </p>

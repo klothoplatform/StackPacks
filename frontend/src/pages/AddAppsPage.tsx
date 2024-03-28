@@ -26,7 +26,7 @@ type WorkflowStep = Step & {
 
 export function AddAppsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { updateOnboardingWorkflowState, userStack } = useApplicationStore();
+  const { updateOnboardingWorkflowState, project } = useApplicationStore();
   const navigate = useNavigate();
 
   const [excludedApps, setExcludedApps] = useState<string[]>([]);
@@ -50,7 +50,7 @@ export function AddAppsPage() {
     },
     {
       id: "update-deployment-role",
-      title: `${userStack?.assumed_role_arn ? "Update" : "Create"} Deployment Role`,
+      title: `${project?.assumed_role_arn ? "Update" : "Create"} Deployment Role`,
       component: ConnectAccountStep,
     },
     {
@@ -75,7 +75,7 @@ export function AddAppsPage() {
     if (currentExclusions) {
       setExcludedApps(currentExclusions);
     } else {
-      currentExclusions = Object.keys(userStack?.stack_packs ?? {});
+      currentExclusions = Object.keys(project?.stack_packs ?? {});
       if (currentExclusions?.length > 0) {
         setSearchParams((prev) => ({
           ...Object.fromEntries(prev.entries()),

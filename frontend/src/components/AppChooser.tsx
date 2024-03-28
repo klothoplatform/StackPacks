@@ -1,4 +1,4 @@
-import type { AppTemplate } from "../shared/models/AppTemplate.ts";
+import type { Stackpack } from "../shared/models/Stackpack.ts";
 import type { ChangeEvent, FC } from "react";
 import React, {
   createContext,
@@ -61,7 +61,7 @@ export const AppChooserComposite: FC<{
   excludedApps?: string[];
 }> = ({ excludedApps }) => {
   const { apps } = useAppChooser();
-  const [filteredApps, setFilteredApps] = useState<AppTemplate[]>([
+  const [filteredApps, setFilteredApps] = useState<Stackpack[]>([
     ...apps.filter((app) => !excludedApps?.includes(app.id)),
   ]);
   const { isXSmallScreen } = useScreenSize();
@@ -125,12 +125,12 @@ const AppChooserLayoutSelector: FC<{
   );
 };
 const AppChooser: FC<{
-  apps: AppTemplate[];
+  apps: Stackpack[];
   layout: AppChooserLayout;
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
   const [_, setSearchParams] = useSearchParams();
-  const onClick = (app: AppTemplate, selected: boolean) => {
+  const onClick = (app: Stackpack, selected: boolean) => {
     const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
     if (selected && !alreadySelected) {
@@ -171,8 +171,8 @@ const AppChooser: FC<{
   );
 };
 const AppChooserItem: FC<{
-  app: AppTemplate;
-  onClick?: (app: AppTemplate, selected: boolean) => void;
+  app: Stackpack;
+  onClick?: (app: Stackpack, selected: boolean) => void;
   selected?: boolean;
 }> = ({ app, onClick, selected }) => {
   const { mode } = useThemeMode();
@@ -240,13 +240,13 @@ const AppChooserItem: FC<{
   );
 };
 const AppSearch: FC<{
-  apps: AppTemplate[];
-  onFilter: (apps: AppTemplate[]) => void;
+  apps: Stackpack[];
+  onFilter: (apps: Stackpack[]) => void;
 }> = ({ apps, onFilter }) => {
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const filterValue = event.target.value;
     const filter = filterValue
-      ? (app: AppTemplate) => {
+      ? (app: Stackpack) => {
           return filterValue
             ? app.name
                 .toLowerCase()
@@ -272,8 +272,8 @@ const AppSearch: FC<{
   );
 };
 type ChooseAppsContextProps = {
-  apps: AppTemplate[];
-  setApps: (apps: AppTemplate[]) => void;
+  apps: Stackpack[];
+  setApps: (apps: Stackpack[]) => void;
   selectedApps: string[];
   setSelectedApps: (apps: string[]) => void;
 };

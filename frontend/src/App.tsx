@@ -11,11 +11,14 @@ import { CallbackPage } from "./pages/CallbackPage";
 import { Auth0ProviderWithNavigate } from "./auth/Auth0ProviderWithNavigate.tsx";
 import FallbackPage from "./pages/FallbackPage.tsx";
 import UserDashboardPage from "./pages/user-dashboard/UserDashboardPage.tsx";
-import { YourStackPane } from "./pages/user-dashboard/YourStackPane/YourStackPane.tsx";
-import { DeploymentPane } from "./pages/user-dashboard/DeploymentPane.tsx";
-import { DeploymentViewerPane } from "./pages/user-dashboard/DeploymentViewerPane.tsx";
+import { ProjectPage } from "./pages/user-dashboard/ProjectPage/ProjectPage.tsx";
 import { ConfigureAppPage } from "./pages/ConfigureApp/ConfigureAppPage.tsx";
 import { AddAppsPage } from "./pages/AddAppsPage.tsx";
+import WorkflowsPage from "./pages/Workflows/WorkflowsPage.tsx";
+import { WorkflowRunsPage } from "./pages/Workflows/WorkflowRunsPage.tsx";
+import { RunOverviewPage } from "./pages/Workflows/WorkflowRunPage/RunOverviewPage.tsx";
+import { JobDetailsPage } from "./pages/Workflows/WorkflowRunPage/JobDetailsPage.tsx";
+import WorkflowRunPage from "./pages/Workflows/WorkflowRunPage/WorkflowRunPage.tsx";
 
 const AuthorizedOutlet: FC = () => {
   const { updateAuthentication } = useApplicationStore();
@@ -49,7 +52,7 @@ const AppRouter: FC = function () {
           path: "user/dashboard",
           element: <UserDashboardPage />,
           children: [
-            { element: <YourStackPane />, index: true },
+            { element: <ProjectPage />, index: true },
             {
               path: "add-apps",
               element: <AddAppsPage />,
@@ -70,22 +73,61 @@ const AppRouter: FC = function () {
                 },
               ],
             },
+          ],
+        },
+        {
+          path: "/project/apps/:appId/workflows",
+          element: <WorkflowsPage />,
+          children: [
             {
-              path: "deploy",
-              children: [
-                {
-                  element: <DeploymentPane />,
-                  index: true,
-                },
-                {
-                  path: ":deployId",
-                  element: <DeploymentViewerPane />,
-                },
-                {
-                  path: ":deployId/app/:appId",
-                  element: <DeploymentViewerPane />,
-                },
-              ],
+              index: true,
+              element: <WorkflowRunsPage />,
+            },
+            {
+              path: ":workflowType",
+              element: <WorkflowRunsPage />,
+            },
+          ],
+        },
+        {
+          path: "/project/workflows/:workflowType/runs/:runNumber",
+          element: <WorkflowRunPage />,
+          children: [
+            {
+              index: true,
+              element: <RunOverviewPage />,
+            },
+            {
+              path: "jobs/:jobNumber",
+              element: <JobDetailsPage />,
+            },
+          ],
+        },
+        {
+          path: "/project/workflows",
+          element: <WorkflowsPage />,
+          children: [
+            {
+              index: true,
+              element: <WorkflowRunsPage />,
+            },
+            {
+              path: ":workflowType",
+              element: <WorkflowRunsPage />,
+            },
+          ],
+        },
+        {
+          path: "/project/apps/:appId/workflows/:workflowType/runs/:runNumber",
+          element: <WorkflowRunPage />,
+          children: [
+            {
+              index: true,
+              element: <RunOverviewPage />,
+            },
+            {
+              path: "jobs/:jobNumber",
+              element: <JobDetailsPage />,
             },
           ],
         },
@@ -95,5 +137,4 @@ const AppRouter: FC = function () {
 
   return <RouterProvider router={router} />;
 };
-
 export default AppRouter;

@@ -4,20 +4,20 @@ import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
 
-export async function installStack(idToken: string): Promise<string> {
+export async function uninstallProject(idToken: string): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post("/api/install", undefined, {
+    response = await axios.post("/api/project/workflows/uninstall", undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
     });
 
-    return response.data.deployment_id;
+    return response.data.run_id;
   } catch (e: any) {
     const error = new ApiError({
-      errorId: "InstallStack",
-      message: "An error occurred while installing your stack.",
+      errorId: "TearDownStack",
+      message: "An error occurred while tearing down your stack.",
       status: e.status,
       statusText: e.message,
       url: e.request?.url,
@@ -26,7 +26,7 @@ export async function installStack(idToken: string): Promise<string> {
     trackError(error);
     throw error;
   } finally {
-    analytics.track("InstallStack", {
+    analytics.track("TearDownStack", {
       status: response.status,
     });
   }

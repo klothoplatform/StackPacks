@@ -10,7 +10,7 @@ import { SelectableCard } from "../../components/SelectableCard.tsx";
 import { PiStackFill } from "react-icons/pi";
 import { FormProvider, useForm } from "react-hook-form";
 import useApplicationStore from "../store/ApplicationStore.ts";
-import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
+import type { Stackpack } from "../../shared/models/Stackpack.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { useSearchParams } from "react-router-dom";
 import { UIError } from "../../shared/errors.ts";
@@ -63,17 +63,17 @@ export const ChooseAppsStep: FC<
     stackPacks,
     updateOnboardingWorkflowState,
     getStackPacks,
-    createOrUpdateStack,
+    createOrUpdateProject,
     addError,
-    userStack,
+    project,
   } = useApplicationStore();
 
-  const [apps, setApps] = useState<AppTemplate[]>(
+  const [apps, setApps] = useState<Stackpack[]>(
     [...stackPacks.values()].filter((app) => !excludedApps?.includes(app.id)),
   );
   const [selectedApps, setSelectedApps] = useState<string[]>(
-    userStack
-      ? Object.keys(userStack.stack_packs)?.filter(
+    project
+      ? Object.keys(project.stack_packs)?.filter(
           (app) => !excludedApps?.includes(app),
         )
       : [],
@@ -93,17 +93,17 @@ export const ChooseAppsStep: FC<
   }, [excludedApps]);
 
   useEffect(() => {
-    if (!isLoaded || (isLoaded && !userStack)) {
+    if (!isLoaded || (isLoaded && !project)) {
       return;
     }
     setSelectedApps(
-      userStack.stack_packs
-        ? Object.keys(userStack.stack_packs).filter(
+      project.stack_packs
+        ? Object.keys(project.stack_packs).filter(
             (app) => !excludedApps?.includes(app),
           )
         : [],
     );
-  }, [userStack, isLoaded, excludedApps]);
+  }, [project, isLoaded, excludedApps]);
 
   useEffectOnMount(() => {
     // load stack packs
@@ -151,26 +151,26 @@ export const ChooseAppsStep: FC<
     });
 
     try {
-      if (!userStack) {
-        await createOrUpdateStack({
+      if (!project) {
+        await createOrUpdateProject({
           configuration: Object.fromEntries(selectedApps.map((id) => [id, {}])),
         });
       } else {
         if (
           setEquals(
             new Set(selectedApps),
-            new Set(Object.keys(userStack.stack_packs)),
+            new Set(Object.keys(project.stack_packs)),
           )
         ) {
           setIsSubmitting(false);
           props.goForwards();
           return;
         }
-        await createOrUpdateStack({
+        await createOrUpdateProject({
           configuration: Object.fromEntries(
             selectedApps.map((id) => [
               id,
-              userStack.stack_packs[id]?.configuration ?? {},
+              project.stack_packs[id]?.configuration ?? {},
             ]),
           ),
         });
@@ -221,7 +221,7 @@ export const ChooseAppsStep: FC<
                       className={"flex items-center gap-2 whitespace-nowrap"}
                     >
                       {!isSubmitting && <PiStackFill />}{" "}
-                      {userStack ? "Update" : "Create"} Stack
+                      {project ? "Update" : "Create"} Stack
                     </div>
                   </Button>
                 </div>
@@ -236,7 +236,7 @@ export const ChooseAppsStep: FC<
 
 export const AppChooserComposite: FC = () => {
   const { apps } = useAppChooser();
-  const [filteredApps, setFilteredApps] = useState<AppTemplate[]>([...apps]);
+  const [filteredApps, setFilteredApps] = useState<Stackpack[]>([...apps]);
   const { isXSmallScreen } = useScreenSize();
   const [selectedLayout, setSelectedLayout] = useState<AppChooserLayout>(
     AppChooserLayout.Grid,
@@ -314,12 +314,12 @@ const AppChooserLayoutSelector: FC<{
 };
 
 const AppChooser: FC<{
-  apps: AppTemplate[];
+  apps: Stackpack[];
   layout: AppChooserLayout;
 }> = ({ apps, layout }) => {
   const { selectedApps, setSelectedApps } = useAppChooser();
   const [_, setSearchParams] = useSearchParams();
-  const onClick = (app: AppTemplate, selected: boolean) => {
+  const onClick = (app: Stackpack, selected: boolean) => {
     const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
     if (selected && !alreadySelected) {
@@ -363,8 +363,8 @@ const AppChooser: FC<{
 };
 
 const AppChooserItem: FC<{
-  app: AppTemplate;
-  onClick?: (app: AppTemplate, selected: boolean) => void;
+  app: Stackpack;
+  onClick?: (app: Stackpack, selected: boolean) => void;
   selected?: boolean;
 }> = ({ app, onClick, selected }) => {
   const { mode } = useThemeMode();
@@ -433,13 +433,13 @@ const AppChooserItem: FC<{
 };
 
 const AppSearch: FC<{
-  apps: AppTemplate[];
-  onFilter: (apps: AppTemplate[]) => void;
+  apps: Stackpack[];
+  onFilter: (apps: Stackpack[]) => void;
 }> = ({ apps, onFilter }) => {
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const filterValue = event.target.value;
     const filter = filterValue
-      ? (app: AppTemplate) => {
+      ? (app: Stackpack) => {
           return filterValue
             ? app.name
                 .toLowerCase()

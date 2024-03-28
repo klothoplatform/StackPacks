@@ -3,8 +3,8 @@ import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
-import type { UserStack } from "../shared/models/UserStack.ts";
-import { parseStack } from "../shared/models/UserStack.ts";
+import type { Project } from "../shared/models/Project.ts";
+import { parseProject } from "../shared/models/Project.ts";
 
 export interface UpdateAppRequest {
   idToken: string;
@@ -13,7 +13,7 @@ export interface UpdateAppRequest {
 }
 
 export interface UpdateAppResponse {
-  stack: UserStack;
+  stack: Project;
   policy: string;
 }
 
@@ -24,7 +24,7 @@ export async function updateApp({
 }: UpdateAppRequest): Promise<UpdateAppResponse> {
   let response: AxiosResponse;
   try {
-    response = await axios.patch(`/api/stack/${appId}`, configuration, {
+    response = await axios.patch(`/api/project/${appId}`, configuration, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
@@ -50,7 +50,7 @@ export async function updateApp({
     },
   });
   return {
-    stack: parseStack(response.data.stack),
+    stack: parseProject(response.data.stack),
     policy: response.data.policy,
   };
 }

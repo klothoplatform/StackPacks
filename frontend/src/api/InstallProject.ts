@@ -4,26 +4,20 @@ import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
 
-export interface TearDownAppRequest {
-  idToken: string;
-  appId: string;
-}
-
-export async function tearDownApp({
-  idToken,
-  appId,
-}: TearDownAppRequest): Promise<string> {
+export async function installProject(idToken: string): Promise<string> {
   let response: AxiosResponse;
   try {
-    response = await axios.post(`/api/tear_down/${appId}`, undefined, {
+    response = await axios.post("/api/project/workflows/install", undefined, {
       headers: {
         ...(idToken && { Authorization: `Bearer ${idToken}` }),
       },
     });
+
+    return response.data.run_id;
   } catch (e: any) {
     const error = new ApiError({
-      errorId: "TearDownApp",
-      message: "An error occurred while tearing down your app.",
+      errorId: "InstallStack",
+      message: "An error occurred while installing your stack.",
       status: e.status,
       statusText: e.message,
       url: e.request?.url,
@@ -31,12 +25,9 @@ export async function tearDownApp({
     });
     trackError(error);
     throw error;
+  } finally {
+    analytics.track("InstallStack", {
+      status: response.status,
+    });
   }
-
-  analytics.track("TearDownApp", {
-    status: response.status,
-    appId: appId,
-  });
-
-  return response.data.deployment_id;
 }

@@ -5,8 +5,8 @@ import type { StepperNavigatorProps } from "../../components/Stepper.tsx";
 import { Card } from "flowbite-react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import type { Property } from "../../shared/configuration-properties.ts";
-import { toFormState } from "../../shared/models/UserStack.ts";
-import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
+import { toFormState } from "../../shared/models/Project.ts";
+import type { Stackpack } from "../../shared/models/Stackpack.ts";
 import { ConfigureAppsForm } from "../../components/ConfigureAppsForm.tsx";
 
 export interface ConfigFormSection {
@@ -21,10 +21,10 @@ export const ConfigureAppsStep: FC<
     excludedApps?: string[];
   }
 > = ({ excludedApps, ...props }) => {
-  const { userStack, getStackPacks } = useApplicationStore();
+  const { project, getStackPacks } = useApplicationStore();
 
   const [sections, setSections] = useState<ConfigFormSection[]>([]);
-  const [stackPacks, setStackPacks] = useState<Map<string, AppTemplate>>(
+  const [stackPacks, setStackPacks] = useState<Map<string, Stackpack>>(
     new Map(),
   );
 
@@ -34,7 +34,7 @@ export const ConfigureAppsStep: FC<
       setStackPacks(stackPacks);
 
       const sections: ConfigFormSection[] = Object.entries(
-        userStack?.stack_packs ?? {},
+        project?.stack_packs ?? {},
       )
         .filter(([stackPackId]) => !excludedApps?.includes(stackPackId))
         .map(([stackPackId, appDeployment]) => {
@@ -58,7 +58,7 @@ export const ConfigureAppsStep: FC<
         .filter((section) => section !== undefined) as ConfigFormSection[];
       setSections(sections);
     })();
-  }, [excludedApps, getStackPacks, userStack]);
+  }, [excludedApps, getStackPacks, project]);
 
   return (
     <Card className={"min-h-[50vh] w-full p-4"}>

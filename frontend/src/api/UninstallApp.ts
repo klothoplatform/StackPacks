@@ -4,19 +4,19 @@ import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
 
-export interface InstallAppRequest {
-  appId: string;
+export interface UninstallAppRequest {
   idToken: string;
+  appId: string;
 }
 
-export async function installApp({
-  appId,
+export async function uninstallApp({
   idToken,
-}: InstallAppRequest): Promise<string> {
+  appId,
+}: UninstallAppRequest): Promise<string> {
   let response: AxiosResponse;
   try {
     response = await axios.post(
-      `/api/project/apps/${appId}/workflows/install`,
+      `/api/project/apps/${appId}/workflows/uninstall`,
       undefined,
       {
         headers: {
@@ -26,8 +26,8 @@ export async function installApp({
     );
   } catch (e: any) {
     const error = new ApiError({
-      errorId: "InstallApp",
-      message: "An error occurred while installing your app.",
+      errorId: "UninstallApp",
+      message: "An error occurred while tearing down your app.",
       status: e.status,
       statusText: e.message,
       url: e.request?.url,
@@ -37,7 +37,7 @@ export async function installApp({
     throw error;
   }
 
-  analytics.track("InstallApp", {
+  analytics.track("UninstallApp", {
     status: response.status,
     appId: appId,
   });

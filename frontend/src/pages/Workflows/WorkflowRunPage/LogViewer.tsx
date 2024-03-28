@@ -5,23 +5,19 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import useApplicationStore from "../store/ApplicationStore.ts";
+import { useLocation } from "react-router-dom";
+import useApplicationStore from "../../store/ApplicationStore.ts";
 import type { CustomFlowbiteTheme } from "flowbite-react";
-import { Dropdown } from "flowbite-react";
-import { Button, Card, Tabs, TextInput } from "flowbite-react";
-import { ErrorBoundary } from "react-error-boundary";
-import { FallbackRenderer } from "../../components/FallbackRenderer.tsx";
-import { trackError } from "../store/ErrorStore.ts";
-import { UIError } from "../../shared/errors.ts";
+import { Button, Card, Dropdown, TextInput } from "flowbite-react";
 import Ansi from "ansi-to-react-18";
-import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import type { EventSourceMessage } from "@microsoft/fetch-event-source";
-import { AbortError, DeployLogEventType } from "../../api/DeployLogs.ts";
+import {
+  AbortError,
+  DeployLogEventType,
+} from "../../../api/SubscribeToLogStream.ts";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import "./ansi.scss";
-import { useScrollToAnchor } from "../../hooks/useScrollToAnchor.ts";
+import { useScrollToAnchor } from "../../../hooks/useScrollToAnchor.ts";
 import classNames from "classnames";
 import { MdSearch } from "react-icons/md";
 import {
@@ -32,104 +28,7 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Virtuoso } from "react-virtuoso";
 import { GrLinkBottom } from "react-icons/gr";
-
-const tabTheme: CustomFlowbiteTheme["tabs"] = {
-  base: "flex flex-col gap-2 size-full",
-  tabitemcontainer: {
-    base: "size-full overflow-hidden",
-  },
-  tabpanel: "py-3 size-full overflow-hidden",
-  tablist: {
-    styles: {
-      underline: "flex-no-wrap -mb-px",
-    },
-    tabitem: {
-      base: "text-gray-500 dark:text-gray-300 flex items-center justify-center p-2 text-sm font-medium first:ml-0 disabled:cursor-not-allowed disabled:text-gray-400 disabled:dark:text-gray-500 focus:outline-none",
-      styles: {
-        underline: {
-          base: "",
-          active: {
-            on: "text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 active dark:border-primary-500",
-            off: "border-b-2 border-transparent hover:border-gray-300 hover:text-gray-600 dark:text-white dark:hover:text-gray-300",
-          },
-        },
-      },
-    },
-  },
-};
-
-export const DeploymentViewerPane: FC = () => {
-  useDocumentTitle("StackPacks - Log Viewer");
-  const { deployId, appId } = useParams();
-
-  const navigate = useNavigate();
-
-  useEffectOnMount(() => {
-    if (!deployId) {
-      navigate(`..`);
-    }
-  });
-
-  const { userStack } = useApplicationStore();
-  const [applications, setApplications] = useState([
-    "common",
-    ...Object.keys(userStack?.stack_packs ?? {}),
-  ]);
-
-  useEffect(() => {
-    setApplications(["common", ...Object.keys(userStack?.stack_packs ?? {})]);
-  }, [userStack]);
-
-  useEffect(() => {
-    if (!appId && applications.length > 0 && applications[0] !== undefined) {
-      navigate(`/user/dashboard/deploy/${deployId}/app/${applications[0]}`);
-    }
-  }, [appId, deployId, applications, navigate]);
-
-  const changeTab = (tab: number) => {
-    const app = applications[tab];
-    if (app !== appId && app !== undefined) {
-      navigate(`/user/dashboard/deploy/${deployId}/app/${app}`);
-    }
-  };
-
-  return (
-    <ErrorBoundary
-      fallbackRender={FallbackRenderer}
-      onError={(error, info) => {
-        trackError(
-          new UIError({
-            message: "uncaught error in DeploymentViewerPane",
-            errorId: "DeploymentViewerPane:ErrorBoundary",
-            cause: error,
-            data: {
-              info,
-            },
-          }),
-        );
-      }}
-    >
-      <Tabs
-        theme={tabTheme}
-        // eslint-disable-next-line react/style-prop-object
-        style="underline"
-        onActiveTabChange={changeTab}
-      >
-        {applications.map((app, index) => {
-          if (app !== appId) {
-            return <Tabs.Item key={index} title={app} />;
-          } else {
-            return (
-              <Tabs.Item key={index} active title={app}>
-                <LogPane key={app} appId={app} deployId={deployId} />
-              </Tabs.Item>
-            );
-          }
-        })}
-      </Tabs>
-    </ErrorBoundary>
-  );
-};
+import type { WorkflowType } from "../../../shared/models/Workflow.ts";
 
 type SearchResult = {
   lineNumber: number;
@@ -139,11 +38,12 @@ type SearchResult = {
   selected?: boolean;
 };
 
-const LogPane: FC<{
-  appId: string;
-  deployId: string;
-  searchResults?: SearchResult[];
-}> = ({ appId, deployId }) => {
+export const LogViewer: FC<{
+  workflowType: WorkflowType;
+  jobNumber: number;
+  runNumber: number;
+  appId?: string;
+}> = ({ workflowType, jobNumber, runNumber, appId }) => {
   const logPaneRef = React.useRef<HTMLDivElement>(null);
   const { subscribeToLogStream } = useApplicationStore();
   const [done, setDone] = useState(false);
@@ -220,16 +120,18 @@ const LogPane: FC<{
 
   useEffect(() => {
     setLog([]);
-    if (!deployId || !appId) {
+    if (!workflowType || !jobNumber || !runNumber) {
       return;
     }
     const controller = new AbortController();
     (async () => {
       try {
-        await subscribeToLogStream(
-          deployId,
-          appId,
-          (message: EventSourceMessage) => {
+        await subscribeToLogStream({
+          targetedAppId: appId,
+          workflowType: workflowType,
+          jobNumber: jobNumber,
+          runNumber: runNumber,
+          listener: (message: EventSourceMessage) => {
             const { event, data } = message;
             if (event === DeployLogEventType.LogLine) {
               setLog((log) => {
@@ -242,7 +144,7 @@ const LogPane: FC<{
             }
           },
           controller,
-        );
+        });
       } catch (e) {
         if (e instanceof AbortError) {
           console.log("log stream aborted");
@@ -255,7 +157,7 @@ const LogPane: FC<{
       console.log("aborting log stream");
       controller.abort();
     };
-  }, [deployId, appId, subscribeToLogStream]);
+  }, [appId, jobNumber, runNumber, subscribeToLogStream, workflowType]);
 
   const appendInterval = useRef(null);
   const showButtonTimeoutRef = useRef(null);
@@ -289,7 +191,6 @@ const LogPane: FC<{
       <Card className="size-full bg-gray-800 p-2 text-white">
         <div
           ref={logPaneRef}
-          // onScroll={handleScroll}
           className={
             "flex size-full flex-col scroll-smooth whitespace-pre-wrap py-2 pr-2 text-xs"
           }

@@ -22,8 +22,8 @@ const MANAGED_POLICIES = [].map(encodeURIComponent).join("&policies=");
 export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
   const {
     onboardingWorkflowState: { externalId },
-    userStack,
-    updateStack,
+    project,
+    updateProject,
     userStackPolicy,
     addError,
   } = useApplicationStore();
@@ -34,9 +34,9 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
 
   useEffect(() => {
     methods.reset({
-      assumedRoleArn: userStack?.assumed_role_arn ?? "",
+      assumedRoleArn: project?.assumed_role_arn ?? "",
     });
-  }, [methods, userStack?.assumed_role_arn]);
+  }, [methods, project?.assumed_role_arn]);
 
   const { isValid, errors, isDirty } = methods.formState;
 
@@ -48,7 +48,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
 
     try {
       console.log(data);
-      await updateStack({
+      await updateProject({
         assumed_role_arn: data.assumedRoleArn,
         assumed_role_external_id: externalId,
       });

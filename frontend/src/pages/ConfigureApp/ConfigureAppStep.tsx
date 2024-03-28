@@ -7,7 +7,7 @@ import type { Property } from "../../shared/configuration-properties.ts";
 import {
   formStateToAppConfig,
   toFormState,
-} from "../../shared/models/UserStack.ts";
+} from "../../shared/models/Project.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { UIError } from "../../shared/errors.ts";
 import { DynamicConfigForm } from "../../components/config/DynamicConfigForm.tsx";
@@ -31,11 +31,11 @@ export const ConfigureAppForm: FC<{
   appId: string;
   stepperProps: StepperNavigatorProps;
 }> = ({ appId }) => {
-  const { userStack, stackPacks } = useApplicationStore();
+  const { project, stackPacks } = useApplicationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const appDeployment = userStack?.stack_packs?.[appId];
+  const appDeployment = project?.stack_packs?.[appId];
   const config = appDeployment?.configuration;
   const stackPack = stackPacks.get(appId);
   const propertyMap = new Map<string, Property[]>([
@@ -53,7 +53,7 @@ export const ConfigureAppForm: FC<{
 
   const { isDirty } = methods.formState;
 
-  const { updateStack, addError, installApp } = useApplicationStore();
+  const { updateProject, addError, installApp } = useApplicationStore();
 
   const onSubmit = methods.handleSubmit(async (data) => {
     setIsSubmitting(true);
@@ -62,7 +62,7 @@ export const ConfigureAppForm: FC<{
       const configuration = formStateToAppConfig(data, stackPacks);
       console.log(configuration);
       try {
-        await updateStack({ configuration });
+        await updateProject({ configuration });
       } catch (e) {
         addError(
           new UIError({

@@ -19,45 +19,33 @@ export const OutlinedAlert: CustomFlowbiteTheme["alert"] = {
   },
 };
 
-/*
-<span class="bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-blue-400 border border-blue-400">Default</span>
-<span class="bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Dark</span>
-<span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-red-400 border border-red-400">Red</span>
-<span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-green-400 border border-green-400">Green</span>
-<span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Yellow</span>
-<span class="bg-indigo-100 text-indigo-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Indigo</span>
-<span class="bg-purple-100 text-purple-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-purple-400 border border-purple-400">Purple</span>
-<span class="bg-pink-100 text-pink-800 text-xs font-medium  dark:bg-gray-700 dark:text-pink-400 border border-pink-400">Pink</span>
-
- */
-
 export const outlineBadge: CustomFlowbiteTheme["badge"] = {
   root: {
     color: {
       success:
-        "text-green-800 bg-green-100 dark:bg-gray-700 dark:text-green-400 border border-green-400",
+        "text-green-800 bg-green-100 dark:bg-green-700/20 dark:text-green-400 border border-green-400",
       warning:
-        "text-yellow-800 bg-yellow-100 dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300",
+        "text-yellow-800 bg-yellow-100 dark:bg-yellow-700/20 dark:text-yellow-300 border border-yellow-300",
       failure:
-        "text-red-800 bg-red-100 dark:bg-gray-700 dark:text-red-400 border border-red-400",
-      info: "text-cyan-800 bg-cyan-100 dark:bg-gray-700 dark:text-cyan-400 border border-cyan-400",
-      dark: "text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 border border-gray-600",
+        "text-red-800 bg-red-100 dark:bg-red-700/20 dark:text-red-400 border border-red-400",
+      info: "text-cyan-800 bg-cyan-100 dark:bg-cyan-700/20 dark:text-cyan-400 border border-cyan-400",
+      dark: "text-gray-800 bg-gray-100 dark:bg-gray-700/20 dark:text-gray-300 border border-gray-600",
       light:
-        "text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-400 border border-gray-500",
-      blue: "text-blue-800 bg-blue-100 dark:bg-gray-700 dark:text-blue-400 border border-blue-400",
+        "text-gray-800 bg-gray-100 dark:bg-gray-700/20 dark:text-gray-400 border border-gray-500",
+      blue: "text-blue-800 bg-blue-100 dark:bg-blue-700/20 dark:text-blue-400 border border-blue-400",
       indigo:
-        "text-indigo-800 bg-indigo-100 dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400",
+        "text-indigo-800 bg-indigo-100 dark:bg-indigo-700/20 dark:text-indigo-400 border border-indigo-400",
       purple:
-        "text-purple-800 bg-purple-100 dark:bg-gray-700 dark:text-purple-400 border border-purple-400",
-      pink: "text-pink-800 bg-pink-100 dark:bg-gray-700 dark:text-pink-400 border border-pink-400",
+        "text-purple-800 bg-purple-100 dark:bg-purple-700/20 dark:text-purple-400 border border-purple-400",
+      pink: "text-pink-800 bg-pink-100 dark:bg-pink-700/20 dark:text-pink-400 border border-pink-400",
       yellow:
-        "text-yellow-800 bg-yellow-100 dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300",
+        "text-yellow-800 bg-yellow-100 dark:bg-yellow-700/20 dark:text-yellow-300 border border-yellow-300",
       green:
-        "text-green-800 bg-green-100 dark:bg-gray-700 dark:text-green-400 border border-green-400",
-      red: "text-red-800 bg-red-100 dark:bg-gray-700 dark:text-red-400 border border-red-400",
-      cyan: "text-cyan-800 bg-cyan-100 dark:bg-gray-700 dark:text-cyan-400 border border-cyan-400",
-      gray: "text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 border border-gray-600",
-      teal: "text-teal-800 bg-teal-100 dark:bg-gray-700 dark:text-teal-400 border border-teal-400",
+        "text-green-800 bg-green-100 dark:bg-green-700/20 dark:text-green-400 border border-green-400",
+      red: "text-red-800 bg-red-100 dark:bg-red-700/20 dark:text-red-400 border border-red-400",
+      cyan: "text-cyan-800 bg-cyan-100 dark:bg-cyan-700/20 dark:text-cyan-400 border border-cyan-400",
+      gray: "text-gray-800 bg-gray-100 dark:bg-gray-700/20 dark:text-gray-300 border border-gray-600",
+      teal: "text-teal-800 bg-teal-100 dark:bg-teal-700/20 dark:text-teal-400 border border-teal-400",
     },
   },
 };

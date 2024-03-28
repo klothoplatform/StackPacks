@@ -2,39 +2,34 @@ import type { AxiosResponse } from "axios";
 import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import type {
-  StackModification,
-  UserStack,
-} from "../shared/models/UserStack.ts";
-import { parseStack } from "../shared/models/UserStack.ts";
+import type { ProjectModification, Project } from "../shared/models/Project.ts";
+import { parseProject } from "../shared/models/Project.ts";
 import { analytics } from "../shared/analytics.ts";
 
-export interface CreateStackRequest {
+export interface UpdateProjectRequest {
   idToken: string;
-  stack: StackModification;
+  stack: ProjectModification;
 }
 
-export interface CreateStackResponse {
-  stack: UserStack;
+export interface UpdateProjectResponse {
+  stack: Project;
   policy: string;
 }
 
-export async function createStack(
-  request: CreateStackRequest,
-): Promise<CreateStackResponse> {
+export async function updateProject(
+  request: UpdateProjectRequest,
+): Promise<UpdateProjectResponse> {
   let response: AxiosResponse;
   try {
-    response = await axios.post("/api/stack", request.stack, {
+    response = await axios.patch("/api/project", request.stack, {
       headers: {
-        ...(request.idToken && {
-          Authorization: `Bearer ${request.idToken}`,
-        }),
+        ...(request.idToken && { Authorization: `Bearer ${request.idToken}` }),
       },
     });
   } catch (e: any) {
     const error = new ApiError({
-      errorId: "CreateStack",
-      message: "An error occurred while creating your stack.",
+      errorId: "UpdateProject",
+      message: "An error occurred while updating your project",
       status: e.status,
       statusText: e.message,
       url: e.request?.url,
@@ -44,14 +39,14 @@ export async function createStack(
     throw error;
   }
 
-  analytics.track("CreateStack", {
+  analytics.track("UpdateProject", {
     status: response.status,
     data: {
       stackPacks: Object.keys(request.stack?.configuration || {}),
     },
   });
   return {
-    stack: parseStack(response.data.stack),
+    stack: parseProject(response.data.stack),
     policy: response.data.policy,
   };
 }

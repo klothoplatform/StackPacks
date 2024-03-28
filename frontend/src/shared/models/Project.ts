@@ -19,8 +19,8 @@ import {
   type MapProperty,
 } from "../configuration-properties.ts";
 import { isCollection } from "yaml";
-import type { AppTemplate } from "./AppTemplate.ts";
-import { resolveAppTemplates } from "./AppTemplate.ts";
+import type { Stackpack } from "./Stackpack.ts";
+import { resolveStackpacks } from "./Stackpack.ts";
 
 export enum AppDeploymentStatus {
   Failed = "FAILED",
@@ -76,7 +76,7 @@ export function toAppStatusString(status: AppLifecycleStatus) {
   );
 }
 
-export interface UserStack {
+export interface Project {
   assumed_role_arn?: string;
   assumed_role_external_id?: string;
   policy: string;
@@ -100,7 +100,7 @@ export interface ApplicationDeployment {
   version: string;
 }
 
-export interface StackModification {
+export interface ProjectModification {
   assumed_role_arn?: string;
   assumed_role_external_id?: string;
   configuration?: Configuration;
@@ -279,25 +279,25 @@ function setConfigEntry(entry: ConfigEntry) {
   }
 }
 
-export function isStackDeployed(userStack: UserStack) {
+export function isProjectDeployed(userStack: Project) {
   if (!userStack?.stack_packs) {
     return false;
   }
   return Object.values(userStack.stack_packs).some((app) => app.status);
 }
 
-export function parseStack(data: any): UserStack {
+export function parseProject(data: any): Project {
   delete data?.stack_packs?.common;
   return data;
 }
 
 export function formStateToAppConfig(
   data: Record<string, any>,
-  stackPacks: Map<string, AppTemplate>,
+  stackPacks: Map<string, Stackpack>,
 ) {
   const packs = [
     ...new Set(
-      resolveAppTemplates(
+      resolveStackpacks(
         Object.keys(data)
           .map((f) => (f.includes("#") ? f.split("#")[0] : undefined))
           .filter((f) => f !== undefined),
@@ -331,7 +331,7 @@ const inProgressStatuses = new Set([
   AppLifecycleStatus.Uninstalling,
 ]);
 
-export function hasDeploymentInProgress(userStack: UserStack) {
+export function hasDeploymentInProgress(userStack: Project) {
   if (!userStack?.stack_packs) {
     return false;
   }

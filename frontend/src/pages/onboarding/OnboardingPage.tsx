@@ -23,7 +23,7 @@ import { ConfigureAppsStep } from "./ConfigureAppsStep.tsx";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
-import { isStackDeployed } from "../../shared/models/UserStack.ts";
+import { isProjectDeployed } from "../../shared/models/Project.ts";
 
 const workflowSteps: Array<Step & { component: React.FC<any> }> = [
   {
@@ -52,7 +52,7 @@ function OnboardingPage() {
   const { isAuthenticated, user, addError } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { getUserStack, updateOnboardingWorkflowState } = useApplicationStore();
+  const { getProject, updateOnboardingWorkflowState } = useApplicationStore();
   const navigate = useNavigate();
   const [canOnboard, setCanOnboard] = useState(false);
 
@@ -62,8 +62,8 @@ function OnboardingPage() {
     }
     (async () => {
       try {
-        const userStack = await getUserStack(true);
-        if (!isStackDeployed(userStack)) {
+        const userStack = await getProject(true);
+        if (!isProjectDeployed(userStack)) {
           setCanOnboard(true);
         } else {
           navigate("/user/dashboard", { replace: true });
@@ -79,7 +79,7 @@ function OnboardingPage() {
         setIsLoaded(true);
       }
     })();
-  }, [isAuthenticated, isLoaded, getUserStack, navigate, addError]);
+  }, [isAuthenticated, isLoaded, getProject, navigate, addError]);
 
   useEffectOnMount(() => {
     const queryApps = searchParams

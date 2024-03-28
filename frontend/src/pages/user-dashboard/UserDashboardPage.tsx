@@ -21,19 +21,14 @@ const sidebarConfig = [
     title: "Your Stack",
   },
   {
-    id: "deployment-logs",
-    url: "/user/dashboard/deploy",
-    title: "Deployment Logs",
-  },
-  {
-    id: "latest-logs",
-    url: "/user/dashboard/deploy/latest",
-    title: "Latest Logs",
+    id: "workflows",
+    url: "/project/workflows",
+    title: "Workflows",
   },
 ];
 
 function UserDashboardPage() {
-  const { isAuthenticated, user, getUserStack, getStackPacks, userStack } =
+  const { isAuthenticated, user, getProject, getStackPacks, project } =
     useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
@@ -49,7 +44,7 @@ function UserDashboardPage() {
 
     (async () => {
       try {
-        await Promise.all([getUserStack(true), getStackPacks(true)]);
+        await Promise.all([getProject(true), getStackPacks(true)]);
         setIsLoaded(true);
       } catch (error) {
         trackError(
@@ -61,13 +56,13 @@ function UserDashboardPage() {
         );
       }
     })();
-  }, [getStackPacks, getUserStack, isAuthenticated, isLoaded]);
+  }, [getStackPacks, getProject, isAuthenticated, isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && !Object.keys(userStack?.stack_packs ?? {}).length) {
+    if (isLoaded && !Object.keys(project?.stack_packs ?? {}).length) {
       navigate("./add-apps");
     }
-  }, [isLoaded, navigate, userStack]);
+  }, [isLoaded, navigate, project]);
 
   return (
     <div

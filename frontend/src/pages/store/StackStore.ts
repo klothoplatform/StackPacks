@@ -1,71 +1,75 @@
 import type { StateCreator } from "zustand";
 import type { ErrorStore } from "./ErrorStore";
 import type {
-  StackModification,
-  UserStack,
-} from "../../shared/models/UserStack.ts";
+  Project,
+  ProjectModification,
+} from "../../shared/models/Project.ts";
 import {
   AppDeploymentStatus,
   AppLifecycleStatus,
-} from "../../shared/models/UserStack.ts";
-import type { AppTemplate } from "../../shared/models/AppTemplate.ts";
-import { resolveDefaultConfiguration } from "../../shared/models/AppTemplate.ts";
-import { getStack } from "../../api/GetStack.ts";
+} from "../../shared/models/Project.ts";
+import type { Stackpack } from "../../shared/models/Stackpack.ts";
+import { resolveDefaultConfiguration } from "../../shared/models/Stackpack.ts";
 import type { AuthStore } from "./AuthStore.ts";
 import { getStackPacks } from "../../api/GetStackPacks.ts";
-import { installStack } from "../../api/InstallStack.ts";
-import { tearDownStack } from "../../api/TearDownStack.ts";
-import type { UpdateStackResponse } from "../../api/UpdateStack.ts";
-import { updateStack } from "../../api/UpdateStack.ts";
-import type { CreateStackResponse } from "../../api/CreateStack.ts";
-import { createStack } from "../../api/CreateStack.ts";
+import { installProject } from "../../api/InstallProject.ts";
+import { uninstallProject } from "../../api/UninstallProject.ts";
+import type { UpdateProjectResponse } from "../../api/UpdateProject.ts";
+import { updateProject } from "../../api/UpdateProject.ts";
+import type { CreateStackResponse } from "../../api/CreateProject.ts";
+import { createProject } from "../../api/CreateProject.ts";
 import { merge } from "ts-deepmerge";
 import type { UpdateAppResponse } from "../../api/UpdateApp.ts";
 import { updateApp } from "../../api/UpdateApp.ts";
 import { installApp } from "../../api/InstallApp.ts";
-import { tearDownApp } from "../../api/TearDownApp.ts";
+import { uninstallApp } from "../../api/UninstallApp.ts";
 import { removeApp } from "../../api/RemoveApp.ts";
-import type { LogStreamListener } from "../../api/DeployLogs.ts";
-import { subscribeToLogStream } from "../../api/DeployLogs.ts";
-import { getDeployments } from "../../api/GetDeployments.ts";
+import type { LogSubscriptionRequest } from "../../api/SubscribeToLogStream.ts";
+import { subscribeToLogStream } from "../../api/SubscribeToLogStream.ts";
+import type { GetWorkflowRunRequest } from "../../api/GetWorkflowRun.ts";
+import { getWorkflowRun } from "../../api/GetWorkflowRun.ts";
+import type {
+  WorkflowRun,
+  WorkflowRunSummary,
+} from "../../shared/models/Workflow.ts";
+import type { GetWorkflowRunsRequest } from "../../api/GetWorkflowRuns.ts";
+import { getWorkflowRuns } from "../../api/GetWorkflowRuns.ts";
+import { getProject } from "../../api/GetProject.ts";
 
 export interface StackStoreState {
-  userStack?: UserStack;
+  project?: Project;
   userStackPolicy?: string;
-  stackPacks: Map<string, AppTemplate>;
+  stackPacks: Map<string, Stackpack>;
   latestDeploymentIds: Map<string, string>;
 }
 
 export interface StackStoreBase extends StackStoreState {
-  createStack: (stack: StackModification) => Promise<CreateStackResponse>;
-  createOrUpdateStack: (
-    stack: StackModification,
-  ) => Promise<CreateStackResponse | UpdateStackResponse>;
+  createProject: (stack: ProjectModification) => Promise<CreateStackResponse>;
+  createOrUpdateProject: (
+    stack: ProjectModification,
+  ) => Promise<CreateStackResponse | UpdateProjectResponse>;
   subscribeToLogStream: (
-    deploy_id: string,
-    app_id: string,
-    listener: LogStreamListener,
-    controller?: AbortController,
+    request: Omit<LogSubscriptionRequest, "idToken">,
   ) => Promise<void>;
-  getAppTemplates: (
-    appIds: string[],
-    refresh?: boolean,
-  ) => Promise<AppTemplate[]>;
-  getDeployments: () => Promise<any>;
-  getStack: () => Promise<UserStack>;
-  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, AppTemplate>>;
-  getUserStack: (refresh?: boolean) => Promise<UserStack>;
+  getProject: (refresh?: boolean) => Promise<Project>;
+  getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, Stackpack>>;
+  getWorkflowRun: (
+    request: Omit<GetWorkflowRunRequest, "idToken">,
+  ) => Promise<WorkflowRun>;
+  getWorkflowRuns: (
+    request: Omit<GetWorkflowRunsRequest, "idToken">,
+  ) => Promise<WorkflowRunSummary[]>;
   installApp: (appId: string) => Promise<string>;
-  installStack: () => Promise<string>;
+  installProject: () => Promise<string>;
   removeApp: (appId: string) => Promise<void>;
   resetStackState: () => void;
-  tearDownApp: (appId: string) => Promise<string>;
-  tearDownStack: () => Promise<string>;
+  uninstallApp: (appId: string) => Promise<string>;
+  uninstallProject: () => Promise<string>;
   updateApp: (
     appId: string,
     configuration: Record<string, any>,
   ) => Promise<UpdateAppResponse>;
-  updateStack: (stack: StackModification) => Promise<UpdateStackResponse>;
+  updateProject: (stack: ProjectModification) => Promise<UpdateProjectResponse>;
 }
 
 const initialState: () => StackStoreState = () => ({
@@ -81,33 +85,30 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
 ) => ({
   ...initialState(),
   resetStackState: () => set(initialState(), false, "resetStackState"),
-  getUserStack: async (refresh?: boolean) => {
-    let userStack = get().userStack;
-    if (refresh || !userStack) {
-      userStack = await get().getStack();
+  getProject: async (refresh?: boolean) => {
+    let project = get().project;
+    if (refresh || !project) {
+      const idToken = await get().getIdToken();
+      project = await getProject(idToken);
     }
-    set({ userStack }, false, "getUserStack");
-    return userStack;
+    set({ project }, false, "getProject");
+    return project;
   },
-  getStack: async () => {
-    const idToken = await get().getIdToken();
-    return await getStack(idToken);
-  },
-  createStack: async (stack: Partial<UserStack>) => {
+  createProject: async (stack: Partial<Project>) => {
     const idToken = await get().getIdToken();
 
-    const response = await createStack({ stack, idToken });
+    const response = await createProject({ stack, idToken });
     set(
       {
         userStack: response.stack,
         userStackPolicy: response.policy,
       },
       false,
-      "createStack",
+      "createProject",
     );
     return response;
   },
-  createOrUpdateStack: async (stack: StackModification) => {
+  createOrUpdateProject: async (stack: ProjectModification) => {
     const appTemplates = await get().getStackPacks();
     const defaultConfiguration = Object.fromEntries(
       Object.keys(stack.configuration ?? {}).map((appId) => [
@@ -117,7 +118,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
 
     // handle the case where the user has a stack and is updating it
-    const userStack = await get().getUserStack();
+    const userStack = await get().getProject();
     if (userStack) {
       stack = {
         ...stack,
@@ -131,18 +132,18 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
             stack.configuration[key];
         }
       });
-      return await get().updateStack(stack);
+      return await get().updateProject(stack);
     }
 
     // handle the case where the user does not have a stack and is creating one
     stack = { ...stack };
     stack.configuration = merge(defaultConfiguration, stack.configuration);
 
-    return await get().createStack(stack);
+    return await get().createProject(stack);
   },
-  updateStack: async (stack: Partial<UserStack>) => {
+  updateProject: async (stack: Partial<Project>) => {
     const idToken = await get().getIdToken();
-    const response = await updateStack({ stack, idToken });
+    const response = await updateProject({ stack, idToken });
     set(
       {
         userStack: response.stack,
@@ -169,10 +170,10 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
     return updatedStackPacks;
   },
-  installStack: async () => {
+  installProject: async () => {
     const idToken = await get().getIdToken();
-    const response = await installStack(idToken);
-    const userStack = get().userStack;
+    const response = await installProject(idToken);
+    const userStack = get().project;
     set(
       {
         latestDeploymentIds: new Map(
@@ -199,24 +200,24 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
     return response;
   },
-  tearDownStack: async () => {
+  uninstallProject: async () => {
     const idToken = await get().getIdToken();
-    const deploymentId = await tearDownStack(idToken);
+    const deploymentId = await uninstallProject(idToken);
     set(
       {
         latestDeploymentIds: new Map(
-          Object.keys(get().userStack?.stack_packs ?? {}).map((appId) => [
+          Object.keys(get().project?.stack_packs ?? {}).map((appId) => [
             appId,
             deploymentId,
           ]),
         ),
         userStack: {
-          ...get().userStack,
+          ...get().project,
           stack_packs: Object.fromEntries(
-            Object.keys(get().userStack?.stack_packs ?? {}).map((appId) => [
+            Object.keys(get().project?.stack_packs ?? {}).map((appId) => [
               appId,
               {
-                ...get().userStack?.stack_packs[appId],
+                ...get().project?.stack_packs[appId],
                 status: AppLifecycleStatus.Uninstalling,
               },
             ]),
@@ -228,31 +229,33 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
     return deploymentId;
   },
-  subscribeToLogStream: async (deploy_id, app_id, listener, controller) => {
+  subscribeToLogStream: async ({
+    workflowType,
+    targetedAppId,
+    runNumber,
+    jobNumber,
+    listener,
+    controller,
+  }: LogSubscriptionRequest) => {
     const idToken = await get().getIdToken();
     return subscribeToLogStream({
+      workflowType,
+      targetedAppId,
       idToken,
-      deploymentId: deploy_id,
-      appId: app_id,
+      runNumber,
+      jobNumber,
       listener,
       controller,
     });
   },
-  getAppTemplates: async (
-    appIds: string[],
-    refresh?: boolean,
-  ): Promise<AppTemplate[]> => {
-    const appTemplates = await get().getStackPacks(refresh);
-    return appIds.map((id) => appTemplates.get(id));
-  },
   installApp: async (appId: string) => {
-    const userStack = await get().getUserStack();
+    const userStack = await get().getProject();
     set(
       {
         userStack: {
-          ...get().userStack,
+          ...get().project,
           stack_packs: {
-            ...get().userStack?.stack_packs,
+            ...get().project?.stack_packs,
             [appId]: {
               ...userStack.stack_packs[appId],
               status: AppDeploymentStatus.Pending,
@@ -274,15 +277,15 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
     );
     return deploymentId;
   },
-  tearDownApp: async (appId: string) => {
+  uninstallApp: async (appId: string) => {
     set(
       {
         userStack: {
-          ...get().userStack,
+          ...get().project,
           stack_packs: {
-            ...get().userStack?.stack_packs,
+            ...get().project?.stack_packs,
             [appId]: {
-              ...get().userStack?.stack_packs[appId],
+              ...get().project?.stack_packs[appId],
               status: AppLifecycleStatus.Uninstalling,
             },
           },
@@ -292,7 +295,7 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       "tearDownApp:init",
     );
     const idToken = await get().getIdToken();
-    const deploymentId = await tearDownApp({ idToken, appId });
+    const deploymentId = await uninstallApp({ idToken, appId });
     set(
       {
         latestDeploymentIds: new Map([[appId, deploymentId]]),
@@ -327,8 +330,16 @@ export const stackStore: StateCreator<StackStore, [], [], StackStoreBase> = (
       "removeApp",
     );
   },
-  getDeployments: async () => {
+  getWorkflowRun: async ({
+    workflowType,
+    runNumber,
+    appId,
+  }: GetWorkflowRunRequest) => {
     const idToken = await get().getIdToken();
-    return await getDeployments(idToken);
+    return await getWorkflowRun({ idToken, workflowType, runNumber, appId });
+  },
+  getWorkflowRuns: async ({ workflowType, appId }: GetWorkflowRunsRequest) => {
+    const idToken = await get().getIdToken();
+    return await getWorkflowRuns({ idToken, workflowType, appId });
   },
 });

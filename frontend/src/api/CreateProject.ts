@@ -2,36 +2,35 @@ import type { AxiosResponse } from "axios";
 import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
-import type {
-  StackModification,
-  UserStack,
-} from "../shared/models/UserStack.ts";
-import { parseStack } from "../shared/models/UserStack.ts";
+import type { ProjectModification, Project } from "../shared/models/Project.ts";
+import { parseProject } from "../shared/models/Project.ts";
 import { analytics } from "../shared/analytics.ts";
 
-export interface UpdateStackRequest {
+export interface CreateStackRequest {
   idToken: string;
-  stack: StackModification;
+  stack: ProjectModification;
 }
 
-export interface UpdateStackResponse {
-  stack: UserStack;
+export interface CreateStackResponse {
+  stack: Project;
   policy: string;
 }
 
-export async function updateStack(
-  request: UpdateStackRequest,
-): Promise<UpdateStackResponse> {
+export async function createProject(
+  request: CreateStackRequest,
+): Promise<CreateStackResponse> {
   let response: AxiosResponse;
   try {
-    response = await axios.patch("/api/stack", request.stack, {
+    response = await axios.post("/api/project", request.stack, {
       headers: {
-        ...(request.idToken && { Authorization: `Bearer ${request.idToken}` }),
+        ...(request.idToken && {
+          Authorization: `Bearer ${request.idToken}`,
+        }),
       },
     });
   } catch (e: any) {
     const error = new ApiError({
-      errorId: "UpdateStack",
+      errorId: "CreateStack",
       message: "An error occurred while creating your stack.",
       status: e.status,
       statusText: e.message,
@@ -42,14 +41,14 @@ export async function updateStack(
     throw error;
   }
 
-  analytics.track("UpdateStack", {
+  analytics.track("CreateStack", {
     status: response.status,
     data: {
       stackPacks: Object.keys(request.stack?.configuration || {}),
     },
   });
   return {
-    stack: parseStack(response.data.stack),
+    stack: parseProject(response.data.stack),
     policy: response.data.policy,
   };
 }

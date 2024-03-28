@@ -1,16 +1,16 @@
 import type { FC } from "react";
 import React from "react";
-import type { AppTemplate } from "../shared/models/AppTemplate.ts";
+import type { Stackpack } from "../shared/models/Stackpack.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { merge } from "ts-deepmerge";
 import useApplicationStore from "../pages/store/ApplicationStore.ts";
-import { formStateToAppConfig } from "../shared/models/UserStack.ts";
+import { formStateToAppConfig } from "../shared/models/Project.ts";
 import { UIError } from "../shared/errors.ts";
 import { DynamicConfigForm } from "./config/DynamicConfigForm.tsx";
 import type { StepperNavigatorProps } from "./Stepper.tsx";
 import { StepperNavigator } from "./Stepper.tsx";
 import type { Property } from "../shared/configuration-properties.ts";
-import type { UpdateStackResponse } from "../api/UpdateStack.ts";
+import type { UpdateProjectResponse } from "../api/UpdateProject.ts";
 
 export interface ConfigFormSection {
   title: string;
@@ -22,10 +22,10 @@ export interface ConfigFormSection {
 
 export const ConfigureAppsForm: FC<{
   sections?: ConfigFormSection[];
-  stackPacks: Map<string, AppTemplate>;
+  stackPacks: Map<string, Stackpack>;
   stepperProps: StepperNavigatorProps;
   saveButton?: React.JSXElementConstructor<any>;
-  onConfig?: (response: UpdateStackResponse) => void;
+  onConfig?: (response: UpdateProjectResponse) => void;
 }> = ({ sections, stackPacks, stepperProps, saveButton, onConfig }) => {
   const methods = useForm({
     defaultValues: merge(...sections.map((s) => s.defaultValues)),
@@ -35,7 +35,7 @@ export const ConfigureAppsForm: FC<{
 
   const { isDirty } = methods.formState;
 
-  const { updateStack, addError } = useApplicationStore();
+  const { updateProject, addError } = useApplicationStore();
 
   const onSubmit = methods.handleSubmit(async (data) => {
     if (!isDirty) {
@@ -44,9 +44,9 @@ export const ConfigureAppsForm: FC<{
     }
     const configuration = formStateToAppConfig(data, stackPacks);
     console.log(configuration);
-    let updatedStack: UpdateStackResponse;
+    let updatedStack: UpdateProjectResponse;
     try {
-      updatedStack = await updateStack({ configuration });
+      updatedStack = await updateProject({ configuration });
     } catch (e) {
       addError(
         new UIError({

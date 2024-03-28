@@ -15,20 +15,20 @@ import {
   AiOutlineQuestionCircle,
 } from "react-icons/ai";
 import classNames from "classnames";
-import { resolveAppTemplates } from "../../../shared/models/AppTemplate.ts";
+import { resolveStackpacks } from "../../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../../hooks/useClickedOutside.ts";
 import type {
   ApplicationDeployment,
   AppStatus,
-} from "../../../shared/models/UserStack.ts";
+} from "../../../shared/models/Project.ts";
 import {
   AppDeploymentStatus,
   AppLifecycleStatus,
   hasDeploymentInProgress,
   toAppStatusString,
-} from "../../../shared/models/UserStack.ts";
+} from "../../../shared/models/Project.ts";
 import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
 import AWSLogoDark from "/images/aws_logo_white.png";
 import {
@@ -46,8 +46,8 @@ import { CollapsibleSection } from "../../../components/CollapsibleSection.tsx";
 import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
 
-export const YourStackPane: FC = () => {
-  const { userStack, getUserStack, userStackPolicy, stackPacks } =
+export const ProjectPage: FC = () => {
+  const { project, getProject, userStackPolicy, stackPacks } =
     useApplicationStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,18 +60,18 @@ export const YourStackPane: FC = () => {
   useDocumentTitle("StackSnap - Your Stack");
 
   useEffect(() => {
-    if (hasDeploymentInProgress(userStack)) {
+    if (hasDeploymentInProgress(project)) {
       setRefreshInterval(8 * 1000);
     } else {
       setRefreshInterval(30 * 1000);
     }
-  }, [userStack]);
+  }, [project]);
 
   useInterval(async () => {
-    if (hasDeploymentInProgress(userStack)) {
+    if (hasDeploymentInProgress(project)) {
       setIsRefreshing(true);
       try {
-        await getUserStack(true);
+        await getProject(true);
       } finally {
         setIsRefreshing(false);
       }
@@ -81,7 +81,7 @@ export const YourStackPane: FC = () => {
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await getUserStack(true);
+      await getProject(true);
     } finally {
       setIsRefreshing(false);
     }
@@ -118,10 +118,10 @@ export const YourStackPane: FC = () => {
               <img className={"h-3"} src={AWSLogo} alt="AWS" />
             </li>
             <li>
-              <span>Region: {userStack?.region}</span>
+              <span>Region: {project?.region}</span>
             </li>
             <li>
-              <span>Deployment Role ARN: {userStack?.assumed_role_arn}</span>
+              <span>Deployment Role ARN: {project?.assumed_role_arn}</span>
             </li>
             <li>
               <CollapsibleSection
@@ -136,7 +136,7 @@ export const YourStackPane: FC = () => {
                     "max-h-80 overflow-auto whitespace-pre-wrap p-2 font-mono text-xs dark:text-gray-200"
                   }
                 >
-                  {userStack?.policy || userStackPolicy}
+                  {project?.policy || userStackPolicy}
                 </Card>
               </CollapsibleSection>
             </li>
@@ -154,12 +154,12 @@ export const YourStackPane: FC = () => {
             <span>+</span>
           </Button>
         </div>
-        {userStack && (
+        {project && (
           <div className="flex size-full flex-col gap-4">
-            {Object.entries(userStack.stack_packs).map(
+            {Object.entries(project.stack_packs).map(
               ([appTemplateId, appDeployment], index) => {
                 const name =
-                  resolveAppTemplates([appTemplateId], stackPacks)[0]?.name ??
+                  resolveStackpacks([appTemplateId], stackPacks)[0]?.name ??
                   appTemplateId;
                 const status =
                   appDeployment.status ?? AppLifecycleStatus.Uninstalled;
@@ -285,7 +285,7 @@ const AppStatusBadge: FC<{
 const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
   const { latestDeploymentIds } = useApplicationStore();
   const { mode } = useThemeMode();
-  const appTemplateId = app.app_id.split("#")[1];
+  const appTemplateId = app.app_id;
   return (
     <Card className="flex h-fit w-full flex-col p-4">
       <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-2 dark:border-gray-700">
@@ -353,7 +353,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
 
   const onRemoveApp = async () => {
     try {
-      await removeApp(app.app_id.split("#")[1]);
+      await removeApp(app.app_id);
     } catch (e) {
       addError(
         new UIError({
@@ -369,7 +369,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
 
   const onInstallApp = async () => {
     try {
-      const deployId = await installApp(app.app_id.split("#")[1]);
+      const deployId = await installApp(app.app_id);
       setDeployId(deployId);
     } catch (e) {
       addError(
@@ -391,7 +391,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
             className={"size-fit"}
             size={"xs"}
             pill
-            onClick={() => navigate(`./${app.app_id.split("#")[1]}/configure`)}
+            onClick={() => navigate(`./${app.app_id}/configure`)}
           >
             <HiMiniCog6Tooth />
           </Button>
@@ -461,7 +461,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
       {showUninstallModal && (
         <UninstallAppModal
           onClose={() => setShowUninstallModal(false)}
-          id={app.app_id.split("#")[1]}
+          id={app.app_id}
           name={app.name}
         />
       )}
@@ -481,11 +481,10 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
 };
 
 const StackActions: FC = () => {
-  const { installStack, userStack } = useApplicationStore();
+  const { installProject, project } = useApplicationStore();
   const [showUninstallAllModal, setShowUninstallAllModal] = useState(false);
 
-  const canTriggerStackAction =
-    userStack && !hasDeploymentInProgress(userStack);
+  const canTriggerStackAction = project && !hasDeploymentInProgress(project);
 
   return (
     <>
@@ -505,7 +504,7 @@ const StackActions: FC = () => {
         <Dropdown.Item
           disabled={!canTriggerStackAction}
           icon={IoRefresh}
-          onClick={async () => await installStack()}
+          onClick={async () => await installProject()}
         >
           Redeploy All Apps
         </Dropdown.Item>
