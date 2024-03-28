@@ -93,8 +93,8 @@ const workflow_jobs = new aws.dynamodb.Table(
       },
     ],
 
-    hashKey: "project_id",
-    rangeKey: "range_key",
+    hashKey: "partition_key",
+    rangeKey: "job_number",
     billingMode: "PAY_PER_REQUEST",
     tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "workflow-jobs" },
   },
@@ -605,57 +605,13 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "pulumi-stacks-policy",
+      name: "stacksnap-shared-storage-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
-            Action: ["dynamodb:*"],
+            Action: ["efs:Client*"],
             Effect: "Allow",
-            Resource: [
-              pulumi_stacks.arn,
-              pulumi.interpolate`${pulumi_stacks.arn}/stream/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "workflow-jobs-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              workflow_jobs.arn,
-              pulumi.interpolate`${workflow_jobs.arn}/stream/*`,
-              pulumi.interpolate`${workflow_jobs.arn}/backup/*`,
-              pulumi.interpolate`${workflow_jobs.arn}/export/*`,
-              pulumi.interpolate`${workflow_jobs.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "workflow-runs-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              workflow_runs.arn,
-              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
-              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
-              pulumi.interpolate`${workflow_runs.arn}/export/*`,
-              pulumi.interpolate`${workflow_runs.arn}/index/*`,
-            ],
+            Resource: [stacksnap_shared_storage.arn],
           },
         ],
         Version: "2012-10-17",
@@ -697,32 +653,19 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
-      name: "projects-policy",
+      name: "pulumi-stacks-policy",
       policy: pulumi.jsonStringify({
         Statement: [
           {
             Action: ["dynamodb:*"],
             Effect: "Allow",
             Resource: [
-              projects.arn,
-              pulumi.interpolate`${projects.arn}/stream/*`,
-              pulumi.interpolate`${projects.arn}/backup/*`,
-              pulumi.interpolate`${projects.arn}/export/*`,
-              pulumi.interpolate`${projects.arn}/index/*`,
+              pulumi_stacks.arn,
+              pulumi.interpolate`${pulumi_stacks.arn}/stream/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
             ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-shared-storage-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["efs:Client*"],
-            Effect: "Allow",
-            Resource: [stacksnap_shared_storage.arn],
           },
         ],
         Version: "2012-10-17",
@@ -768,6 +711,63 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
             Action: ["ses:SendEmail", "ses:SendRawEmail"],
             Effect: "Allow",
             Resource: ["*"],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "projects-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              projects.arn,
+              pulumi.interpolate`${projects.arn}/stream/*`,
+              pulumi.interpolate`${projects.arn}/backup/*`,
+              pulumi.interpolate`${projects.arn}/export/*`,
+              pulumi.interpolate`${projects.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-jobs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_jobs.arn,
+              pulumi.interpolate`${workflow_jobs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/export/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-runs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_runs.arn,
+              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_runs.arn}/export/*`,
+              pulumi.interpolate`${workflow_runs.arn}/index/*`,
+            ],
           },
         ],
         Version: "2012-10-17",
@@ -983,6 +983,14 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
   {
     origins: [
       {
+        domainName: stacksnap_ui.bucketRegionalDomainName,
+        originId: "stacksnap-ui",
+        s3OriginConfig: {
+          originAccessIdentity:
+            cloudfront_origin_access_identity_0.cloudfrontAccessIdentityPath,
+        },
+      },
+      {
         customOriginConfig: {
           httpPort: 80,
           httpsPort: 443,
@@ -991,14 +999,6 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
         },
         domainName: stacksnap_alb.dnsName,
         originId: "stacksnap-alb",
-      },
-      {
-        domainName: stacksnap_ui.bucketRegionalDomainName,
-        originId: "stacksnap-ui",
-        s3OriginConfig: {
-          originAccessIdentity:
-            cloudfront_origin_access_identity_0.cloudfrontAccessIdentityPath,
-        },
       },
     ],
     enabled: true,

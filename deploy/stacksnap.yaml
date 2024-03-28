@@ -101,8 +101,8 @@ base:
             Type: S
           - Name: job_number
             Type: N
-        HashKey: project_id
-        RangeKey: range_key
+        HashKey: partition_key
+        RangeKey: job_number
     aws:dynamodb_table:pulumi-stacks:
       Attributes:
         - Name: project_name
