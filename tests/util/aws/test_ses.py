@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import MagicMock
 
-from src.util.aws.ses import AppData, send_email
+from src.util.aws.ses import AppData, send_deployment_success_email
 
 
 class TestSendEmail(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestSendEmail(unittest.TestCase):
             AppData(app_name="app1", login_url="login1"),
             AppData(app_name="app2", login_url="login2"),
         ]
-        send_email(mock_client, "recipient@example.com", mock_data)
+        send_deployment_success_email(mock_client, "recipient@example.com", mock_data)
         mock_client.send_email.assert_called_once_with(
             FromEmailAddress="Stack Snap <stacksnap@stacksnap.com>",
             Destination={"ToAddresses": ["recipient@example.com"]},

@@ -9,7 +9,6 @@ from src.util.logging import logger
 # The subject line for the email.
 SUBJECT = "StackSnapDeployment"
 
-
 # The character encoding for the email.
 CHARSET = "UTF-8"
 
@@ -34,7 +33,6 @@ def create_app_data(app_name: str, login_url: str):
 
 
 class AppData(BaseModel):
-
     app_name: str
     login_url: str
 
@@ -80,7 +78,7 @@ def create_installation_body_text(apps: list[AppData]):
     """
 
 
-def send_email(client: boto3.client, recipient: str, applications: list[AppData]):
+def send_deployment_success_email(client: boto3.client, recipient: str, applications: list[AppData]):
     # This address must be verified with Amazon SES.
     sender_address = os.getenv("SES_SENDER_ADDRESS", None)
     sender = f"Stack Snap <{sender_address}>"

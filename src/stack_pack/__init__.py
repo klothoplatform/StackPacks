@@ -264,7 +264,13 @@ class StackPack(BaseModel):
         return result
 
 
+_cached_stack_packs = None
+
+
 def get_stack_packs() -> dict[str, StackPack]:
+    global _cached_stack_packs
+    if _cached_stack_packs:
+        return _cached_stack_packs
     root = Path("stackpacks")
     sps = {}
     for dir in root.iterdir():
@@ -278,4 +284,12 @@ def get_stack_packs() -> dict[str, StackPack]:
             raise ValueError(f"Duplicate stack pack id: {sp.id}")
 
         sps[sp.id] = sp
+    _cached_stack_packs = sps
     return sps
+
+
+def get_app_name(app_id: str):
+    if app_id and "#" in app_id:
+        app_id = app_id.split("#")[1]
+    pack = get_stack_packs().get(app_id)
+    return pack.name if pack else app_id

@@ -15,8 +15,8 @@ from src.api.stack_packs import (
     stream_deployment_logs,
     update_app,
 )
-from src.stack_pack.models.user_app import UserApp
-from src.stack_pack.models.user_pack import UserPack, UserStack
+from src.stack_pack.models.app_deployment import AppDeployment
+from src.stack_pack.models.project import Project, ProjectView
 from src.util.aws.iam import Policy
 
 
@@ -26,7 +26,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_iac_storage")
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.UserPack")
+    @patch("src.api.stack_packs.Project")
     @patch("src.api.stack_packs.TempDir")
     async def test_create_stack(
         self,
@@ -38,11 +38,11 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
-        user_stack = UserStack(
+        user_stack = ProjectView(
             id="id", owner="user_id", created_by="user_id", created_at=0
         )
         mock_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
             to_user_stack=MagicMock(return_value=user_stack),
         )
@@ -101,7 +101,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
+    @patch.object(Project, "get")
     async def test_create_stack_Stack_exists(
         self,
         mock_get_pack,
@@ -113,7 +113,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     ):
         mock_get_user_id.return_value = "user_id"
         mock_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
         )
         mock_get_pack.return_value = mock_pack
@@ -146,8 +146,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get")
     async def test_add_app(
         self,
         mock_get_app,
@@ -165,17 +165,18 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         policy = MagicMock(spec=Policy)
         policy2 = MagicMock(spec=Policy)
         user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
-            apps={"app2": 1, UserPack.COMMON_APP_NAME: 1},
+            apps={"app2": 1, Project.COMMON_APP_NAME: 1},
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=UserStack)),
+            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
-            spec=UserApp, get_configurations=MagicMock(return_value={"config": "value"})
+            spec=AppDeployment,
+            get_configurations=MagicMock(return_value={"config": "value"}),
         )
 
         mock_get_pack.return_value = user_pack
@@ -217,8 +218,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get")
     async def test_add_app_empty_stack(
         self,
         mock_get_app,
@@ -236,13 +237,13 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         policy = MagicMock(spec=Policy)
         policy2 = MagicMock(spec=Policy)
         user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
             apps={},
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=UserStack)),
+            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
 
@@ -283,8 +284,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get")
     async def test_update_app(
         self,
         mock_get_app,
@@ -302,17 +303,18 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         policy = MagicMock(spec=Policy)
         policy2 = MagicMock(spec=Policy)
         user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
-            apps={"app1": 1, "app2": 1, UserPack.COMMON_APP_NAME: 1},
+            apps={"app1": 1, "app2": 1, Project.COMMON_APP_NAME: 1},
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=UserStack)),
+            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
-            spec=UserApp, get_configurations=MagicMock(return_value={"config": "value"})
+            spec=AppDeployment,
+            get_configurations=MagicMock(return_value={"config": "value"}),
         )
 
         mock_get_pack.return_value = user_pack
@@ -354,8 +356,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get")
     async def test_remove_app(
         self,
         mock_get_app,
@@ -372,16 +374,17 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
         policy = MagicMock(spec=Policy)
         user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
             apps={"app1": 1, "app2": 1},
             run_pack=AsyncMock(return_value=policy),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=UserStack)),
+            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
-            spec=UserApp, get_configurations=MagicMock(return_value={"config": "value"})
+            spec=AppDeployment,
+            get_configurations=MagicMock(return_value={"config": "value"}),
         )
 
         mock_get_pack.return_value = user_pack
@@ -411,8 +414,8 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.stack_packs.get_stack_packs")
     @patch("src.api.stack_packs.get_user_id")
     @patch("src.api.stack_packs.TempDir")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get")
     async def test_remove_app_last_app(
         self,
         mock_get_app,
@@ -427,12 +430,12 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
         policy = MagicMock(spec=Policy)
         user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             id="user_id",
             apps={"app1": 1},
             run_pack=AsyncMock(return_value=policy),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=UserStack)),
+            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_get_pack.return_value = user_pack
 

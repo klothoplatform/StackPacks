@@ -10,9 +10,9 @@ from src.deployer.destroy import (
     run_concurrent_destroys,
     run_destroy,
     run_destroy_application,
-    tear_down_pack,
-    tear_down_single,
-    tear_down_user_app,
+    execute_destroy_all_workflow,
+    execute_destroy_single_workflow,
+    destroy_app,
 )
 from src.deployer.models.deployment import (
     DeploymentAction,
@@ -20,8 +20,8 @@ from src.deployer.models.deployment import (
     PulumiStack,
 )
 from src.deployer.pulumi.manager import AppManager
-from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
-from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.stack_pack.models.project import Project
 from src.stack_pack.storage.iac_storage import IaCDoesNotExistError, IacStorage
 
 
@@ -74,7 +74,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_deployment.assert_called_once_with(
             id=ANY,
-            iac_stack_composite_key=mock_pulumi_stack.return_value.composite_key.return_value,
+            iac_stack_composite_key=mock_pulumi_stack.return_value.create_hash_key.return_value,
             action="DESTROY",
             status="IN_PROGRESS",
             status_reason="Destroy in progress",
@@ -153,7 +153,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_deployment.assert_called_once_with(
             id=ANY,
-            iac_stack_composite_key=mock_pulumi_stack.return_value.composite_key.return_value,
+            iac_stack_composite_key=mock_pulumi_stack.return_value.create_hash_key.return_value,
             action="DESTROY",
             status="IN_PROGRESS",
             status_reason="Destroy in progress",
@@ -187,8 +187,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
         assert result.reason == "error"
 
     @patch("src.deployer.destroy.get_iac_storage")
-    @patch.object(UserApp, "get_latest_deployed_version")
-    @patch.object(UserPack, "get")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
+    @patch.object(Project, "get")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application(
         self,
@@ -204,14 +204,14 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_get_iac_storage.return_value = mock_iac_storage
         mock_user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             region="region",
             assumed_role_arn="arn",
             id="project",
         )
         mock_user_pack_get.return_value = mock_user_pack
         mock_app = MagicMock(
-            spec=UserApp, get_app_name=MagicMock(return_value="app"), version=1
+            spec=AppDeployment, get_app_name=MagicMock(return_value="app"), version=1
         )
         mock_user_app_get_latest_deployed_version.return_value = mock_app
         d_result = DeploymentResult(
@@ -256,16 +256,16 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_app.update.assert_called_once_with(
             actions=[
-                UserApp.outputs.set({}),
-                UserApp.iac_stack_composite_key.set(None),
-                UserApp.deployments.add({"deploy_id"}),
+                AppDeployment.outputs.set({}),
+                AppDeployment.iac_stack_composite_key.set(None),
+                AppDeployment.deployments.add({"deploy_id"}),
             ]
         )
         self.assertEqual(result, d_result)
 
     @patch("src.deployer.destroy.get_iac_storage")
-    @patch.object(UserApp, "get_latest_deployed_version")
-    @patch.object(UserPack, "get")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
+    @patch.object(Project, "get")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application_no_deployed_version(
         self,
@@ -281,14 +281,14 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_get_iac_storage.return_value = mock_iac_storage
         mock_user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             region="region",
             assumed_role_arn="arn",
             id="project",
         )
         mock_user_pack_get.return_value = mock_user_pack
         mock_app = MagicMock(
-            spec=UserApp, get_app_name=MagicMock(return_value="app"), version=1
+            spec=AppDeployment, get_app_name=MagicMock(return_value="app"), version=1
         )
         mock_user_app_get_latest_deployed_version.return_value = None
         d_result = DeploymentResult(
@@ -314,8 +314,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
         self.assertEqual(result, d_result)
 
     @patch("src.deployer.destroy.get_iac_storage")
-    @patch.object(UserApp, "get_latest_deployed_version")
-    @patch.object(UserPack, "get")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
+    @patch.object(Project, "get")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application_no_iac(
         self,
@@ -331,14 +331,14 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_get_iac_storage.return_value = mock_iac_storage
         mock_user_pack = MagicMock(
-            spec=UserPack,
+            spec=Project,
             region="region",
             assumed_role_arn="arn",
             id="project",
         )
         mock_user_pack_get.return_value = mock_user_pack
         mock_app = MagicMock(
-            spec=UserApp, get_app_name=MagicMock(return_value="app"), version=1
+            spec=AppDeployment, get_app_name=MagicMock(return_value="app"), version=1
         )
         mock_user_app_get_latest_deployed_version.return_value = mock_app
         d_result = DeploymentResult(
@@ -432,7 +432,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.run_concurrent_destroys")
     async def test_destroy_applications(self, mock_run_concurrent_destroys):
         # Arrange
-        mock_user_pack = MagicMock(spec=UserPack, id="id", apps={"app1": 1, "app2": 1})
+        mock_user_pack = MagicMock(spec=Project, id="id", apps={"app1": 1, "app2": 1})
         mock_run_concurrent_destroys.side_effect = [
             (
                 ["app1", "app2"],
@@ -481,9 +481,9 @@ class TestDestroy(aiounittest.AsyncTestCase):
         self,
         mock_run_concurrent_deployments,
     ):
-        pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        pack = MagicMock(spec=Project, id="id", apps={"common": 1})
         app = MagicMock(
-            spec=UserApp, get_app_name=MagicMock(return_value="app1"), version=1
+            spec=AppDeployment, get_app_name=MagicMock(return_value="app1"), version=1
         )
         deployment_id = "deployment_id"
         tmp_dir = Path("/tmp")
@@ -498,7 +498,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             [d_result],
         )
 
-        result = await tear_down_user_app(pack, app, deployment_id, tmp_dir)
+        result = await destroy_app(pack, app, deployment_id, tmp_dir)
 
         self.assertEqual(result, d_result)
         mock_run_concurrent_deployments.assert_called_once_with(
@@ -515,7 +515,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
 
     @patch("src.deployer.destroy.tear_down_user_app")
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_single(
         self,
@@ -523,8 +523,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_get_latest_deployed_version,
         mock_tear_down_app,
     ):
-        pack = MagicMock(spec=UserPack, id="id", tear_down_in_progress=True)
-        app = MagicMock(spec=UserApp, app_id="id#app", version=1)
+        pack = MagicMock(spec=Project, id="id", tear_down_in_progress=True)
+        app = MagicMock(spec=AppDeployment, app_id="id#app", version=1)
         deployment_id = "deployment_id"
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         common_app = mock_get_latest_deployed_version.return_value
@@ -535,7 +535,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             stack=MagicMock(spec=PulumiStack),
         )
 
-        await tear_down_single(pack, app, deployment_id)
+        await execute_destroy_single_workflow(pack, app, deployment_id)
 
         mock_tmp_dir.assert_called_once()
         self.assertEqual(
@@ -547,11 +547,11 @@ class TestDestroy(aiounittest.AsyncTestCase):
         )
         mock_get_latest_deployed_version.assert_called_once_with("id#common")
         pack.update.assert_called_once_with(
-            actions=[UserPack.tear_down_in_progress.set(False)]
+            actions=[Project.destroy_in_progress.set(False)]
         )
 
     @patch("src.deployer.destroy.tear_down_user_app")
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_single_failed_common_stack(
         self,
@@ -559,8 +559,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_get_latest_deployed_version,
         mock_tear_down_app,
     ):
-        pack = MagicMock(spec=UserPack, id="id", tear_down_in_progress=True)
-        app = MagicMock(spec=UserApp, app_id="id#app", version=1)
+        pack = MagicMock(spec=Project, id="id", tear_down_in_progress=True)
+        app = MagicMock(spec=AppDeployment, app_id="id#app", version=1)
         deployment_id = "deployment_id"
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         mock_tear_down_app.return_value = DeploymentResult(
@@ -570,7 +570,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             stack=MagicMock(spec=PulumiStack),
         )
 
-        await tear_down_single(pack, app, deployment_id)
+        await execute_destroy_single_workflow(pack, app, deployment_id)
 
         mock_tmp_dir.assert_called_once()
         self.assertEqual(
@@ -583,7 +583,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
         pack.update.assert_not_called()
 
     @patch("src.deployer.destroy.tear_down_user_app")
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_single_no_pack_teardown(
         self,
@@ -591,8 +591,8 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_get_latest_deployed_version,
         mock_tear_down_app,
     ):
-        pack = MagicMock(spec=UserPack, id="id", tear_down_in_progress=False)
-        app = MagicMock(spec=UserApp, app_id="id#app", version=1)
+        pack = MagicMock(spec=Project, id="id", tear_down_in_progress=False)
+        app = MagicMock(spec=AppDeployment, app_id="id#app", version=1)
         deployment_id = "deployment_id"
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         mock_tear_down_app.return_value = DeploymentResult(
@@ -602,7 +602,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
             stack=MagicMock(spec=PulumiStack),
         )
 
-        await tear_down_single(pack, app, deployment_id)
+        await execute_destroy_single_workflow(pack, app, deployment_id)
 
         mock_tmp_dir.assert_called_once()
         self.assertEqual(
@@ -616,7 +616,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
 
     @patch("src.deployer.destroy.destroy_applications")
     @patch("src.deployer.destroy.tear_down_user_app")
-    @patch("src.deployer.destroy.UserPack")
+    @patch("src.deployer.destroy.Project")
     @patch("src.deployer.destroy.UserApp")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_pack(
@@ -627,18 +627,18 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_tear_down_user_app,
         mock_destroy_applications,
     ):
-        mock_user_pack.COMMON_APP_NAME = UserPack.COMMON_APP_NAME
-        mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
+        mock_user_pack.COMMON_APP_NAME = Project.COMMON_APP_NAME
+        mock_user_app.create_hash_key = lambda a, b: f"{a}#{b}"
         # Arrange
-        user_pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        user_pack = MagicMock(spec=Project, id="id", apps={"common": 1})
         mock_user_pack.get.return_value = user_pack
-        mock_common_pack = MagicMock(spec=UserApp)
+        mock_common_pack = MagicMock(spec=AppDeployment)
         mock_user_app.get.return_value = mock_common_pack
         mock_temp_dir.return_value = MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
 
         # Act
-        await tear_down_pack(pack_id="id", deployment_id="deploy_id")
+        await execute_destroy_all_workflow(pack_id="id", deployment_id="deploy_id")
 
         # Assert
         mock_common_pack.update.assert_called_once_with(
@@ -667,7 +667,7 @@ class TestDestroy(aiounittest.AsyncTestCase):
 
     @patch("src.deployer.destroy.destroy_applications")
     @patch("src.deployer.destroy.tear_down_user_app")
-    @patch("src.deployer.destroy.UserPack")
+    @patch("src.deployer.destroy.Project")
     @patch("src.deployer.destroy.UserApp")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_pack_app_fails(
@@ -678,18 +678,18 @@ class TestDestroy(aiounittest.AsyncTestCase):
         mock_tear_down_user_app,
         mock_destroy_applications,
     ):
-        mock_user_pack.COMMON_APP_NAME = UserPack.COMMON_APP_NAME
-        mock_user_app.composite_key = lambda a, b: f"{a}#{b}"
+        mock_user_pack.COMMON_APP_NAME = Project.COMMON_APP_NAME
+        mock_user_app.create_hash_key = lambda a, b: f"{a}#{b}"
         # Arrange
-        user_pack = MagicMock(spec=UserPack, id="id", apps={"common": 1})
+        user_pack = MagicMock(spec=Project, id="id", apps={"common": 1})
         mock_user_pack.get.return_value = user_pack
-        mock_common_pack = MagicMock(spec=UserApp)
+        mock_common_pack = MagicMock(spec=AppDeployment)
         mock_user_app.get.return_value = mock_common_pack
         mock_temp_dir.return_value = MagicMock()
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
         mock_destroy_applications.return_value = False
         # Act
-        await tear_down_pack(pack_id="id", deployment_id="deploy_id")
+        await execute_destroy_all_workflow(pack_id="id", deployment_id="deploy_id")
 
         # Assert
         mock_common_pack.update.assert_called_once_with(

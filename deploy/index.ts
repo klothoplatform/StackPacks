@@ -26,17 +26,17 @@ const project_applications = new aws.dynamodb.Table(
   {
     attributes: [
       {
-        name: "app_id",
+        name: "project_id",
         type: "S",
       },
       {
-        name: "version",
+        name: "range_key",
         type: "N",
       },
     ],
 
-    hashKey: "app_id",
-    rangeKey: "version",
+    hashKey: "project_id",
+    rangeKey: "range_key",
     billingMode: "PAY_PER_REQUEST",
     tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "project-applications" },
   },
@@ -79,22 +79,43 @@ const pulumi_stacks = new aws.dynamodb.Table(
   },
   { protect: protect },
 );
+const workflow_jobs = new aws.dynamodb.Table(
+  "workflow-jobs",
+  {
+    attributes: [
+      {
+        name: "partition_key",
+        type: "S",
+      },
+      {
+        name: "job_number",
+        type: "N",
+      },
+    ],
+
+    hashKey: "project_id",
+    rangeKey: "range_key",
+    billingMode: "PAY_PER_REQUEST",
+    tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "workflow-jobs" },
+  },
+  { protect: protect },
+);
 const workflow_runs = new aws.dynamodb.Table(
   "workflow-runs",
   {
     attributes: [
       {
-        name: "id",
+        name: "project_id",
         type: "S",
       },
       {
-        name: "iac_stack_composite_key",
+        name: "range_key",
         type: "S",
       },
     ],
 
-    hashKey: "id",
-    rangeKey: "iac_stack_composite_key",
+    hashKey: "project_id",
+    rangeKey: "range_key",
     billingMode: "PAY_PER_REQUEST",
     tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "workflow-runs" },
   },
@@ -116,6 +137,7 @@ const stacksnap_task_image_ecr_repo = new aws.ecr.Repository(
   },
 );
 const stacksnap_ecs_cluster = new aws.ecs.Cluster("stacksnap-ecs-cluster", {
+  settings: [{ name: "containerInsights", value: "enabled" }],
   tags: { GLOBAL_KLOTHO_TAG: "", RESOURCE_NAME: "stacksnap-ecs-cluster" },
 });
 const subnet_0_route_table_nat_gateway_elastic_ip = new aws.ec2.Eip(
@@ -583,6 +605,79 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
+      name: "pulumi-stacks-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              pulumi_stacks.arn,
+              pulumi.interpolate`${pulumi_stacks.arn}/stream/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
+              pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-jobs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_jobs.arn,
+              pulumi.interpolate`${workflow_jobs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/export/*`,
+              pulumi.interpolate`${workflow_jobs.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "workflow-runs-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              workflow_runs.arn,
+              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
+              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
+              pulumi.interpolate`${workflow_runs.arn}/export/*`,
+              pulumi.interpolate`${workflow_runs.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
+      name: "stacksnap-binaries-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["s3:*"],
+            Effect: "Allow",
+            Resource: [
+              stacksnap_binaries.arn,
+              pulumi.interpolate`${stacksnap_binaries.arn}/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
       name: "project-applications-policy",
       policy: pulumi.jsonStringify({
         Statement: [
@@ -602,6 +697,25 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
       }),
     },
     {
+      name: "projects-policy",
+      policy: pulumi.jsonStringify({
+        Statement: [
+          {
+            Action: ["dynamodb:*"],
+            Effect: "Allow",
+            Resource: [
+              projects.arn,
+              pulumi.interpolate`${projects.arn}/stream/*`,
+              pulumi.interpolate`${projects.arn}/backup/*`,
+              pulumi.interpolate`${projects.arn}/export/*`,
+              pulumi.interpolate`${projects.arn}/index/*`,
+            ],
+          },
+        ],
+        Version: "2012-10-17",
+      }),
+    },
+    {
       name: "stacksnap-shared-storage-policy",
       policy: pulumi.jsonStringify({
         Statement: [
@@ -609,22 +723,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
             Action: ["efs:Client*"],
             Effect: "Allow",
             Resource: [stacksnap_shared_storage.arn],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "stacksnap-binaries-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["s3:*"],
-            Effect: "Allow",
-            Resource: [
-              stacksnap_binaries.arn,
-              pulumi.interpolate`${stacksnap_binaries.arn}/*`,
-            ],
           },
         ],
         Version: "2012-10-17",
@@ -670,63 +768,6 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
             Action: ["ses:SendEmail", "ses:SendRawEmail"],
             Effect: "Allow",
             Resource: ["*"],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "projects-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              projects.arn,
-              pulumi.interpolate`${projects.arn}/stream/*`,
-              pulumi.interpolate`${projects.arn}/backup/*`,
-              pulumi.interpolate`${projects.arn}/export/*`,
-              pulumi.interpolate`${projects.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "pulumi-stacks-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              pulumi_stacks.arn,
-              pulumi.interpolate`${pulumi_stacks.arn}/stream/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/backup/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/export/*`,
-              pulumi.interpolate`${pulumi_stacks.arn}/index/*`,
-            ],
-          },
-        ],
-        Version: "2012-10-17",
-      }),
-    },
-    {
-      name: "workflow-runs-policy",
-      policy: pulumi.jsonStringify({
-        Statement: [
-          {
-            Action: ["dynamodb:*"],
-            Effect: "Allow",
-            Resource: [
-              workflow_runs.arn,
-              pulumi.interpolate`${workflow_runs.arn}/stream/*`,
-              pulumi.interpolate`${workflow_runs.arn}/backup/*`,
-              pulumi.interpolate`${workflow_runs.arn}/export/*`,
-              pulumi.interpolate`${workflow_runs.arn}/index/*`,
-            ],
           },
         ],
         Version: "2012-10-17",
@@ -783,16 +824,20 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
           value: pulumi_stacks.name,
         },
         {
-          name: "USERPACKS_TABLE_NAME",
+          name: "PROJECTS_TABLE_NAME",
           value: projects.name,
         },
         {
-          name: "USERAPPS_TABLE_NAME",
+          name: "APP_DEPLOYMENTS_TABLE_NAME",
           value: project_applications.name,
         },
         {
-          name: "DEPLOYMENTS_TABLE_NAME",
+          name: "WORKFLOW_RUNS_TABLE_NAME",
           value: workflow_runs.name,
+        },
+        {
+          name: "WORKFLOW_JOBS_TABLE_NAME",
+          value: workflow_jobs.name,
         },
         {
           name: "IAC_STORE_BUCKET_NAME",
@@ -823,16 +868,8 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
           value: project_applications.name,
         },
         {
-          name: "PROJECTS_TABLE_NAME",
-          value: projects.name,
-        },
-        {
           name: "PULUMI_STACKS_TABLE_NAME",
           value: pulumi_stacks.name,
-        },
-        {
-          name: "WORKFLOW_RUNS_TABLE_NAME",
-          value: workflow_runs.name,
         },
         {
           name: "STACKSNAP_BINARIES_BUCKET_NAME",
@@ -1007,11 +1044,12 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
         "POST",
         "PUT",
       ],
+      cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
       cachedMethods: ["HEAD", "GET"],
       defaultTtl: 3600,
-      forwardedValues: { cookies: { forward: "none" }, queryString: true },
       maxTtl: 86400,
       minTtl: 0,
+      originRequestPolicyId: "b689b0a8-53d0-40ab-baf2-68738e2966ac",
       targetOriginId: "stacksnap-ui",
       viewerProtocolPolicy: "allow-all",
     },
@@ -1196,5 +1234,129 @@ const stacksnap_service = new aws.ecs.Service(
       subnet_0,
       subnet_1,
     ],
+  },
+);
+const stacksnap_service_cpuutilization = new aws.cloudwatch.MetricAlarm(
+  "stacksnap-service-CPUUtilization",
+  {
+    comparisonOperator: "GreaterThanOrEqualToThreshold",
+    evaluationPeriods: 2,
+    actionsEnabled: true,
+    alarmDescription:
+      "This metric checks for CPUUtilization in the ECS service",
+    dimensions: {
+      ClusterName: stacksnap_ecs_cluster.name,
+      ServiceName: stacksnap_service.name,
+    },
+    metricName: "CPUUtilization",
+    namespace: "AWS/ECS",
+    period: 60,
+    statistic: "Average",
+    threshold: 90,
+    tags: {
+      GLOBAL_KLOTHO_TAG: "",
+      RESOURCE_NAME: "stacksnap-service-CPUUtilization",
+    },
+  },
+);
+const stacksnap_service_memoryutilization = new aws.cloudwatch.MetricAlarm(
+  "stacksnap-service-MemoryUtilization",
+  {
+    comparisonOperator: "GreaterThanOrEqualToThreshold",
+    evaluationPeriods: 2,
+    actionsEnabled: true,
+    alarmDescription:
+      "This metric checks for MemoryUtilization in the ECS service",
+    dimensions: {
+      ClusterName: stacksnap_ecs_cluster.name,
+      ServiceName: stacksnap_service.name,
+    },
+    metricName: "MemoryUtilization",
+    namespace: "AWS/ECS",
+    period: 60,
+    statistic: "Average",
+    threshold: 90,
+    tags: {
+      GLOBAL_KLOTHO_TAG: "",
+      RESOURCE_NAME: "stacksnap-service-MemoryUtilization",
+    },
+  },
+);
+const stacksnap_service_runningtaskcount = new aws.cloudwatch.MetricAlarm(
+  "stacksnap-service-RunningTaskCount",
+  {
+    comparisonOperator: "LessThanThreshold",
+    evaluationPeriods: 1,
+    actionsEnabled: true,
+    alarmDescription:
+      "This metric checks for any stopped tasks in the ECS service",
+    dimensions: {
+      ClusterName: stacksnap_ecs_cluster.name,
+      ServiceName: stacksnap_service.name,
+    },
+    metricName: "RunningTaskCount",
+    namespace: "AWS/ECS",
+    period: 60,
+    statistic: "Average",
+    threshold: 1,
+    tags: {
+      GLOBAL_KLOTHO_TAG: "",
+      RESOURCE_NAME: "stacksnap-service-RunningTaskCount",
+    },
+  },
+);
+const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
+  "cloudwatch_dashboard-0",
+  {
+    dashboardName: "cloudwatch_dashboard-0",
+    dashboardBody: pulumi.jsonStringify({
+      widgets: [
+        {
+          height: 6,
+          properties: {
+            annotations: { alarms: [stacksnap_service_cpuutilization.arn] },
+            region: region_0.apply((o) => o.name),
+          },
+          type: "metric",
+          width: 6,
+        },
+        {
+          height: 6,
+          properties: { alarms: [stacksnap_service_cpuutilization.arn] },
+          type: "alarm",
+          width: 6,
+        },
+        {
+          height: 6,
+          properties: {
+            annotations: { alarms: [stacksnap_service_memoryutilization.arn] },
+            region: region_0.apply((o) => o.name),
+          },
+          type: "metric",
+          width: 6,
+        },
+        {
+          height: 6,
+          properties: { alarms: [stacksnap_service_memoryutilization.arn] },
+          type: "alarm",
+          width: 6,
+        },
+        {
+          height: 6,
+          properties: {
+            annotations: { alarms: [stacksnap_service_runningtaskcount.arn] },
+            region: region_0.apply((o) => o.name),
+          },
+          type: "metric",
+          width: 6,
+        },
+        {
+          height: 6,
+          properties: { alarms: [stacksnap_service_runningtaskcount.arn] },
+          type: "alarm",
+          width: 6,
+        },
+      ],
+    }),
   },
 );

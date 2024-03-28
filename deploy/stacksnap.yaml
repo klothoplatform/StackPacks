@@ -39,12 +39,14 @@ base:
         Environment:
           - Name: PULUMISTACKS_TABLE_NAME
             Value: aws:dynamodb_table:pulumi-stacks#Name
-          - Name: USERPACKS_TABLE_NAME
+          - Name: PROJECTS_TABLE_NAME
             Value: aws:dynamodb_table:projects#Name
-          - Name: USERAPPS_TABLE_NAME
+          - Name: APP_DEPLOYMENTS_TABLE_NAME
             Value: aws:dynamodb_table:project-applications#Name
-          - Name: DEPLOYMENTS_TABLE_NAME
+          - Name: WORKFLOW_RUNS_TABLE_NAME
             Value: aws:dynamodb_table:workflow-runs#Name
+          - Name: WORKFLOW_JOBS_TABLE_NAME
+            Value: aws:dynamodb_table:workflow-jobs#Name
           - Name: IAC_STORE_BUCKET_NAME
             Value: aws:s3_bucket:stacksnap-iac-store#BucketName
           - Name: STACK_SNAP_BINARIES_BUCKET_NAME
@@ -79,20 +81,28 @@ base:
       HashKey: id
     aws:dynamodb_table:project-applications:
       Attributes:
-        - Name: app_id
+        - Name: project_id
           Type: S
-        - Name: version
+        - Name: range_key
           Type: N
-      HashKey: app_id
-      RangeKey: version
+      HashKey: project_id
+      RangeKey: range_key
     aws:dynamodb_table:workflow-runs:
       Attributes:
-        - Name: id
+        - Name: project_id
           Type: S
-        - Name: iac_stack_composite_key
+        - Name: range_key
           Type: S
-      HashKey: id
-      RangeKey: iac_stack_composite_key
+      HashKey: project_id
+      RangeKey: range_key
+    aws:dynamodb_table:workflow-jobs:
+        Attributes:
+          - Name: partition_key
+            Type: S
+          - Name: job_number
+            Type: N
+        HashKey: project_id
+        RangeKey: range_key
     aws:dynamodb_table:pulumi-stacks:
       Attributes:
         - Name: project_name
@@ -164,6 +174,7 @@ base:
     aws:ecs_service:stacksnap-service -> aws:dynamodb_table:projects:
     aws:ecs_service:stacksnap-service -> aws:dynamodb_table:project-applications:
     aws:ecs_service:stacksnap-service -> aws:dynamodb_table:workflow-runs:
+    aws:ecs_service:stacksnap-service -> aws:dynamodb_table:workflow-jobs:
     aws:ecs_service:stacksnap-service -> aws:dynamodb_table:pulumi-stacks:
     aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-binaries:
     aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-iac-store:

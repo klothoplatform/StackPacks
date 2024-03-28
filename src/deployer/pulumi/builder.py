@@ -3,10 +3,11 @@ import os
 import subprocess
 import zipfile
 from pathlib import Path
+from typing import Optional
 
 from pulumi import automation as auto
 
-from src.deployer.models.deployment import PulumiStack
+from src.deployer.models.pulumi_stack import PulumiStack
 from src.util.logging import logger as log
 
 
@@ -41,11 +42,21 @@ class AppBuilder:
         )
         return stack
 
-    def configure_aws(self, stack: auto.Stack, role_arn: str, region: str):
+    def configure_aws(
+        self,
+        stack: auto.Stack,
+        region: str,
+        role_arn: str,
+        external_id: Optional[str] = None,
+    ):
         stack.set_config("aws:region", auto.ConfigValue(region))
         stack.set_config(
             "aws:assumeRole.roleArn", auto.ConfigValue(role_arn), path=True
         )
+        if external_id:
+            stack.set_config(
+                "aws:assumeRole.externalId", auto.ConfigValue(external_id), path=True
+            )
 
     def install_npm_deps(self):
         result: subprocess.CompletedProcess[bytes] = subprocess.run(

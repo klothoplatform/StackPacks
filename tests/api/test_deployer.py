@@ -9,11 +9,17 @@ from src.api.deployer import (
     tear_down,
     tear_down_app,
 )
-from src.deployer.deploy import deploy_pack, deploy_single
-from src.deployer.destroy import tear_down_pack, tear_down_single
+from src.deployer.deploy import (
+    execute_deployment_workflow,
+    execute_deploy_single_workflow,
+)
+from src.deployer.destroy import (
+    execute_destroy_all_workflow,
+    execute_destroy_single_workflow,
+)
 from src.stack_pack import StackPack
-from src.stack_pack.models.user_app import UserApp
-from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.app_deployment import AppDeployment
+from src.stack_pack.models.project import Project
 
 
 class TestRoutes(aiounittest.AsyncTestCase):
@@ -47,7 +53,11 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_get_user_id.assert_called_once()
         mock_get_email.assert_called_once()
         mock_bg.add_task.assert_called_once_with(
-            deploy_pack, "user_id", {"a": sp}, "deployment_id", "users_email"
+            execute_deployment_workflow,
+            "user_id",
+            {"a": sp},
+            "deployment_id",
+            "users_email",
         )
 
         # Assert response
@@ -61,8 +71,8 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_version")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get_latest_version")
     async def test_install_app(
         self,
         mock_get_latest_app,
@@ -76,9 +86,9 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
-        user_pack = MagicMock(spec=UserPack, tear_down_in_progress=False)
+        user_pack = MagicMock(spec=Project, tear_down_in_progress=False)
         mock_get_pack.return_value = user_pack
-        user_app = MagicMock(spec=UserApp)
+        user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
 
         response = await install_app(
@@ -93,7 +103,11 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_get_pack.assert_called_once_with("user_id")
         mock_get_latest_app.assert_called_once_with("user_id#app1")
         mock_bg.add_task.assert_called_once_with(
-            deploy_single, user_pack, user_app, "deployment_id", "users_email"
+            execute_deploy_single_workflow,
+            user_pack,
+            user_app,
+            "deployment_id",
+            "users_email",
         )
 
         # Assert response
@@ -107,8 +121,8 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_version")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get_latest_version")
     async def test_install_app_tear_down_ongoing(
         self,
         mock_get_latest_app,
@@ -122,9 +136,9 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
-        user_pack = MagicMock(spec=UserPack, tear_down_in_progress=True)
+        user_pack = MagicMock(spec=Project, tear_down_in_progress=True)
         mock_get_pack.return_value = user_pack
-        user_app = MagicMock(spec=UserApp)
+        user_app = MagicMock(spec=AppDeployment)
 
         response = await install_app(
             MagicMock(),
@@ -164,7 +178,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         # Assert calls
         mock_get_user_id.assert_called_once()
         mock_bg.add_task.assert_called_once_with(
-            tear_down_pack, "user_id", "deployment_id"
+            execute_destroy_all_workflow, "user_id", "deployment_id"
         )
 
         # Assert response
@@ -177,8 +191,8 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     async def test_tear_down_app(
         self,
         mock_get_latest_app,
@@ -190,9 +204,9 @@ class TestRoutes(aiounittest.AsyncTestCase):
         # Setup mock objects
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
-        user_pack = MagicMock(spec=UserPack)
+        user_pack = MagicMock(spec=Project)
         mock_get_pack.return_value = user_pack
-        user_app = MagicMock(spec=UserApp)
+        user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
 
         response = await tear_down_app(
@@ -206,10 +220,10 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_get_pack.assert_called_once_with("user_id")
         mock_get_latest_app.assert_called_once_with("user_id#app1")
         mock_bg.add_task.assert_called_once_with(
-            tear_down_single, user_pack, user_app, "deployment_id"
+            execute_destroy_single_workflow, user_pack, user_app, "deployment_id"
         )
         user_pack.update.assert_called_once_with(
-            actions=[UserPack.tear_down_in_progress.set(True)]
+            actions=[Project.destroy_in_progress.set(True)]
         )
 
         # Assert response
@@ -222,8 +236,8 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
-    @patch.object(UserPack, "get")
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(Project, "get")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     async def test_tear_down_app_wont_destroy_common(
         self,
         mock_get_latest_app,
@@ -236,10 +250,10 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
         user_pack = MagicMock(
-            spec=UserPack, apps={"app1": 1, UserPack.COMMON_APP_NAME: 1, "app2": 1}
+            spec=Project, apps={"app1": 1, Project.COMMON_APP_NAME: 1, "app2": 1}
         )
         mock_get_pack.return_value = user_pack
-        user_app = MagicMock(spec=UserApp)
+        user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
 
         response = await tear_down_app(
@@ -253,7 +267,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_get_pack.assert_called_once_with("user_id")
         mock_get_latest_app.assert_called_once_with("user_id#app1")
         mock_bg.add_task.assert_called_once_with(
-            tear_down_single, user_pack, user_app, "deployment_id"
+            execute_destroy_single_workflow, user_pack, user_app, "deployment_id"
         )
         user_pack.update.assert_not_called()
 

@@ -1,7 +1,7 @@
 import aiounittest
 from unittest.mock import MagicMock, patch
 from botocore.exceptions import ClientError
-from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.project import Project
 from src.stack_pack.storage.iac_storage import (
     IacStorage,
     WriteIacError,

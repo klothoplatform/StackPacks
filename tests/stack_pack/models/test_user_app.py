@@ -7,23 +7,23 @@ from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
 from src.stack_pack import StackPack
-from src.stack_pack.models.user_app import UserApp
+from src.stack_pack.models.app_deployment import AppDeployment
 from src.stack_pack.storage.iac_storage import IacStorage
 
 
 class TestUserApp(aiounittest.AsyncTestCase):
 
-    @patch.object(UserApp, "get_latest_deployed_version")
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     def test_to_user_app(self, mock_get_latest_deployed_version):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
             configuration={"config": "value"},
         )
         mock_latest_deployed_version = MagicMock(
-            spec=UserApp,
+            spec=AppDeployment,
             iac_stack_composite_key="iac#stack",
             status="status",
             status_reason="status_reason",
@@ -31,11 +31,11 @@ class TestUserApp(aiounittest.AsyncTestCase):
         mock_get_latest_deployed_version.return_value = mock_latest_deployed_version
 
         # Act
-        app_model = mock_user_app.to_user_app()
+        app_model = mock_user_app.to_view_model()
 
         # Assert
         mock_get_latest_deployed_version.assert_called_once_with("id#app")
-        self.assertEqual(app_model.app_id, "id#app")
+        self.assertEqual(app_model.owning_app_id, "id#app")
         self.assertEqual(app_model.version, 1)
         self.assertEqual(app_model.created_by, "created_by")
         self.assertEqual(app_model.configuration, {"config": "value"})
@@ -44,7 +44,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
 
     def test_get_app_name(self):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -52,14 +52,14 @@ class TestUserApp(aiounittest.AsyncTestCase):
         )
 
         # Act
-        app_name = mock_user_app.get_app_name()
+        app_name = mock_user_app.get_app_id()
 
         # Assert
         self.assertEqual(app_name, "app")
 
     def test_get_pack_id(self):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -67,14 +67,14 @@ class TestUserApp(aiounittest.AsyncTestCase):
         )
 
         # Act
-        pack_id = mock_user_app.get_pack_id()
+        pack_id = mock_user_app.get_project_id()
 
         # Assert
         self.assertEqual(pack_id, "id")
 
     def test_get_configurations(self):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -87,10 +87,10 @@ class TestUserApp(aiounittest.AsyncTestCase):
         # Assert
         self.assertEqual(configurations, {"config": "value"})
 
-    @patch.object(UserApp, "update")
+    @patch.object(AppDeployment, "update")
     def test_update_configurations(self, mock_update):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -106,12 +106,12 @@ class TestUserApp(aiounittest.AsyncTestCase):
 
     # Continue with other tests for run_app, get_latest_version, get_latest_deployed_version, composite_key
 
-    @patch("src.stack_pack.models.user_app.run_engine")
-    @patch("src.stack_pack.models.user_app.export_iac")
-    @patch("src.stack_pack.models.user_app.zip_directory_recurse")
+    @patch("src.stack_pack.models.app_deployment.run_engine")
+    @patch("src.stack_pack.models.app_deployment.export_iac")
+    @patch("src.stack_pack.models.app_deployment.zip_directory_recurse")
     async def test_run_app(self, mock_zip, mock_export_iac, mock_run_engine):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -158,37 +158,37 @@ class TestUserApp(aiounittest.AsyncTestCase):
             policy.__str__(), '{\n    "Version": "2012-10-17",\n    "Statement": []\n}'
         )
 
-    @patch.object(UserApp, "query")
+    @patch.object(AppDeployment, "query")
     def test_get_latest_version(self, mock_query):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
             configuration={"config": "value"},
         )
-        mock_query.return_value = [MagicMock(spec=UserApp)]
+        mock_query.return_value = [MagicMock(spec=AppDeployment)]
 
         # Act
-        latest_version = UserApp.get_latest_version("id#app")
+        latest_version = AppDeployment.get_latest_version("id#app")
 
         # Assert
         mock_query.assert_called_once()
         self.assertEqual(latest_version, mock_query.return_value[0])
 
-    @patch.object(UserApp, "query")
+    @patch.object(AppDeployment, "query")
     def test_get_latest_deployed_version(self, mock_query):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
             configuration={"config": "value"},
         )
-        mock_query.return_value = [MagicMock(spec=UserApp)]
+        mock_query.return_value = [MagicMock(spec=AppDeployment)]
 
         # Act
-        latest_version = UserApp.get_latest_deployed_version("id#app")
+        latest_version = AppDeployment.get_latest_deployed_version("id#app")
 
         # Assert
         mock_query.assert_called_once()
@@ -196,7 +196,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
 
     def test_composite_key(self):
         # Arrange
-        mock_user_app = UserApp(
+        mock_user_app = AppDeployment(
             app_id="id#app",
             version=1,
             created_by="created_by",
@@ -204,7 +204,7 @@ class TestUserApp(aiounittest.AsyncTestCase):
         )
 
         # Act
-        composite_key = UserApp.composite_key("id", "app")
+        composite_key = AppDeployment.composite_key("id", "app")
 
         # Assert
         self.assertEqual(composite_key, "id#app")

@@ -1,65 +1,67 @@
 import asyncio
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 from aiomultiprocess import Pool
 from pulumi import automation as auto
 
 from src.dependencies.injection import get_iac_storage
 from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
-from src.deployer.models.deployment import (
-    Deployment,
-    DeploymentAction,
-    DeploymentStatus,
-    PulumiStack,
+from src.deployer.models.pulumi_stack import PulumiStack
+from src.deployer.models.util import abort_workflow_run, complete_workflow_run
+from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
+from src.deployer.models.workflow_job import (
+    WorkflowJobStatus,
+    WorkflowJobType,
+    WorkflowJob,
 )
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.stack_pack.models.user_app import AppLifecycleStatus, UserApp
-from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.stack_pack.models.project import Project
 from src.stack_pack.storage.iac_storage import IaCDoesNotExistError
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
 
 async def run_destroy(
+    destroy_job: WorkflowJob,
     region: str,
     assume_role_arn: str,
-    project_name: str,
-    app_name: str,
-    user: str,
     iac: bytes,
-    pulumi_config: dict[str, str],
-    deployment_id: str,
     tmp_dir: Path,
+    pulumi_config: Optional[dict[str, str]] = None,
+    external_id: Optional[str] = None,
 ) -> DeploymentResult:
+    if pulumi_config is None:
+        pulumi_config = {}
+    project_id = destroy_job.project_id()
+    run_id = destroy_job.run_composite_key()
     pulumi_stack = PulumiStack(
-        project_name=project_name,
-        name=PulumiStack.sanitize_stack_name(app_name),
-        status=DeploymentStatus.IN_PROGRESS.value,
+        project_name=project_id,
+        name=PulumiStack.sanitize_stack_name(destroy_job.modified_app_id),
+        status=WorkflowJobStatus.IN_PROGRESS.value,
         status_reason="Destroy in progress",
-        created_by=user,
+        created_by=destroy_job.initiated_by,
     )
-    deployment = Deployment(
-        id=deployment_id,
-        iac_stack_composite_key=pulumi_stack.composite_key(),
-        action=DeploymentAction.DESTROY.value,
-        status=DeploymentStatus.IN_PROGRESS.value,
-        status_reason="Destroy in progress",
-        initiated_by=user,
-    )
+
     try:
         pulumi_stack.save()
-        deployment.save()
+        destroy_job.update(
+            actions=[
+                WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
+            ]
+        )
         builder = AppBuilder(tmp_dir)
         stack = builder.prepare_stack(iac, pulumi_stack)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))
-        builder.configure_aws(stack, assume_role_arn, region)
+        builder.configure_aws(stack, region, assume_role_arn, external_id=external_id)
         deployer = AppDeployer(
             stack,
-            DeploymentDir(user, deployment_id),
+            DeploymentDir(project_id, run_id),
         )
         result_status, reason = await deployer.destroy_and_remove_stack()
         pulumi_stack.update(
@@ -68,10 +70,11 @@ async def run_destroy(
                 PulumiStack.status_reason.set(reason),
             ]
         )
-        deployment.update(
+        destroy_job.update(
             actions=[
-                Deployment.status.set(result_status.value),
-                Deployment.status_reason.set(reason),
+                WorkflowJob.status.set(result_status.value),
+                WorkflowJob.status_reason.set(reason),
+                WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
             ]
         )
         return DeploymentResult(
@@ -80,115 +83,129 @@ async def run_destroy(
     except Exception as e:
         pulumi_stack.update(
             actions=[
-                PulumiStack.status.set(DeploymentStatus.FAILED.value),
+                PulumiStack.status.set(WorkflowJobStatus.FAILED.value),
                 PulumiStack.status_reason.set(str(e)),
             ]
         )
-        deployment.update(
+        destroy_job.update(
             actions=[
-                Deployment.status.set(DeploymentStatus.FAILED.value),
-                Deployment.status_reason.set(str(e)),
+                WorkflowJob.status.set(WorkflowJobStatus.FAILED.value),
+                WorkflowJob.status_reason.set(str(e)),
+                WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
             ]
         )
         return DeploymentResult(
             manager=None,
-            status=DeploymentStatus.FAILED,
+            status=WorkflowJobStatus.FAILED,
             reason=str(e),
             stack=pulumi_stack,
         )
 
 
 async def run_destroy_application(
-    pack_id: str,
-    app_name: str,
-    user: str,
-    pulumi_config: dict[str, str],
-    deployment_id: str,
+    destroy_request: StackDeploymentRequest,
     tmp_dir: Path,
 ) -> DeploymentResult:
+    project_id = destroy_request.workflow_job.project_id()
+    app_id = destroy_request.workflow_job.modified_app_id
+
     logger.info(
-        f"Building and deploying {app_name} for pack {pack_id} with deployment id {deployment_id}"
+        f"Destroying {app_id} in project {project_id} with job id {destroy_request.workflow_job.composite_key()}"
     )
     iac_storage = get_iac_storage()
-    pack = UserPack.get(pack_id)
-    app = UserApp.get_latest_deployed_version(UserApp.composite_key(pack_id, app_name))
+    project = Project.get(project_id)
+    app = AppDeployment.get_latest_deployed_version(project_id, app_id)
     if app is None:
-        logger.info(f"Skipping destroy for {app_name} as it is not deployed")
+        logger.info(f"Skipping destroy for {app_id} as it is not deployed")
+        destroy_request.workflow_job.update(
+            actions=[
+                WorkflowJob.status.set(WorkflowJobStatus.SKIPPED.value),
+                WorkflowJob.status_reason.set("Not deployed"),
+                WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
+            ]
+        )
         return DeploymentResult(
             manager=None,
-            status=DeploymentStatus.SUCCEEDED,
+            status=WorkflowJobStatus.SKIPPED,
             reason="Not deployed",
             stack=None,
         )
+    destroy_request.workflow_job.update(
+        actions=[
+            WorkflowJob.status.set(WorkflowJobStatus.IN_PROGRESS.value),
+            WorkflowJob.status_reason.set("Destroy in progress"),
+            WorkflowJob.initiated_at.set(datetime.now(timezone.utc)),
+        ],
+    )
     try:
-        iac = iac_storage.get_iac(pack.id, app.get_app_name(), app.version)
+        iac = iac_storage.get_iac(project_id, app_id, app.version())
     except IaCDoesNotExistError:
         # This state could happen if an application's iac failed to generate.
         # Since other applications and the common stack could have been deployed
         # don't fail the destroy process, just log and continue.
         logger.info(f"Skipping destroy for {app.app_id} as iac does not exist")
+        destroy_request.workflow_job.update(
+            actions=[
+                WorkflowJob.status.set(WorkflowJobStatus.SUCCEEDED.value),
+                WorkflowJob.status_reason.set("IaC does not exist"),
+                WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
+            ]
+        )
         return DeploymentResult(
             manager=None,
-            status=DeploymentStatus.SUCCEEDED,
+            status=WorkflowJobStatus.SUCCEEDED,
             reason="IaC does not exist",
             stack=None,
         )
     app.transition_status(
-        DeploymentStatus.IN_PROGRESS, DeploymentAction.DESTROY, "Destroy in progress"
+        WorkflowJobStatus.IN_PROGRESS, WorkflowJobType.DESTROY, "Destroy in progress"
     )
     result = await run_destroy(
-        pack.region,
-        pack.assumed_role_arn,
-        pack.id,
-        app.get_app_name(),
-        user,
-        iac,
-        pulumi_config,
-        deployment_id,
-        tmp_dir / app.get_app_name(),
+        destroy_job=destroy_request.workflow_job,
+        region=project.region,
+        assume_role_arn=project.assumed_role_arn,
+        iac=iac,
+        external_id=project.assumed_role_external_id,
+        tmp_dir=tmp_dir / app.get_app_id(),
     )
     iac_composite_key = (
         result.stack.composite_key()
-        if result.status != DeploymentStatus.SUCCEEDED
+        if result.status != WorkflowJobStatus.SUCCEEDED
         else None
     )
 
     app.update(
         actions=[
-            UserApp.outputs.set({}),
-            UserApp.iac_stack_composite_key.set(iac_composite_key),
-            UserApp.deployments.add({deployment_id}),
+            AppDeployment.outputs.set({}),
+            AppDeployment.iac_stack_composite_key.set(iac_composite_key),
+            AppDeployment.deployments.add(
+                {destroy_request.workflow_job.composite_key()}
+            ),
         ]
     )
-    app.transition_status(result.status, DeploymentAction.DESTROY, result.reason)
-    logger.info(f"DESTROY of {app.get_app_name()} complete. Status: {result.status}")
+    app.transition_status(result.status, WorkflowJobType.DESTROY, result.reason)
+    logger.info(f"DESTROY of {app.get_app_id()} complete. Status: {result.status}")
     return result
 
 
 async def run_concurrent_destroys(
-    stacks: list[StackDeploymentRequest],
-    user: str,
+    destroy_requests: list[StackDeploymentRequest],
     tmp_dir: Path,
 ) -> Tuple[list[str], list[DeploymentResult]]:
-
-    logger.info(f"Running {len(stacks)} destroys")
+    logger.info(f"Running {len(destroy_requests)} destroys")
 
     async with Pool() as pool:
         tasks = []
         app_order = []
-        for stack in stacks:
+        for destroy_request in destroy_requests:
             task = pool.apply(
                 run_destroy_application,
-                args=(
-                    stack.project_name,
-                    stack.stack_name,
-                    user,
-                    stack.pulumi_config,
-                    stack.deployment_id,
-                    tmp_dir,
+                kwds=dict(
+                    destroy_request=destroy_request,
+                    tmp_dir=tmp_dir,
                 ),
             )
-            app_order.append(stack.stack_name)
+            app_order.append(destroy_request.workflow_job.modified_app_id)
             tasks.append(task)
 
         gathered = await asyncio.gather(*tasks)
@@ -197,104 +214,197 @@ async def run_concurrent_destroys(
 
 
 async def destroy_applications(
-    user_pack: UserPack,
-    deployment_id: str,
+    destroy_jobs: list[WorkflowJob],
     tmp_dir: Path,
 ) -> bool:
     deployment_stacks: list[StackDeploymentRequest] = []
-    for name, version in user_pack.apps.items():
-        if name == UserPack.COMMON_APP_NAME:
+    for job in destroy_jobs:
+        if job.modified_app_id == Project.COMMON_APP_NAME:
             continue
         deployment_stacks.append(
             StackDeploymentRequest(
-                project_name=user_pack.id,
-                stack_name=name,
+                workflow_job=job,
                 pulumi_config={},
-                deployment_id=deployment_id,
             )
         )
 
     order, results = await run_concurrent_destroys(
-        deployment_stacks,
-        user_pack.id,
-        tmp_dir,
+        destroy_requests=deployment_stacks,
+        tmp_dir=tmp_dir,
     )
 
-    return all(result.status == DeploymentStatus.SUCCEEDED for result in results)
+    return all(result.status == WorkflowJobStatus.SUCCEEDED for result in results)
 
 
-async def tear_down_user_app(
-    pack: UserPack,
-    app: UserApp,
-    deployment_id: str,
+async def destroy_app(
+    destroy_job: WorkflowJob,
     tmp_dir: Path,
 ) -> DeploymentResult:
-    logger.info(f"Tearing down app {app.app_id}")
+    logger.info(f"Destroying app {destroy_job.modified_app_id}")
     _, results = await run_concurrent_destroys(
         [
             StackDeploymentRequest(
-                project_name=pack.id,
-                stack_name=app.get_app_name(),
+                workflow_job=destroy_job,
                 pulumi_config={},
-                deployment_id=deployment_id,
             )
         ],
-        pack.id,
-        tmp_dir,
+        tmp_dir=tmp_dir,
     )
     return results[0]
 
 
-async def tear_down_single(pack: UserPack, app: UserApp, deployment_id: str):
-    with TempDir() as tmp_dir_str:
-        tmp_dir = Path(tmp_dir_str)
-        result = await tear_down_user_app(pack, app, deployment_id, tmp_dir)
-
-        if pack.tear_down_in_progress and result.status == DeploymentStatus.SUCCEEDED:
-            common_pack = UserApp.get_latest_deployed_version(
-                UserApp.composite_key(pack.id, UserPack.COMMON_APP_NAME),
+async def execute_destroy_single_workflow(run: WorkflowRun, destroy_common: bool):
+    try:
+        with TempDir() as tmp_dir_str:
+            tmp_dir = Path(tmp_dir_str)
+            project = Project.get(run.project_id)
+            destroy_app_job = WorkflowJob.create_job(
+                partition_key=WorkflowJob.compose_partition_key(
+                    project_id=run.project_id,
+                    workflow_type=WorkflowType.DESTROY.value,
+                    owning_app_id=run.app_id(),
+                    run_number=run.run_number(),
+                ),
+                job_type=WorkflowJobType.DESTROY,
+                modified_app_id=run.app_id(),
+                initiated_by=run.initiated_by,
             )
-            await tear_down_user_app(pack, common_pack, deployment_id, tmp_dir)
-            pack.update(actions=[UserPack.tear_down_in_progress.set(False)])
+
+            run.update(
+                actions=[
+                    WorkflowRun.status.set(WorkflowJobStatus.IN_PROGRESS.value),
+                    WorkflowRun.status_reason.set("Destroy in progress"),
+                    WorkflowRun.initiated_at.set(datetime.now(timezone.utc)),
+                ]
+            )
+
+            destroy_common_job = None
+            if destroy_common:
+                destroy_common_job = WorkflowJob.create_job(
+                    partition_key=WorkflowJob.compose_partition_key(
+                        project_id=run.project_id,
+                        workflow_type=WorkflowType.DESTROY.value,
+                        owning_app_id=run.app_id(),
+                        run_number=run.run_number(),
+                    ),
+                    job_type=WorkflowJobType.DESTROY,
+                    modified_app_id=Project.COMMON_APP_NAME,
+                    initiated_by=run.initiated_by,
+                    dependencies=[destroy_app_job.composite_key()],
+                )
+
+            result = await destroy_app(destroy_app_job, tmp_dir)
+
+            if destroy_common_job:
+                if result.status in [
+                    WorkflowJobStatus.SUCCEEDED,
+                    WorkflowJobStatus.SKIPPED,
+                ]:
+                    await destroy_app(destroy_common_job, tmp_dir)
+                else:
+                    abort_workflow_run(run, default_run_status=WorkflowJobStatus.FAILED)
+                    return
+            complete_workflow_run(run)
+
+    except Exception as e:
+        logger.error(f"Error destroying {run.composite_key()}: {e}")
+        abort_workflow_run(run)
+    finally:
+        project.update(actions=[Project.destroy_in_progress.set(False)])
 
 
-async def tear_down_pack(
-    pack_id: str,
-    deployment_id: str,
+async def execute_destroy_all_workflow(
+    run: WorkflowRun,
 ):
-    logger.info(f"Tearing down pack {pack_id}")
-    user_pack = UserPack.get(pack_id)
-    user_pack.update(actions=[UserPack.tear_down_in_progress.set(True)])
+    project_id = run.project_id
 
-    logger.info(f"Destroying app stacks")
+    logger.info(f"Destroying project {project_id}")
+    project = Project.get(project_id)
 
-    with TempDir() as tmp_dir_str:
-        tmp_dir = Path(tmp_dir_str)
+    try:
+        project.update(actions=[Project.destroy_in_progress.set(True)])
 
-        common_version = user_pack.apps.get(UserPack.COMMON_APP_NAME, 0)
-        if common_version == 0:
-            raise ValueError("Common stack not found")
+        logger.info(f"Destroying app stacks")
 
-        common_pack = UserApp.get(
-            UserApp.composite_key(user_pack.id, UserPack.COMMON_APP_NAME),
-            common_version,
-        )
-        common_pack.update(
-            actions=[
-                UserApp.status.set(AppLifecycleStatus.PENDING.value),
-                UserApp.status_reason.set("waiting for applications to be destroyed"),
+        with TempDir() as tmp_dir_str:
+            tmp_dir = Path(tmp_dir_str)
+
+            common_version = project.apps.get(Project.COMMON_APP_NAME, 0)
+            if common_version == 0:
+                raise ValueError("Common stack not found")
+
+            destroy_app_jobs = [
+                WorkflowJob.create_job(
+                    partition_key=WorkflowJob.compose_partition_key(
+                        project_id=project_id,
+                        workflow_type=WorkflowType.DESTROY.value,
+                        owning_app_id=None,
+                        run_number=run.run_number(),
+                    ),
+                    job_type=WorkflowJobType.DESTROY,
+                    modified_app_id=app_id,
+                    initiated_by=run.initiated_by,
+                )
+                for app_id in project.apps.keys()
+                if app_id != Project.COMMON_APP_NAME
             ]
-        )
 
-        success = await destroy_applications(user_pack, deployment_id, tmp_dir)
-
-        if not success:
-            common_pack.transition_status(
-                DeploymentStatus.FAILED,
-                DeploymentAction.DESTROY,
-                "One or more applications failed to destroy",
+            destroy_common_job = WorkflowJob.create_job(
+                partition_key=WorkflowJob.compose_partition_key(
+                    project_id=project_id,
+                    workflow_type=WorkflowType.DESTROY.value,
+                    owning_app_id=None,
+                    run_number=run.run_number(),
+                ),
+                job_type=WorkflowJobType.DESTROY,
+                modified_app_id=Project.COMMON_APP_NAME,
+                initiated_by=run.initiated_by,
+                dependencies=[job.composite_key() for job in destroy_app_jobs],
             )
-            return
 
-        await tear_down_user_app(user_pack, common_pack, deployment_id, tmp_dir)
-        user_pack.update(actions=[UserPack.tear_down_in_progress.set(False)])
+            run.update(
+                actions=[
+                    WorkflowRun.status.set(WorkflowJobStatus.IN_PROGRESS.value),
+                    WorkflowRun.status_reason.set("Destroy in progress"),
+                    WorkflowRun.initiated_at.set(datetime.now(timezone.utc)),
+                ]
+            )
+            for job in [*destroy_app_jobs, destroy_common_job]:
+                job.update(
+                    actions=[WorkflowJob.status.set(WorkflowJobStatus.PENDING.value)]
+                )
+
+            common_app = AppDeployment.get(
+                project_id,
+                AppDeployment.compose_range_key(
+                    Project.COMMON_APP_NAME, common_version
+                ),
+            )
+            common_app.update(
+                actions=[
+                    AppDeployment.status.set(AppLifecycleStatus.PENDING.value),
+                    AppDeployment.status_reason.set(
+                        "waiting for applications to be destroyed"
+                    ),
+                ]
+            )
+
+            success = await destroy_applications(
+                destroy_jobs=destroy_app_jobs, tmp_dir=tmp_dir
+            )
+            if not success:
+                common_app.transition_status(
+                    WorkflowJobStatus.FAILED,
+                    WorkflowJobType.DESTROY,
+                    "One or more applications failed to destroy",
+                )
+                abort_workflow_run(run)
+                return
+
+            await destroy_app(destroy_job=destroy_common_job, tmp_dir=tmp_dir)
+            complete_workflow_run(run)
+    except Exception as e:
+        logger.error(f"Error destroying project {project_id}: {e}")
+        abort_workflow_run(run)
+    finally:
+        project.update(actions=[Project.destroy_in_progress.set(False)])

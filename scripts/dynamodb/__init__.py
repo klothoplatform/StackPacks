@@ -10,13 +10,13 @@ async def dynamodb():
 
 
 @dynamodb.command()
-@click.option("--id", prompt="UserPack ID", help="The ID of the UserPack.")
+@click.option("--id", prompt="Project ID", help="The ID of the Project.")
 async def get_user_pack(id):
     # Create a DynamoDB resource
     dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
 
     # Get the table
-    table = dynamodb.Table("UserPacks")
+    table = dynamodb.Table("Projects")
 
     # Query the table
     response = table.query(KeyConditionExpression=Key("id").eq(id))
@@ -54,7 +54,7 @@ async def list_user_packs(start_key):
     dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
 
     # Get the table
-    table = dynamodb.Table("UserPacks")
+    table = dynamodb.Table("Projects")
 
     # Scan the table
     if start_key:

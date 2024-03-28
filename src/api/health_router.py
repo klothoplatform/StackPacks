@@ -4,7 +4,7 @@ from pynamodb.exceptions import DoesNotExist
 
 from src.auth.token import AuthError
 from src.dependencies.injection import get_ses_client
-from src.stack_pack.models.user_pack import UserPack
+from src.stack_pack.models.project import Project
 from src.util.aws.ses import send_klotho_engineering_email
 from src.util.logging import logger
 
@@ -26,10 +26,10 @@ async def create_stack(
 ):
     logger.info(f"Received health check request: {body}")
     try:
-        user_pack = UserPack.get(body.PackId)
+        project = Project.get(body.PackId)
     except DoesNotExist:
         logger.error(f"User pack not found for pack_id: {body.PackId}")
-        raise AuthError("Unauthorized UserPack for health reporting")
+        raise AuthError("Unauthorized Project for health reporting")
     if body.NewStateValue != "OK":
         send_klotho_engineering_email(get_ses_client(), body.model_dump())
     return

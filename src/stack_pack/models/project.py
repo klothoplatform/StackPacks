@@ -1,8 +1,8 @@
 import asyncio
-import datetime
+from datetime import datetime, timezone
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
@@ -15,21 +15,29 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import DoesNotExist
 from pynamodb.models import Model
 
+from src.deployer.models.workflow_run import (
+    WorkflowRunStatus,
+    WorkflowRun,
+    WorkflowType,
+)
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.stack_pack import ConfigValues, StackPack
 from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.user_app import AppLifecycleStatus, AppModel, UserApp
+from src.stack_pack.models.app_deployment import (
+    AppLifecycleStatus,
+    AppDeployment,
+    AppDeploymentView,
+)
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.logging import logger
 
 
-class UserPack(Model):
-
+class Project(Model):
     COMMON_APP_NAME = "common"
 
     class Meta:
-        table_name = os.environ.get("USERPACKS_TABLE_NAME", "UserPacks")
+        table_name = os.environ.get("PROJECTS_TABLE_NAME", "Projects")
         billing_mode = "PAY_PER_REQUEST"
         host = os.environ.get("DYNAMODB_HOST", None)
         region = os.environ.get("AWS_DEFAULT_REGION", None)
@@ -38,13 +46,38 @@ class UserPack(Model):
     owner: str = UnicodeAttribute()
     region: str = UnicodeAttribute(null=True)
     assumed_role_arn: str = UnicodeAttribute(null=True)
+    assumed_role_external_id: str = UnicodeAttribute(null=True)
     features: List[str] = ListAttribute(null=True)
     apps: dict[str, int] = JSONAttribute()
     created_by: str = UnicodeAttribute()
-    created_at: datetime.datetime = UTCDateTimeAttribute(
-        default=datetime.datetime.now()
+    created_at: datetime = UTCDateTimeAttribute(
+        default=lambda: datetime.now(timezone.utc)
     )
-    tear_down_in_progress: bool = BooleanAttribute(default=False)
+    destroy_in_progress: bool = BooleanAttribute(default=False)
+    policy: str = UnicodeAttribute(null=True)
+
+    def get_workflow_runs(
+        self,
+        *,
+        workflow_type: Optional[WorkflowType],
+        status: Optional[WorkflowRunStatus],
+        app_id: Optional[str],
+    ) -> Iterable[WorkflowRun]:
+        range_key_condition = WorkflowRun.range_key.startswith(
+            f"{workflow_type.value}#{app_id if app_id is not None else ''}"
+        )
+        filter_condition = (
+            WorkflowRun.status == status.value if status is not None else None
+        )
+        results = WorkflowRun.query(
+            hash_key=self.id,
+            range_key_condition=(
+                range_key_condition if workflow_type is not None else None
+            ),
+            filter_condition=filter_condition,
+        )
+        if workflow_type is None and app_id:
+            return filter(lambda x: x.app_id() == app_id, results)
 
     async def run_base(
         self,
@@ -56,30 +89,43 @@ class UserPack(Model):
         dry_run: bool = False,
     ) -> Policy:
         base_stack = CommonStack(stack_packs, self.features)
-        base_version = self.apps.get(UserPack.COMMON_APP_NAME, None)
-        app: UserApp = None
+        base_version = self.apps.get(Project.COMMON_APP_NAME, None)
+        app: AppDeployment | None = None
         if base_version is not None:
             try:
-                app = UserApp.get(
-                    UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME),
-                    base_version,
-                )
+                app = None
+                for result in AppDeployment.query(
+                    self.id,
+                    range_key_condition=AppDeployment.range_key
+                    == f"{Project.COMMON_APP_NAME}#{base_version}",
+                    limit=1,
+                ):
+                    app = result
+                    break
                 # Only increment version if there has been an attempted deploy on the current version
-                latest_version = UserApp.get_latest_deployed_version(app.app_id)
-                if latest_version is not None and latest_version.version >= app.version:
-                    app.version = latest_version.version + 1
+                latest_version = AppDeployment.get_latest_deployed_version(
+                    project_id=self.id, app_id=Project.COMMON_APP_NAME
+                )
+                if (
+                    latest_version is not None
+                    and app is not None
+                    and latest_version.version() >= app.version()
+                ):
+                    app.range_key.version = latest_version.version() + 1
                     app.deployments = {}
             except DoesNotExist as e:
                 logger.info(
-                    f"App {UserPack.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
+                    f"App {Project.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
                 )
         if app is None:
-            app = UserApp(
+            app = AppDeployment(
                 # This has to be a composite key so we can correlate the app with the pack
-                app_id=UserApp.composite_key(self.id, UserPack.COMMON_APP_NAME),
-                version=1,
+                project_id=self.id,
+                range_key=AppDeployment.compose_range_key(
+                    app_id=Project.COMMON_APP_NAME, version=1
+                ),
                 created_by=self.created_by,
-                created_at=datetime.datetime.now(),
+                created_at=datetime.now(timezone.utc),
                 configuration=config,
                 status=AppLifecycleStatus.NEW.value,
             )
@@ -91,7 +137,7 @@ class UserPack(Model):
         )
 
         # Run the packs in parallel and only store the iac if we are incrementing the version
-        subdir = Path(tmp_dir) / app.get_app_name()
+        subdir = Path(tmp_dir) / app.get_app_id()
         subdir.mkdir(exist_ok=True)
         policy = await app.run_app(
             base_stack, str(subdir.absolute()), iac_storage, binary_storage
@@ -99,7 +145,7 @@ class UserPack(Model):
 
         if not dry_run:
             app.save()
-            self.apps[UserPack.COMMON_APP_NAME] = app.version
+            self.apps[Project.COMMON_APP_NAME] = app.version()
         return policy
 
     async def run_pack(
@@ -128,40 +174,45 @@ class UserPack(Model):
         Returns:
             Policy: The combined policy of all the stack packs
         """
-        apps: List[UserApp] = []
+        apps: List[AppDeployment] = []
         invalid_stacks = []
-        for name, config in config.items():
-            if name == UserPack.COMMON_APP_NAME:
+        for app_id, config in config.items():
+            if app_id == Project.COMMON_APP_NAME:
                 continue
-            if name not in stack_packs:
-                invalid_stacks.append(name)
+            if app_id not in stack_packs:
+                invalid_stacks.append(app_id)
                 continue
-            version = self.apps.get(name, None)
-            app: UserApp = None
+            version = self.apps.get(app_id, None)
+            app: AppDeployment | None = None
             if version is not None:
                 try:
-                    app = UserApp.get(UserApp.composite_key(self.id, name), version)
+                    app = AppDeployment.get(
+                        self.id,
+                        AppDeployment.compose_range_key(app_id=app_id, version=version),
+                    )
                     app.configuration = config
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
-                        latest_version = UserApp.get_latest_deployed_version(app.app_id)
+                        latest_version = AppDeployment.get_latest_deployed_version(
+                            project_id=self.id, app_id=app_id
+                        )
                         if (
                             latest_version is not None
-                            and latest_version.version >= app.version
+                            and latest_version.version() >= app.version()
                         ):
-                            app.version = latest_version.version + 1
+                            app.r = latest_version.version() + 1
                             app.deployments = {}
                 except DoesNotExist as e:
                     logger.info(
-                        f"App {name} does not exist for pack id {self.id}. Creating a new one."
+                        f"App {app_id} does not exist for pack id {self.id}. Creating a new one."
                     )
             if app is None:
-                app = UserApp(
+                app = AppDeployment(
                     # This has to be a composite key so we can correlate the app with the pack
-                    app_id=UserApp.composite_key(self.id, name),
-                    version=1,
+                    project_id=self.id,
+                    range_key=AppDeployment.compose_range_key(app_id=app_id, version=1),
                     created_by=self.created_by,
-                    created_at=datetime.datetime.now(),
+                    created_at=datetime.now(timezone.utc),
                     configuration=config,
                     status=AppLifecycleStatus.NEW.value,
                 )
@@ -173,9 +224,9 @@ class UserPack(Model):
         # Run the packs in parallel and only store the iac if we are incrementing the version
         tasks = []
         for app in apps:
-            subdir = Path(tmp_dir) / app.get_app_name()
+            subdir = Path(tmp_dir) / app.get_app_id()
             subdir.mkdir(exist_ok=True)
-            sp = stack_packs[app.get_app_name()]
+            sp = stack_packs[app.get_app_id()]
             tasks.append(
                 app.run_app(
                     sp,
@@ -190,7 +241,7 @@ class UserPack(Model):
         if increment_versions:
             for app in apps:
                 app.save()
-                self.apps[app.get_app_name()] = app.version
+                self.apps[app.get_app_id()] = app.version()
 
         # Combine the policies
         combined_policy = policies[0]
@@ -199,33 +250,39 @@ class UserPack(Model):
 
         return combined_policy
 
-    def to_user_stack(self):
-        stack_packs = {}
+    def to_view_model(self):
+        apps = {}
         for k, v in self.apps.items():
             try:
-                app = UserApp.get(UserApp.composite_key(self.id, k), v)
+                app = AppDeployment.get(
+                    self.id, AppDeployment.compose_range_key(app_id=k, version=v)
+                )
+                apps[k] = app.to_view_model()
             except DoesNotExist as e:
                 logger.error(f"App {k} does not exist for pack id {self.id}.")
                 raise e
-            stack_packs[k] = app.to_user_app()
-        return UserStack(
+        return ProjectView(
             id=self.id,
             owner=self.owner,
             region=self.region,
             assumed_role_arn=self.assumed_role_arn,
-            stack_packs=stack_packs,
+            assumed_role_external_id=self.assumed_role_external_id,
+            stack_packs=apps,
             features=self.features,
-            created_by=self.created_by,
+        created_by=self.created_by,
             created_at=self.created_at,
+            policy=self.policy,
         )
 
 
-class UserStack(BaseModel):
+class ProjectView(BaseModel):
     id: str
     owner: str
     region: Optional[str] = None
     assumed_role_arn: Optional[str] = None
-    stack_packs: dict[str, AppModel] = Field(default_factory=dict)
+    assumed_role_external_id: Optional[str] = None
+    stack_packs: dict[str, AppDeploymentView] = Field(default_factory=dict)
     features: Optional[List[str]] = None
     created_by: str
-    created_at: datetime.datetime
+    created_at: datetime
+    policy: Optional[str] = None
