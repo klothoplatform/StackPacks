@@ -45,11 +45,7 @@ export const WorkflowPreviewer: FC<{
           hideAttribution: true,
         }}
         maxZoom={1}
-        defaultViewport={{
-          zoom: 1,
-          x: 0,
-          y: 35,
-        }}
+        fitView
       >
         <Controls showInteractive={false} position={"bottom-right"} />
       </ReactFlow>
