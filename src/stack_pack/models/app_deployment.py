@@ -61,6 +61,7 @@ class AppDeployment(Model):
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
+    display_name: str = UnicodeAttribute(null=True)
 
     def app_id(self):
         return self.range_key.split("#")[0]
@@ -78,6 +79,7 @@ class AppDeployment(Model):
             created_by=self.created_by,
             created_at=self.created_at,
             configuration=ConfigValues(self.configuration.items()),
+            display_name=self.display_name if self.display_name else self.app_id(),
             outputs=self.outputs,
             last_deployed_version=(
                 latest_deployed_version.version() if latest_deployed_version else None
@@ -230,6 +232,7 @@ class AppDeploymentView(BaseModel):
     created_by: str
     created_at: datetime
     configuration: ConfigValues = Field(default_factory=dict)
+    display_name: Optional[str] = None
     outputs: Optional[dict[str, str]] = Field(default_factory=dict)
     last_deployed_version: Optional[int] = None
     status: Optional[str] = None

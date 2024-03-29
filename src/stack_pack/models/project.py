@@ -215,6 +215,7 @@ class Project(Model):
                     created_at=datetime.now(timezone.utc),
                     configuration=config,
                     status=AppLifecycleStatus.NEW.value,
+                    display_name=stack_packs[app_id].name,
                 )
             apps.append(app)
 
@@ -269,7 +270,7 @@ class Project(Model):
             assumed_role_external_id=self.assumed_role_external_id,
             stack_packs=apps,
             features=self.features,
-        created_by=self.created_by,
+            created_by=self.created_by,
             created_at=self.created_at,
             policy=self.policy,
         )
