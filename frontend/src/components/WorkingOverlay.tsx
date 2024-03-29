@@ -6,13 +6,22 @@ import classNames from "classnames";
 type WorkingOverlayProps = {
   show: boolean;
   message?: string;
+  inset?: boolean;
 };
-export const WorkingOverlay: FC<WorkingOverlayProps> = ({ show, message }) => {
+export const WorkingOverlay: FC<WorkingOverlayProps> = ({
+  show,
+  message,
+  inset,
+}) => {
   return (
     <div
       className={classNames(
-        "fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-gray-500/40 dark:bg-black/40",
-        { hidden: !show },
+        "z-[1000] flex flex-col items-center justify-center bg-gray-500/40 dark:bg-black/40",
+        {
+          "fixed inset-0": inset,
+          "size-full": !inset,
+          hidden: !show,
+        },
       )}
     >
       <Card className="flex flex-col justify-center p-8">

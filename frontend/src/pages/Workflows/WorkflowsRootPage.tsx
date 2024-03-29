@@ -148,9 +148,13 @@ function WorkflowsRootPage() {
               ))}
             </Sidebar.Items>
           </Sidebar>
-          <div className="flex size-full grow flex-col gap-6 overflow-hidden p-6">
-            {isLoaded && <Outlet />}
-          </div>
+          {isLoaded ? (
+            <div className="flex size-full grow flex-col gap-6 overflow-hidden p-6">
+              <Outlet />
+            </div>
+          ) : (
+            <WorkingOverlay show={true} message="Loading workflow runs..." />
+          )}
         </div>
         <ErrorOverlay />
       </ErrorBoundary>
