@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import type { FC, PropsWithChildren, ReactNode } from "react";
 import React, { useEffect, useState } from "react";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import { UIError } from "../../../shared/errors.ts";
@@ -18,7 +18,10 @@ import { resolveStackpacks } from "../../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../../hooks/useClickedOutside.ts";
-import type { ApplicationDeployment } from "../../../shared/models/Project.ts";
+import type {
+  ApplicationDeployment,
+  Project,
+} from "../../../shared/models/Project.ts";
 import {
   AppLifecycleStatus,
   hasDeploymentInProgress,
@@ -34,10 +37,80 @@ import UninstallAllModal from "./UninstallAllModal.tsx";
 import { HiMiniCog6Tooth } from "react-icons/hi2";
 import { AppLogo } from "../../../components/AppLogo.tsx";
 import { useInterval } from "usehooks-ts";
-import { CollapsibleSection } from "../../../components/CollapsibleSection.tsx";
 import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
 import { useEffectOnMount } from "../../../hooks/useEffectOnMount.ts";
+import { FaRegCopy } from "react-icons/fa6";
+
+const EnvironmentItem: FC<
+  PropsWithChildren<{
+    label: string | ReactNode;
+  }>
+> = (props) => {
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <span className={"text-xs font-medium text-gray-700 dark:text-gray-400"}>
+        {props.label}
+      </span>
+      <div className={"w-fit text-sm text-gray-800 dark:text-gray-200"}>
+        {props.children}
+      </div>
+    </div>
+  );
+};
+
+function EnvironmentSection(props: { project: Project }) {
+  const { mode } = useThemeMode();
+  const navigate = useNavigate();
+
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div className="flex h-fit w-full justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+      <button
+        className="flex flex-col items-start gap-4 lg:flex-row lg:gap-10"
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        onMouseOver={() => setHovered(true)}
+        onMouseOut={() => setHovered(false)}
+        onClick={() =>
+          props.project?.assumed_role_arn &&
+          navigator.clipboard.writeText(props.project.assumed_role_arn)
+        }
+      >
+        <EnvironmentItem label={"Cloud Provider"}>AWS</EnvironmentItem>
+        <EnvironmentItem label={"Region"}>
+          {props.project?.region || "Not set"}
+        </EnvironmentItem>
+        <EnvironmentItem label={"Deployment Role ARN"}>
+          <div className={"flex cursor-pointer flex-nowrap gap-2"}>
+            <span
+              className={classNames("w-fit break-all text-xs", {
+                "cursor-pointer": !!props.project?.assumed_role_arn,
+              })}
+            >
+              {props.project?.assumed_role_arn || "Not set"}
+            </span>
+            {!!props.project?.assumed_role_arn && hovered && (
+              <FaRegCopy className={"text-gray-500"} />
+            )}
+          </div>
+        </EnvironmentItem>
+      </button>
+      <Tooltip content={"Modify Environment"}>
+        <Button
+          color={mode}
+          className={"ml-auto size-fit"}
+          size={"xs"}
+          pill
+          onClick={() => navigate("./environment")}
+        >
+          <HiMiniCog6Tooth />
+        </Button>
+      </Tooltip>
+    </div>
+  );
+}
 
 export const ProjectPage: FC = () => {
   const { project, getProject, stackPacks } = useApplicationStore();
@@ -107,55 +180,7 @@ export const ProjectPage: FC = () => {
       </div>
       <div className="flex flex-col gap-1">
         <h3 className={"font-md text-lg"}>Environment Details</h3>
-        <Card>
-          <div className="flex h-fit w-full justify-between p-4">
-            <div className="flex gap-4">
-              <ul className="flex flex-col text-sm">
-                <li className={"flex h-fit items-center gap-1"}>
-                  <span>Provider:</span>
-                  <img className={"h-3"} src={AWSLogo} alt="AWS" />
-                </li>
-                <li>
-                  <span>Region: {project?.region || "Not set"}</span>
-                </li>
-                <li>
-                  <span>
-                    Deployment Role ARN:{" "}
-                    {project?.assumed_role_arn || "Not set"}
-                  </span>
-                </li>
-                <li>
-                  <CollapsibleSection
-                    size={"xs"}
-                    collapsedText={"Show deployment policy"}
-                    collapsed
-                    expandedText={"Hide"}
-                    color={mode}
-                  >
-                    <Card
-                      className={
-                        "max-h-80 overflow-auto whitespace-pre-wrap p-2 font-mono text-xs dark:text-gray-200"
-                      }
-                    >
-                      {project?.policy}
-                    </Card>
-                  </CollapsibleSection>
-                </li>
-              </ul>
-            </div>
-            <Tooltip content={"Modify Environment"}>
-              <Button
-                color={mode}
-                className={"size-fit"}
-                size={"xs"}
-                pill
-                onClick={() => navigate(`/project/environment`)}
-              >
-                <HiMiniCog6Tooth />
-              </Button>
-            </Tooltip>
-          </div>
-        </Card>
+        <EnvironmentSection project={project} />
       </div>
       <div className="flex flex-col gap-1">
         <div className={"flex w-full items-center justify-between"}>

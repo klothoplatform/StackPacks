@@ -24,8 +24,7 @@ import { useInterval } from "usehooks-ts";
 
 export const RunOverviewPage = () => {
   const { runNumber, workflowType, appId } = useParams();
-  const { addError, getWorkflowRun, workflowRun, project } =
-    useApplicationStore();
+  const { getWorkflowRun, workflowRun, project } = useApplicationStore();
 
   const [jobGraph, setJobGraph] = useState<JobGraph>({
     nodes: [],
@@ -39,7 +38,7 @@ export const RunOverviewPage = () => {
   const refreshRun = useCallback(() => {
     (async () => {
       try {
-        const run = await getWorkflowRun({
+        await getWorkflowRun({
           runNumber: parseInt(runNumber, 10),
           workflowType: workflowType.toUpperCase() as WorkflowType,
           appId: appId,
@@ -48,7 +47,7 @@ export const RunOverviewPage = () => {
         console.error(e);
       }
     })();
-  }, [addError, appId, getWorkflowRun, runNumber, workflowType]);
+  }, [appId, getWorkflowRun, runNumber, workflowType]);
 
   useEffect(() => {
     refreshRun();
