@@ -25,7 +25,7 @@ const defaultRegion = "us-east-1";
 export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   const { installProject, addError, updateProject, project } =
     useApplicationStore();
-  const [deploymentState, setDeploymentState] = useState<
+  const [installationState, setInstallationState] = useState<
     "initial" | "installing" | "installed" | "failed"
   >("initial");
   const navigate = useNavigate();
@@ -52,7 +52,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   });
 
   const onDeploy = async (data: DeploymentFormState) => {
-    setDeploymentState("installing");
+    setInstallationState("installing");
 
     try {
       if (project?.region !== data.region) {
@@ -61,17 +61,19 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
         });
       }
 
-      const deployId = await installProject();
-      setDeploymentState("installed");
-      navigate(`/user/dashboard/deploy/${deployId}`);
+      const response = await installProject();
+      setInstallationState("installed");
+      navigate(
+        `/project/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+      );
     } catch (e) {
       addError(
         new UIError({
-          message: "Deployment failed",
+          message: "Installation failed",
           cause: e,
         }),
       );
-      setDeploymentState("failed");
+      setInstallationState("failed");
       return;
     }
   };
@@ -144,8 +146,8 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                       processingSpinner={
                         <AiOutlineLoading className={"animate-spin"} />
                       }
-                      disabled={deploymentState !== "initial"}
-                      isProcessing={deploymentState === "installing"}
+                      disabled={installationState !== "initial"}
+                      isProcessing={installationState === "installing"}
                       onClick={methods.handleSubmit(onDeploy)}
                     >
                       <span className={"flex items-center gap-2 "}>
@@ -181,8 +183,8 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                     processingSpinner={
                       <AiOutlineLoading className={"animate-spin"} />
                     }
-                    disabled={deploymentState !== "initial"}
-                    isProcessing={deploymentState === "installing"}
+                    disabled={installationState !== "initial"}
+                    isProcessing={installationState === "installing"}
                     onClick={methods.handleSubmit(onDeploy)}
                   >
                     <span className={"flex items-center gap-2 "}>
@@ -194,7 +196,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
             )}
           </div>
           <div className="ml-auto flex gap-4 justify-self-end">
-            {deploymentState === "initial" && <StepperNavigator {...props} />}
+            {installationState === "initial" && <StepperNavigator {...props} />}
           </div>
         </div>
       </div>

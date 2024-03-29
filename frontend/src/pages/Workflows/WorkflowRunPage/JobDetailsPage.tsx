@@ -11,8 +11,8 @@ export const JobDetailsPage = () => {
       <LogViewer
         workflowType={workflowType.toUpperCase() as WorkflowType}
         appId={appId}
-        runNumber={parseInt(runNumber)}
-        jobNumber={parseInt(jobNumber)}
+        runNumber={parseInt(runNumber, 10)}
+        jobNumber={parseInt(jobNumber, 10)}
       />
     </div>
   );

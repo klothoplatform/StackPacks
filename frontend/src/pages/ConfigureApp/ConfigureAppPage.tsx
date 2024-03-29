@@ -70,7 +70,7 @@ export const ConfigureAppPage: FC = () => {
               outline
               size="xs"
               className="flex items-center gap-2 whitespace-nowrap"
-              onClick={() => navigate("/user/dashboard")}
+              onClick={() => navigate("/project")}
             >
               <MdChevronLeft /> Back
             </Button>

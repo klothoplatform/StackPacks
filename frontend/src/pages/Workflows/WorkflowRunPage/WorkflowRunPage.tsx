@@ -2,7 +2,6 @@ import React, {
   type ComponentProps,
   type FC,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import { withAuthenticationRequired } from "@auth0/auth0-react";
@@ -19,13 +18,13 @@ import {
 } from "../../../components/HeaderNavBar.tsx";
 import { Button, Sidebar, useThemeMode } from "flowbite-react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import type { WorkflowRun } from "../../../shared/models/Workflow.ts";
 import { WorkflowType } from "../../../shared/models/Workflow.ts";
 import { GoHome } from "react-icons/go";
 import classNames from "classnames";
 import { statusIcons } from "../../../shared/StatusIcons.tsx";
 import { titleCase } from "title-case";
 import { FaArrowLeft } from "react-icons/fa6";
+import { useInterval } from "usehooks-ts";
 
 interface SidebarGroup {
   title?: string;
@@ -38,42 +37,56 @@ interface SidebarGroup {
 }
 
 function WorkflowRunPage() {
-  const { isAuthenticated, user, getProject, getStackPacks, getWorkflowRun } =
-    useApplicationStore();
+  const {
+    isAuthenticated,
+    user,
+    getProject,
+    getStackPacks,
+    getWorkflowRun,
+    workflowRun,
+  } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { mode } = useThemeMode();
 
   const { runNumber, workflowType, appId } = useParams();
+  const [interval, setInterval] = useState<number | null>(null);
 
-  const [workflowRun, setWorkflowRun] = useState<WorkflowRun | null>(null);
+  useInterval(async () => {
+    const run = await getWorkflowRun({
+      workflowType: workflowType.toUpperCase() as WorkflowType,
+      appId,
+      runNumber: parseInt(runNumber, 10),
+    });
+    if (run.completed_at) {
+      setInterval(null);
+    }
+  }, interval);
 
-  const sidebarConfig: SidebarGroup[] = useMemo(
-    () => [
-      {
-        title: undefined,
-        items: [
-          {
-            id: "summary",
-            path: `/project${appId ? "/apps/" + appId : ""}/workflows/${workflowType}/runs/${runNumber}`,
-            label: "Summary",
-            icon: GoHome,
-          },
-        ],
-      },
-      {
-        title: "Jobs",
-        items:
-          workflowRun?.jobs?.map((job) => ({
-            id: `job-${job.id}`,
-            path: `jobs/${job.job_number}`,
-            label: job.title,
-            icon: () => statusIcons[job.status]?.medium,
-          })) ?? [],
-      },
-    ],
-    [appId, runNumber, workflowRun?.jobs, workflowType],
-  );
+  const sidebarConfig: SidebarGroup[] = [
+    {
+      title: undefined,
+      items: [
+        {
+          id: "summary",
+          path: `/project${appId ? "/apps/" + appId : ""}/workflows/${workflowType}/runs/${runNumber}`,
+          label: "Summary",
+          icon: GoHome,
+        },
+      ],
+    },
+    {
+      title: "Jobs",
+      items:
+        workflowRun?.jobs?.map((job) => ({
+          id: `job-${job.id}`,
+          path: `jobs/${job.job_number}`,
+          label: job.title,
+          icon: () => statusIcons[job.status]?.medium,
+        })) ?? [],
+    },
+  ];
 
   const activeItem = sidebarConfig
     .flatMap((group) => group.items ?? [])
@@ -92,7 +105,9 @@ function WorkflowRunPage() {
           appId,
           runNumber: parseInt(runNumber, 10),
         });
-        setWorkflowRun(run);
+        if (!run.completed_at) {
+          setInterval(10000);
+        }
         setIsLoaded(true);
       } catch (error) {
         trackError(
@@ -114,8 +129,6 @@ function WorkflowRunPage() {
     runNumber,
     appId,
   ]);
-
-  const { mode } = useThemeMode();
 
   return (
     <div

@@ -38,6 +38,7 @@ export function AddAppsPage() {
       component: ChooseAppsStep,
       props: {
         excludedApps,
+        singleApp: true,
       },
     },
     {

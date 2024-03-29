@@ -31,7 +31,7 @@ const sidebarConfig: SidebarGroup[] = [
     items: [
       {
         id: "all-workflows",
-        path: "/project/workflows",
+        path: "../workflows",
         label: "All Workflows",
       },
     ],
@@ -42,13 +42,13 @@ const sidebarConfig: SidebarGroup[] = [
       .filter(([_, key]) => key !== WorkflowType.Any)
       .map(([value, key]) => ({
         id: `workflow-${key.toLowerCase()}`,
-        path: `/project/workflows/${key.toLowerCase()}`,
+        path: `./${key.toLowerCase()}`,
         label: value,
       })),
   },
 ];
 
-function WorkflowsPage() {
+function WorkflowsRootPage() {
   const { isAuthenticated, user, getProject, getStackPacks } =
     useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
@@ -72,7 +72,7 @@ function WorkflowsPage() {
         trackError(
           new UIError({
             message: "error loading project",
-            errorId: "WorkflowsPage:useEffect:getUserStack",
+            errorId: "WorkflowsRootPage:useEffect:getUserStack",
             cause: error,
           }),
         );
@@ -93,8 +93,8 @@ function WorkflowsPage() {
         onError={(error, info) => {
           trackError(
             new UIError({
-              message: "uncaught error in WorkflowsPage",
-              errorId: "WorkflowsPage:ErrorBoundary",
+              message: "uncaught error in WorkflowsRootPage",
+              errorId: "WorkflowsRootPage:ErrorBoundary",
               cause: error,
               data: {
                 info,
@@ -117,7 +117,7 @@ function WorkflowsPage() {
               color={mode}
               className={"w-fit"}
               size={"xs"}
-              onClick={() => navigate("/user/dashboard")}
+              onClick={() => navigate("/project")}
             >
               <span className={"flex items-center gap-2 whitespace-nowrap"}>
                 <FaArrowLeft />
@@ -139,7 +139,7 @@ function WorkflowsPage() {
                       key={item.id}
                       id={item.id}
                       active={activeItem === item.id}
-                      onClick={() => navigate(item.path)}
+                      onClick={() => navigate(item.path, { relative: "path" })}
                     >
                       {item.label}
                     </Sidebar.Item>
@@ -158,10 +158,13 @@ function WorkflowsPage() {
   );
 }
 
-const AuthenticatedWorkflowsPage = withAuthenticationRequired(WorkflowsPage, {
-  onRedirecting: () => (
-    <WorkingOverlay show={true} message="Authenticating..." />
-  ),
-});
+const AuthenticatedWorkflowsPage = withAuthenticationRequired(
+  WorkflowsRootPage,
+  {
+    onRedirecting: () => (
+      <WorkingOverlay show={true} message="Authenticating..." />
+    ),
+  },
+);
 
 export default AuthenticatedWorkflowsPage;

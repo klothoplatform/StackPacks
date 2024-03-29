@@ -66,7 +66,7 @@ function OnboardingPage() {
         if (!isProjectDeployed(userStack)) {
           setCanOnboard(true);
         } else {
-          navigate("/user/dashboard", { replace: true });
+          navigate("/project", { replace: true });
         }
       } catch (e: any) {
         addError(

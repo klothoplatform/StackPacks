@@ -3,6 +3,7 @@ import type { FC } from "react";
 import React, { useCallback, useEffect, useState } from "react";
 import type { WorkflowRunSummary } from "../../shared/models/Workflow.ts";
 import {
+  toWorkflowRunStatusString,
   WorkflowRunStatus,
   WorkflowType,
 } from "../../shared/models/Workflow.ts";
@@ -10,7 +11,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
 import { getEnumKeyByEnumValue } from "../../shared/object-util.ts";
-import { outlineBadge } from "../../shared/custom-themes.ts";
+import { altTable, outlineBadge } from "../../shared/custom-themes.ts";
 import { titleCase } from "title-case";
 import { GoCalendar, GoStopwatch } from "react-icons/go";
 import { useInterval } from "usehooks-ts";
@@ -32,7 +33,7 @@ export const WorkflowRunsPage = () => {
 
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRunSummary[]>([]);
 
-  const { getWorkflowRuns, addError } = useApplicationStore();
+  const { getWorkflowRuns, addError, project } = useApplicationStore();
 
   const refreshRuns = useCallback(() => {
     (async () => {
@@ -70,10 +71,12 @@ export const WorkflowRunsPage = () => {
   }, 20000);
 
   return (
-    <div className="flex size-full flex-col gap-4 overflow-auto">
+    <div className="flex size-full flex-col gap-4 overflow-auto pr-2">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-medium">
-          {appId ? `${appId}: ` : ""}
+          {appId
+            ? `${project.stack_packs[appId]?.display_name || appId}: `
+            : ""}
           {workflowType === WorkflowType.Any
             ? "All Workflows"
             : titleCase(workflowType)}{" "}
@@ -112,83 +115,92 @@ const WorkflowRunsTable: FC<{
   }, [targetAppId, selectedStatus, workflowRuns]);
 
   return (
-    <div
-      className={
-        "h-fit min-w-fit rounded-lg border border-gray-200 dark:border-gray-700"
-      }
-    >
-      <Table className={"border-collapse"}>
-        <Table.Head>
-          <Table.HeadCell>
-            <span className={"text-base font-medium lowercase"}>
-              {filteredWorkflowRuns.length} workflow run
-              {filteredWorkflowRuns.length === 1 ? "" : "s"}
-            </span>
-          </Table.HeadCell>
-          <Table.HeadCell></Table.HeadCell>
-          <Table.HeadCell>
-            <div className="flex w-full justify-end gap-2 font-normal">
-              <InlineDropdown
-                color={"light"}
-                inline
-                label={targetAppId || "All"}
-                prefix={"Application"}
+    <Table theme={altTable}>
+      <Table.Head>
+        <Table.HeadCell>
+          <span className={"text-base font-medium"}>
+            {filteredWorkflowRuns.length} workflow run
+            {filteredWorkflowRuns.length === 1 ? "" : "s"}
+          </span>
+        </Table.HeadCell>
+        <Table.HeadCell></Table.HeadCell>
+        <Table.HeadCell>
+          <div className="flex w-full justify-end gap-2 font-normal">
+            <InlineDropdown
+              color={"light"}
+              inline
+              label={
+                targetAppId
+                  ? project.stack_packs[targetAppId]?.display_name ||
+                    targetAppId
+                  : "All"
+              }
+              prefix={"Application"}
+            >
+              <Dropdown.Item
+                href={`/project/workflows${workflowType ? "/" + workflowType : ""}`}
               >
+                All
+              </Dropdown.Item>
+              {Object.values(project.stack_packs).map((app, index) => (
                 <Dropdown.Item
-                  href={`/project/workflows${workflowType ? "/" + workflowType : ""}`}
+                  key={index}
+                  href={`/project/apps/${app.app_id}/workflows${workflowType ? "/" + workflowType : ""}`}
                 >
-                  All
+                  {app.display_name}
                 </Dropdown.Item>
-                {Object.keys(project.stack_packs).map((appId, index) => (
-                  <Dropdown.Item
-                    key={index}
-                    href={`/project/apps/${appId}/workflows${workflowType ? "/" + workflowType : ""}`}
-                  >
-                    {appId}
-                  </Dropdown.Item>
-                ))}
-              </InlineDropdown>
-              <InlineDropdown
-                inline
-                prefix={"Status"}
-                color={"light"}
-                label={
-                  selectedStatus
-                    ? titleCase(
-                        selectedStatus.toLowerCase().replaceAll("_", " "),
-                      )
-                    : "All"
-                }
+              ))}
+            </InlineDropdown>
+            <InlineDropdown
+              inline
+              prefix={"Status"}
+              color={"light"}
+              label={
+                selectedStatus
+                  ? toWorkflowRunStatusString(
+                      selectedStatus.toUpperCase() as WorkflowRunStatus,
+                    )
+                  : "All"
+              }
+            >
+              <Dropdown.Item
+                onClick={() => {
+                  setSearchParams({ status: "" });
+                }}
               >
+                All
+              </Dropdown.Item>
+              {Object.values(WorkflowRunStatus).map((status, index) => (
                 <Dropdown.Item
+                  key={index}
                   onClick={() => {
-                    setSearchParams({ status: "" });
+                    setSearchParams({ status });
                   }}
                 >
-                  All
+                  {toWorkflowRunStatusString(status as WorkflowRunStatus)}
                 </Dropdown.Item>
-                {Object.values(WorkflowRunStatus).map((status, index) => (
-                  <Dropdown.Item
-                    key={index}
-                    onClick={() => {
-                      setSearchParams({ status });
-                    }}
-                  >
-                    {titleCase(status.toLowerCase().replaceAll("_", " "))}
-                  </Dropdown.Item>
-                ))}
-              </InlineDropdown>
-            </div>
-          </Table.HeadCell>
-        </Table.Head>
-        <Table.Body className="divide-y">
-          {filteredWorkflowRuns.map((workflowRun, i) => (
+              ))}
+            </InlineDropdown>
+          </div>
+        </Table.HeadCell>
+      </Table.Head>
+      <Table.Body className="divide-y">
+        {filteredWorkflowRuns.map((workflowRun, i) => {
+          const appName =
+            project.stack_packs[workflowRun.app_id]?.display_name ||
+            workflowRun.app_id;
+          return (
             <Table.Row
               key={i}
               className="bg-white dark:border-gray-700 dark:bg-gray-800"
             >
               <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white">
-                {<SummaryCellContent workflowRun={workflowRun} />}
+                {
+                  <SummaryCellContent
+                    workflowRun={workflowRun}
+                    appName={appName}
+                  />
+                }
               </Table.Cell>
               <Table.Cell>
                 {!!workflowRun.app_id && (
@@ -197,10 +209,9 @@ const WorkflowRunsTable: FC<{
                     theme={outlineBadge}
                     className="size-fit"
                     title={workflowRun.app_id}
-                    // todo: update href to reflect updated routes
-                    href={`/user/dashboard/${workflowRun.app_id.toLowerCase()}/configure`}
+                    href={`/project/apps/${workflowRun.app_id.toLowerCase()}/configure`}
                   >
-                    {workflowRun.app_id}
+                    {appName}
                   </Badge>
                 )}
               </Table.Cell>
@@ -208,10 +219,10 @@ const WorkflowRunsTable: FC<{
                 <ExecutionDetailsContent workflowRun={workflowRun} />
               </Table.Cell>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
-    </div>
+          );
+        })}
+      </Table.Body>
+    </Table>
   );
 };
 
@@ -249,22 +260,28 @@ const ExecutionDetailsContent: FC<{ workflowRun: WorkflowRunSummary }> = ({
           title={`duration: ${getDurationString(duration)}`}
         >
           <GoStopwatch size={16} />
-          <span className="ml-1">{getDurationString(duration)}</span>
+
+          <span className="ml-1">
+            {workflowRun.completed_at
+              ? getDurationString(duration)
+              : toWorkflowRunStatusString(workflowRun.status)}
+          </span>
         </div>
       </div>
     </div>
   );
 };
 
-const SummaryCellContent: FC<{ workflowRun: WorkflowRunSummary }> = ({
-  workflowRun,
-}) => {
+const SummaryCellContent: FC<{
+  workflowRun: WorkflowRunSummary;
+  appName?: string;
+}> = ({ workflowRun, appName }) => {
   const workflowType = getEnumKeyByEnumValue(
     WorkflowType,
     workflowRun.workflow_type,
   );
 
-  const title = `${workflowType} ${workflowRun.app_id || "all apps"}`;
+  const title = `${workflowType} ${appName || workflowRun.app_id || "all apps"}`;
 
   return (
     <div className="flex flex-col pl-6">

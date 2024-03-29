@@ -1,10 +1,11 @@
 import { WorkflowPreviewer } from "../../WorkflowPreviewer.tsx";
-import { Badge, Card, Table } from "flowbite-react";
+import { Badge, Table } from "flowbite-react";
 import type {
   WorkflowRun,
   WorkflowRunStatus,
   WorkflowType,
 } from "../../../shared/models/Workflow.ts";
+import { toWorkflowRunStatusString } from "../../../shared/models/Workflow.ts";
 import type { FC, PropsWithChildren, ReactNode } from "react";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -12,45 +13,39 @@ import {
   getLocalTimezone,
   getTimeText,
 } from "../../../shared/time-util.ts";
-import { outlineBadge } from "../../../shared/custom-themes.ts";
-import { titleCase } from "title-case";
-import { useInterval } from "usehooks-ts";
+import { altTable, outlineBadge } from "../../../shared/custom-themes.ts";
 import { useParams } from "react-router-dom";
 import useApplicationStore from "../../store/ApplicationStore.ts";
-import { UIError } from "../../../shared/errors.ts";
 import { utcToZonedTime } from "date-fns-tz";
 import type { JobGraph } from "../../../shared/job-graph.ts";
 import { buildJobGraph } from "../../../shared/job-graph.ts";
 import Linkify from "linkify-react";
+import { useInterval } from "usehooks-ts";
 
 export const RunOverviewPage = () => {
   const { runNumber, workflowType, appId } = useParams();
-  const { addError, getWorkflowRun } = useApplicationStore();
-  const [workflowRun, setWorkflowRun] = useState<WorkflowRun | null>(null);
+  const { addError, getWorkflowRun, workflowRun, project } =
+    useApplicationStore();
 
   const [jobGraph, setJobGraph] = useState<JobGraph>({
     nodes: [],
     edges: [],
   });
 
+  useEffect(() => {
+    setJobGraph(buildJobGraph(workflowRun.jobs));
+  }, [workflowRun]);
+
   const refreshRun = useCallback(() => {
     (async () => {
       try {
         const run = await getWorkflowRun({
-          runNumber: parseInt(runNumber),
+          runNumber: parseInt(runNumber, 10),
           workflowType: workflowType.toUpperCase() as WorkflowType,
           appId: appId,
         });
-        setWorkflowRun(run);
-        setJobGraph(buildJobGraph(run.jobs));
       } catch (e: any) {
-        addError(
-          new UIError({
-            errorId: "GetWorkflowRunError",
-            message: "An error occurred while fetching workflow run.",
-            cause: e,
-          }),
-        );
+        console.error(e);
       }
     })();
   }, [addError, appId, getWorkflowRun, runNumber, workflowType]);
@@ -58,16 +53,6 @@ export const RunOverviewPage = () => {
   useEffect(() => {
     refreshRun();
   }, [refreshRun]);
-
-  const [interval, setInterval] = useState<number | null>(null);
-
-  useEffect(() => {
-    setInterval(workflowRun?.completed_at ? null : 20000);
-  }, [workflowRun]);
-
-  useInterval(() => {
-    refreshRun();
-  }, interval);
 
   if (!workflowRun) {
     return null;
@@ -77,15 +62,22 @@ export const RunOverviewPage = () => {
     <div className="flex flex-col gap-4 overflow-y-auto">
       <SummaryCard
         status={workflowRun.status}
-        owningAppId={workflowRun.app_id}
+        appName={
+          project.stack_packs[workflowRun.app_id]?.display_name ||
+          workflowRun.app_id
+        }
         createdAt={utcToZonedTime(
           workflowRun.created_at,
           getLocalTimezone(),
         ).getTime()}
-        completedAt={utcToZonedTime(
-          workflowRun.completed_at,
-          getLocalTimezone(),
-        ).getTime()}
+        completedAt={
+          workflowRun.completed_at &&
+          utcToZonedTime(workflowRun.completed_at, getLocalTimezone()).getTime()
+        }
+        initiatedAt={
+          workflowRun.initiated_at &&
+          utcToZonedTime(workflowRun.initiated_at, getLocalTimezone()).getTime()
+        }
       />
       <WorkflowPreviewer jobGraph={jobGraph} />
       <h2 className="text-xl font-semibold">Outputs</h2>
@@ -94,39 +86,65 @@ export const RunOverviewPage = () => {
   );
 };
 
+function resolveDuration(
+  initiatedAt: number | undefined,
+  completedAt: number | undefined,
+) {
+  const latestTime = completedAt ?? Date.now();
+  return initiatedAt ? (latestTime - initiatedAt) / 1000 : null;
+}
+
 const SummaryCard: FC<{
   status: WorkflowRunStatus;
-  owningAppId?: string;
+  appName?: string;
   createdAt: number;
+  initiatedAt?: number;
   completedAt?: number;
-}> = ({ status, createdAt, completedAt, owningAppId }) => {
-  console.log(completedAt, createdAt);
+}> = ({ status, createdAt, initiatedAt, completedAt, appName }) => {
+  const [duration, setDuration] = useState<number>(
+    resolveDuration(initiatedAt, completedAt),
+  );
+  const [tickInterval, setTickInterval] = useState<number>(null);
+
+  useEffect(() => {
+    if (initiatedAt && !completedAt) {
+      setTickInterval(1000);
+      setDuration((Date.now() - initiatedAt) / 1000);
+    }
+  }, [initiatedAt, completedAt]);
+
+  useInterval(() => {
+    setDuration(resolveDuration(initiatedAt, completedAt));
+  }, tickInterval);
+
   return (
-    <Card className="bg-gray-50 p-4 dark:bg-gray-900">
+    <div className="h-fit w-full rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
       <div className="flex gap-10">
         <SummaryItem label={`Triggered ${getTimeText(new Date(createdAt))}`}>
-          {!!owningAppId && (
+          {!!appName && (
             <Badge theme={outlineBadge} color={"blue"} className="w-fit">
-              {owningAppId}
+              {appName}
             </Badge>
           )}
         </SummaryItem>
         <SummaryItem label={"Status"}>
           <span className={"text-lg font-medium"}>
-            {titleCase(status.toLowerCase())}
+            {toWorkflowRunStatusString(status)}
           </span>
         </SummaryItem>
         <SummaryItem label={"Duration"}>
           <span className={"text-lg font-medium"}>
-            {getDurationString(
-              completedAt
-                ? (completedAt - createdAt) / 1000
-                : (Date.now() - createdAt) / 1000,
-            )}
+            {duration
+              ? getDurationString(
+                  completedAt
+                    ? (completedAt - createdAt) / 1000
+                    : (Date.now() - createdAt) / 1000,
+                )
+              : "--"}
           </span>
         </SummaryItem>
       </div>
-    </Card>
+    </div>
   );
 };
 
@@ -149,30 +167,45 @@ const WorkflowRunOutputs: FC<{
   workflowRun: WorkflowRun;
 }> = ({ workflowRun }) => {
   return (
-    <Card className="bg-gray-50 p-4 dark:bg-gray-900">
-      {workflowRun.jobs.map((job, index) => (
-        <div key={index}>
-          <h3 className="text-lg font-medium">
-            #{job.job_number}: {job.title}
-          </h3>
-          <Table>
-            <Table.Head>
-              <Table.HeadCell>Output Key</Table.HeadCell>
-              <Table.HeadCell>Value</Table.HeadCell>
-            </Table.Head>
-            <Table.Body>
-              {Object.entries(job.outputs).map(([key, value], index) => (
-                <Table.Row key={index}>
-                  <Table.Cell>{key}</Table.Cell>
-                  <Table.Cell>
-                    <Linkify>{value}</Linkify>
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table>
-        </div>
-      ))}
-    </Card>
+    <div className="h-fit w-full rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+      <Table theme={altTable}>
+        <Table.Head>
+          <Table.HeadCell>Job</Table.HeadCell>
+          <Table.HeadCell>Output Key</Table.HeadCell>
+          <Table.HeadCell>Value</Table.HeadCell>
+        </Table.Head>
+
+        <Table.Body>
+          {workflowRun.jobs.map(
+            (job, index) =>
+              Object.keys(job.outputs ?? {}).keys() && (
+                <React.Fragment key={index}>
+                  {Object.entries(job.outputs).map(([key, value], index) => (
+                    <Table.Row key={index}>
+                      <Table.Cell>
+                        #{job.job_number}: {job.title}
+                      </Table.Cell>
+                      <Table.Cell>{key}</Table.Cell>
+                      <Table.Cell>
+                        <Linkify
+                          options={{
+                            attributes: {
+                              target: "_blank",
+                              rel: "noopener noreferrer",
+                            },
+                            className: "text-blue-600",
+                          }}
+                        >
+                          {value}
+                        </Linkify>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </React.Fragment>
+              ),
+          )}
+        </Table.Body>
+      </Table>
+    </div>
   );
 };

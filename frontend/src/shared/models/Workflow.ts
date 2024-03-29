@@ -16,7 +16,8 @@ export enum WorkflowRunStatus {
   InProgress = "IN_PROGRESS",
   Succeeded = "SUCCEEDED",
   Failed = "FAILED",
-  Cancelled = "CANCELLED",
+  Canceled = "CANCELED",
+  Unknown = "UNKNOWN",
 }
 
 export enum WorkflowJobStatus {
@@ -25,8 +26,38 @@ export enum WorkflowJobStatus {
   InProgress = "IN_PROGRESS",
   Succeeded = "SUCCEEDED",
   Failed = "FAILED",
-  Cancelled = "CANCELLED",
+  Canceled = "CANCELED",
   Skipped = "SKIPPED",
+  Unknown = "UNKNOWN",
+}
+
+const workflowRunStatuses: Record<WorkflowRunStatus, string> = {
+  [WorkflowRunStatus.New]: "New",
+  [WorkflowRunStatus.Pending]: "Pending",
+  [WorkflowRunStatus.InProgress]: "In Progress",
+  [WorkflowRunStatus.Succeeded]: "Succeeded",
+  [WorkflowRunStatus.Failed]: "Failed",
+  [WorkflowRunStatus.Canceled]: "Canceled",
+  [WorkflowRunStatus.Unknown]: "Unknown",
+};
+
+const workflowJobStatuses: Record<WorkflowJobStatus, string> = {
+  [WorkflowJobStatus.New]: "New",
+  [WorkflowJobStatus.Pending]: "Pending",
+  [WorkflowJobStatus.InProgress]: "In Progress",
+  [WorkflowJobStatus.Succeeded]: "Succeeded",
+  [WorkflowJobStatus.Failed]: "Failed",
+  [WorkflowJobStatus.Skipped]: "Skipped",
+  [WorkflowJobStatus.Canceled]: "Canceled",
+  [WorkflowJobStatus.Unknown]: "Unknown",
+};
+
+export function toWorkflowRunStatusString(status: WorkflowRunStatus) {
+  return workflowRunStatuses[status] || WorkflowRunStatus.Unknown;
+}
+
+export function toWorkflowJobStatusString(status: WorkflowJobStatus) {
+  return workflowJobStatuses[status] || WorkflowJobStatus.Unknown;
 }
 
 export interface WorkflowRunSummary {

@@ -22,15 +22,9 @@ import { isCollection } from "yaml";
 import type { Stackpack } from "./Stackpack.ts";
 import { resolveStackpacks } from "./Stackpack.ts";
 
-export enum AppDeploymentStatus {
-  Failed = "FAILED",
-  InProgress = "IN_PROGRESS",
-  Succeeded = "SUCCEEDED",
-  Pending = "PENDING",
-}
-
 export enum AppLifecycleStatus {
   New = "NEW",
+  Pending = "PENDING",
   Installing = "INSTALLING",
   Installed = "INSTALLED",
   Updating = "UPDATING",
@@ -42,10 +36,9 @@ export enum AppLifecycleStatus {
   Unknown = "UNKNOWN",
 }
 
-export type AppStatus = AppLifecycleStatus & AppDeploymentStatus;
-
-const lifecycleStatuses: Record<AppStatus, string> = {
+const lifecycleStatuses: Record<AppLifecycleStatus, string> = {
   [AppLifecycleStatus.New]: "New",
+  [AppLifecycleStatus.Pending]: "Pending",
   [AppLifecycleStatus.Installing]: "Installing",
   [AppLifecycleStatus.Installed]: "Installed",
   [AppLifecycleStatus.Updating]: "Updating",
@@ -55,25 +48,10 @@ const lifecycleStatuses: Record<AppStatus, string> = {
   [AppLifecycleStatus.UninstallFailed]: "Uninstall Failed",
   [AppLifecycleStatus.Uninstalled]: "Uninstalled",
   [AppLifecycleStatus.Unknown]: "Unknown",
-  [AppDeploymentStatus.Failed]: "Failed",
-  [AppDeploymentStatus.InProgress]: "In Progress",
-  [AppDeploymentStatus.Succeeded]: "Succeeded",
-};
-
-const deploymentStatuses: Record<AppDeploymentStatus, string> = {
-  [AppDeploymentStatus.Failed]: "Failed",
-  [AppDeploymentStatus.InProgress]: "In Progress",
-  [AppDeploymentStatus.Succeeded]: "Succeeded",
-  [AppDeploymentStatus.Pending]: "Pending",
 };
 
 export function toAppStatusString(status: AppLifecycleStatus) {
-  return (
-    lifecycleStatuses[status] ||
-    deploymentStatuses[status] ||
-    status ||
-    AppLifecycleStatus.Unknown
-  );
+  return lifecycleStatuses[status] || AppLifecycleStatus.Unknown;
 }
 
 export interface Project {
@@ -93,9 +71,10 @@ export interface ApplicationDeployment {
   configuration: Record<string, any>;
   created_at: number;
   created_by: string;
+  display_name: string;
   iac_stack_composite_key?: string;
   last_deployed_version?: number;
-  status: AppStatus;
+  status: AppLifecycleStatus;
   status_reason?: string;
   version: string;
 }
@@ -245,6 +224,7 @@ interface ConfigEntry {
   configKey: string;
   value: any;
 }
+
 function setConfigEntry(entry: ConfigEntry) {
   const { config, configKey, value } = entry;
   let current = config as any;
@@ -283,7 +263,12 @@ export function isProjectDeployed(userStack: Project) {
   if (!userStack?.stack_packs) {
     return false;
   }
-  return Object.values(userStack.stack_packs).some((app) => app.status);
+  return Object.values(userStack.stack_packs).some(
+    (app) =>
+      ![AppLifecycleStatus.New, AppLifecycleStatus.Uninstalled].includes(
+        app.status,
+      ),
+  );
 }
 
 export function parseProject(data: any): Project {
@@ -324,8 +309,7 @@ export function formStateToAppConfig(
 }
 
 const inProgressStatuses = new Set([
-  AppDeploymentStatus.InProgress,
-  AppDeploymentStatus.Pending,
+  AppLifecycleStatus.Pending,
   AppLifecycleStatus.Installing,
   AppLifecycleStatus.Updating,
   AppLifecycleStatus.Uninstalling,
@@ -339,4 +323,13 @@ export function hasDeploymentInProgress(userStack: Project) {
   return Object.values(userStack.stack_packs)
     .map((app) => app.status)
     .some((status) => inProgressStatuses.has(status));
+}
+
+export function isAppDeployed(app: ApplicationDeployment) {
+  return [
+    AppLifecycleStatus.Installed,
+    AppLifecycleStatus.Updating,
+    AppLifecycleStatus.UninstallFailed,
+    AppLifecycleStatus.Uninstalled,
+  ].includes(app.status);
 }

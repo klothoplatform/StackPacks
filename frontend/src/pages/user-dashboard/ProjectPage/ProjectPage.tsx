@@ -1,6 +1,5 @@
 import type { FC } from "react";
-import { useEffect } from "react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import { UIError } from "../../../shared/errors.ts";
 import { Badge, Button, Card, Dropdown, useThemeMode } from "flowbite-react";
@@ -19,22 +18,15 @@ import { resolveStackpacks } from "../../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../../hooks/useClickedOutside.ts";
-import type {
-  ApplicationDeployment,
-  AppStatus,
-} from "../../../shared/models/Project.ts";
+import type { ApplicationDeployment } from "../../../shared/models/Project.ts";
 import {
-  AppDeploymentStatus,
   AppLifecycleStatus,
   hasDeploymentInProgress,
   toAppStatusString,
 } from "../../../shared/models/Project.ts";
 import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
 import AWSLogoDark from "/images/aws_logo_white.png";
-import {
-  outlineBadge,
-  outlineOnlyBadge,
-} from "../../../shared/custom-themes.ts";
+import { outlineBadge } from "../../../shared/custom-themes.ts";
 import { RiInstallFill, RiUninstallFill } from "react-icons/ri";
 import UninstallAppModal from "./UninstallAppModal.tsx";
 import { ConfirmationModal } from "../../../components/ConfirmationModal.tsx";
@@ -45,10 +37,10 @@ import { useInterval } from "usehooks-ts";
 import { CollapsibleSection } from "../../../components/CollapsibleSection.tsx";
 import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
+import { useEffectOnMount } from "../../../hooks/useEffectOnMount.ts";
 
 export const ProjectPage: FC = () => {
-  const { project, getProject, userStackPolicy, stackPacks } =
-    useApplicationStore();
+  const { project, getProject, stackPacks } = useApplicationStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -57,7 +49,7 @@ export const ProjectPage: FC = () => {
   const navigate = useNavigate();
   const [refreshInterval, setRefreshInterval] = useState(30 * 1000);
 
-  useDocumentTitle("StackSnap - Your Stack");
+  useDocumentTitle("Project Dashboard");
 
   useEffect(() => {
     if (hasDeploymentInProgress(project)) {
@@ -87,15 +79,19 @@ export const ProjectPage: FC = () => {
     }
   };
 
+  useEffectOnMount(() => {
+    onRefresh();
+  });
+
   return (
     <div className="flex size-full flex-col gap-4 overflow-y-auto pr-4">
       <div className={"flex h-fit w-full justify-between py-1"}>
         <div className={"flex h-fit gap-1"}>
-          <h2 className={"font-md text-xl"}>Your Stack</h2>
+          <h2 className={"font-md text-xl"}>Your Project</h2>
           <StackActions />
         </div>
         <Button
-          title={"Refresh Stack"}
+          title={"Refresh Project"}
           size={"xs"}
           color={mode}
           disabled={isRefreshing}
@@ -111,36 +107,54 @@ export const ProjectPage: FC = () => {
       </div>
       <div className="flex flex-col gap-1">
         <h3 className={"font-md text-lg"}>Environment Details</h3>
-        <Card className="flex h-fit w-full flex-col p-4">
-          <ul className="flex flex-col text-sm">
-            <li className={"flex h-fit items-center gap-1"}>
-              <span>Provider:</span>
-              <img className={"h-3"} src={AWSLogo} alt="AWS" />
-            </li>
-            <li>
-              <span>Region: {project?.region}</span>
-            </li>
-            <li>
-              <span>Deployment Role ARN: {project?.assumed_role_arn}</span>
-            </li>
-            <li>
-              <CollapsibleSection
-                size={"xs"}
-                collapsedText={"Show deployment policy"}
-                collapsed
-                expandedText={"Hide"}
+        <Card>
+          <div className="flex h-fit w-full justify-between p-4">
+            <div className="flex gap-4">
+              <ul className="flex flex-col text-sm">
+                <li className={"flex h-fit items-center gap-1"}>
+                  <span>Provider:</span>
+                  <img className={"h-3"} src={AWSLogo} alt="AWS" />
+                </li>
+                <li>
+                  <span>Region: {project?.region || "Not set"}</span>
+                </li>
+                <li>
+                  <span>
+                    Deployment Role ARN:{" "}
+                    {project?.assumed_role_arn || "Not set"}
+                  </span>
+                </li>
+                <li>
+                  <CollapsibleSection
+                    size={"xs"}
+                    collapsedText={"Show deployment policy"}
+                    collapsed
+                    expandedText={"Hide"}
+                    color={mode}
+                  >
+                    <Card
+                      className={
+                        "max-h-80 overflow-auto whitespace-pre-wrap p-2 font-mono text-xs dark:text-gray-200"
+                      }
+                    >
+                      {project?.policy}
+                    </Card>
+                  </CollapsibleSection>
+                </li>
+              </ul>
+            </div>
+            <Tooltip content={"Modify Environment"}>
+              <Button
                 color={mode}
+                className={"size-fit"}
+                size={"xs"}
+                pill
+                onClick={() => navigate(`/project/environment`)}
               >
-                <Card
-                  className={
-                    "max-h-80 overflow-auto whitespace-pre-wrap p-2 font-mono text-xs dark:text-gray-200"
-                  }
-                >
-                  {project?.policy || userStackPolicy}
-                </Card>
-              </CollapsibleSection>
-            </li>
-          </ul>
+                <HiMiniCog6Tooth />
+              </Button>
+            </Tooltip>
+          </div>
         </Card>
       </div>
       <div className="flex flex-col gap-1">
@@ -180,7 +194,10 @@ type AppStatusBadgeStyle = {
   pulse?: boolean;
 };
 
-const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
+const statusStyles: Record<
+  AppLifecycleStatus | "default",
+  AppStatusBadgeStyle
+> = {
   [AppLifecycleStatus.Installing]: {
     color: "yellow",
     icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
@@ -222,20 +239,7 @@ const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
   [AppLifecycleStatus.New]: {
     color: "blue",
   },
-  [AppDeploymentStatus.Failed]: {
-    color: "red",
-    icon: AiOutlineExclamationCircle,
-  },
-  [AppDeploymentStatus.InProgress]: {
-    color: "yellow",
-    icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
-    pulse: true,
-  },
-  [AppDeploymentStatus.Succeeded]: {
-    color: "green",
-    icon: AiOutlineCheckCircle,
-  },
-  [AppDeploymentStatus.Pending]: {
+  [AppLifecycleStatus.Pending]: {
     color: "blue",
     pulse: true,
   },
@@ -247,14 +251,9 @@ const statusStyles: Record<keyof AppStatus | "default", AppStatusBadgeStyle> = {
 const AppStatusBadge: FC<{
   rtl?: boolean;
   status: AppLifecycleStatus;
-  appTemplateId: string;
-  deploymentId?: string;
-}> = ({ rtl, status, appTemplateId, deploymentId }) => {
-  deploymentId = deploymentId ?? "latest";
-  const navigate = useNavigate();
+}> = ({ rtl, status }) => {
   const statusStyle = statusStyles[status] ?? statusStyles.default;
-  const { mode } = useThemeMode();
-  const theme = mode === "dark" ? outlineOnlyBadge : outlineBadge;
+  const theme = outlineBadge;
   return (
     <Badge
       size="xs"
@@ -269,9 +268,8 @@ const AppStatusBadge: FC<{
       }}
       icon={statusStyle.icon}
       color={statusStyle.color}
-      onClick={() => navigate(`./deploy/${deploymentId}/app/${appTemplateId}`)}
       className={classNames(
-        "items-center flex w-fit flex-nowrap text-xs font-normal cursor-pointer",
+        "items-center flex w-fit flex-nowrap text-xs font-normal",
         {
           "animate-pulse": (statusStyle as any).pulse,
         },
@@ -283,52 +281,20 @@ const AppStatusBadge: FC<{
 };
 
 const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
-  const { latestDeploymentIds } = useApplicationStore();
   const { mode } = useThemeMode();
   const appTemplateId = app.app_id;
   return (
     <Card className="flex h-fit w-full flex-col p-4">
-      <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-2 dark:border-gray-700">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center">
           <AppLogo className={"h-fit w-6"} appId={appTemplateId} mode={mode} />
           <h4 className={"font-md ml-2 mr-4"}>{app.name}</h4>
-          <AppStatusBadge
-            appTemplateId={appTemplateId}
-            deploymentId={latestDeploymentIds.get(appTemplateId)}
-            status={app.status}
-            rtl
-          />
         </div>
-        <AppButtonGroup {...app} />
+        <div className="flex items-center gap-8">
+          <AppStatusBadge status={app.status} rtl />
+          <AppButtonGroup {...app} />
+        </div>
       </div>
-      <h5 className={"font-md text-md"}>Configuration</h5>
-      <ul className="flex flex-col text-xs">
-        {Object.entries(app.configuration).map(([key, value], index) => {
-          return (
-            <li key={index}>
-              <span>
-                {key}: {value}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      {!!app.status_reason && (
-        <CollapsibleSection
-          size={"xs"}
-          collapsedText={"Show reason"}
-          expandedText={"Hide reason"}
-          color={app.status === AppDeploymentStatus.Failed ? "red" : mode}
-        >
-          <Card className="flex max-h-80 flex-col gap-2 overflow-auto whitespace-pre-wrap p-2">
-            <div
-              className={"size-full py-2 font-mono text-xs dark:text-gray-200"}
-            >
-              {app.status_reason}
-            </div>
-          </Card>
-        </CollapsibleSection>
-      )}
     </Card>
   );
 };
@@ -365,12 +331,12 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
     }
   };
 
-  const [deployId, setDeployId] = useState<string | null>(null);
-
   const onInstallApp = async () => {
     try {
-      const deployId = await installApp(app.app_id);
-      setDeployId(deployId);
+      const response = await installApp(app.app_id);
+      navigate(
+        `/project/apps/${response.app_id}/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+      );
     } catch (e) {
       addError(
         new UIError({
@@ -391,7 +357,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
             className={"size-fit"}
             size={"xs"}
             pill
-            onClick={() => navigate(`./${app.app_id}/configure`)}
+            onClick={() => navigate(`./apps/${app.app_id}/configure`)}
           >
             <HiMiniCog6Tooth />
           </Button>
@@ -412,14 +378,10 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
               <Dropdown.Item
                 icon={AiFillEye}
                 onClick={() => {
-                  if (deployId) {
-                    navigate(`/user/dashboard/deploy/${deployId}`);
-                  } else {
-                    navigate(`/user/dashboard/deploy/latest`);
-                  }
+                  navigate(`/project/apps/${app.app_id}/workflows`);
                 }}
               >
-                View Logs
+                View Workflows
               </Dropdown.Item>
               <Dropdown.Divider />
               {!isInstalled(app) && !isBusy(app) && (
@@ -471,7 +433,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
           title={`Remove "${app.name}"`}
           onClose={() => setShowRemoveModal(false)}
           confirmButtonLabel={"Remove"}
-          prompt={`Are you sure you want to remove ${app.name} from your stack?`}
+          prompt={`Are you sure you want to remove ${app.name} from your project?`}
           confirmationText={"remove"}
           onConfirm={onRemoveApp}
         />
@@ -485,6 +447,7 @@ const StackActions: FC = () => {
   const [showUninstallAllModal, setShowUninstallAllModal] = useState(false);
 
   const canTriggerStackAction = project && !hasDeploymentInProgress(project);
+  const navigate = useNavigate();
 
   return (
     <>
@@ -504,7 +467,12 @@ const StackActions: FC = () => {
         <Dropdown.Item
           disabled={!canTriggerStackAction}
           icon={IoRefresh}
-          onClick={async () => await installProject()}
+          onClick={async () => {
+            const response = await installProject();
+            navigate(
+              `/project/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+            );
+          }}
         >
           Redeploy All Apps
         </Dropdown.Item>
@@ -533,8 +501,6 @@ function isInstalled(app: ApplicationDeployment) {
       AppLifecycleStatus.Installed,
       AppLifecycleStatus.UninstallFailed,
       AppLifecycleStatus.Updating,
-      AppDeploymentStatus.Succeeded,
-      AppDeploymentStatus.Failed,
     ].includes(app.status)
   );
 }
@@ -546,7 +512,6 @@ function isBusy(app: ApplicationDeployment) {
       AppLifecycleStatus.Installing,
       AppLifecycleStatus.Uninstalling,
       AppLifecycleStatus.Updating,
-      AppDeploymentStatus.InProgress,
     ].includes(app.status)
   );
 }

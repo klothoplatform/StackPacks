@@ -60,7 +60,6 @@ export const ConfigureAppForm: FC<{
 
     try {
       const configuration = formStateToAppConfig(data, stackPacks);
-      console.log(configuration);
       try {
         await updateProject({ configuration });
       } catch (e) {
@@ -75,8 +74,10 @@ export const ConfigureAppForm: FC<{
       }
 
       try {
-        const deployId = await installApp(appId);
-        navigate(`/user/dashboard/deploy/${deployId}`);
+        const response = await installApp(appId);
+        navigate(
+          `/project/apps/${response.app_id}/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+        );
       } catch (e) {
         addError(
           new UIError({
@@ -87,7 +88,7 @@ export const ConfigureAppForm: FC<{
           }),
         );
       }
-      navigate("/user/dashboard");
+      navigate("/project");
     } finally {
       setIsSubmitting(false);
     }

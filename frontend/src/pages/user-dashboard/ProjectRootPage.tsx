@@ -16,9 +16,9 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const sidebarConfig = [
   {
-    id: "your-stack",
-    url: "/user/dashboard",
-    title: "Your Stack",
+    id: "your-project",
+    url: "/project",
+    title: "Your Project",
   },
   {
     id: "workflows",
@@ -27,7 +27,7 @@ const sidebarConfig = [
   },
 ];
 
-function UserDashboardPage() {
+function ProjectRootPage() {
   const { isAuthenticated, user, getProject, getStackPacks, project } =
     useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
@@ -49,8 +49,8 @@ function UserDashboardPage() {
       } catch (error) {
         trackError(
           new UIError({
-            message: "error loading user stack",
-            errorId: "UserDashboardPage:useEffect:getUserStack",
+            message: "error loading your project",
+            errorId: "ProjectRootPage:useEffect:getProject",
             cause: error,
           }),
         );
@@ -75,8 +75,8 @@ function UserDashboardPage() {
         onError={(error, info) => {
           trackError(
             new UIError({
-              message: "uncaught error in UserDashboardPage",
-              errorId: "UserDashboardPage:ErrorBoundary",
+              message: "uncaught error in ProjectRootPage",
+              errorId: "ProjectRootPage:ErrorBoundary",
               cause: error,
               data: {
                 info,
@@ -112,14 +112,13 @@ function UserDashboardPage() {
           </div>
         </div>
         <ErrorOverlay />
-        <WorkingOverlay show={false} message={"Loading architectures..."} />
       </ErrorBoundary>
     </div>
   );
 }
 
 const AuthenticatedUserDashboardPage = withAuthenticationRequired(
-  UserDashboardPage,
+  ProjectRootPage,
   {
     onRedirecting: () => (
       <WorkingOverlay show={true} message="Authenticating..." />

@@ -5,6 +5,8 @@ import { AiOutlineLoading } from "react-icons/ai";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import { UIError } from "../../../shared/errors.ts";
 import { FormFooter } from "../../../components/FormFooter.tsx";
+import type { WorkflowRunSummary } from "../../../shared/models/Workflow.ts";
+import { useNavigate } from "react-router-dom";
 
 interface UninstallAllModalProps {
   onClose: () => void;
@@ -28,14 +30,16 @@ export default function UninstallAllModal({
     formState: { errors, isValid },
   } = useForm<UninstallAllFormState>();
 
-  const { addError, uninstallProject, getProject } = useApplicationStore();
+  const { addError, uninstallProject } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
   const onSubmit = async () => {
     let success = false;
     setIsSubmitting(true);
+    let response: WorkflowRunSummary | undefined;
     try {
-      await uninstallProject();
+      response = await uninstallProject();
       success = true;
     } catch (e: any) {
       addError(
@@ -51,7 +55,11 @@ export default function UninstallAllModal({
     }
     if (success) {
       onClose();
-      await getProject(true);
+      if (response) {
+        navigate(
+          `/project/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+        );
+      }
     }
   };
 

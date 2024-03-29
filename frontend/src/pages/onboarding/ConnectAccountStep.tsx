@@ -24,7 +24,6 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
     onboardingWorkflowState: { externalId },
     project,
     updateProject,
-    userStackPolicy,
     addError,
   } = useApplicationStore();
   const { goForwards } = useStepper();
@@ -146,7 +145,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   </div>
                 }
                 onExpand={async () => {
-                  await navigator.clipboard.writeText(userStackPolicy);
+                  await navigator.clipboard.writeText(project.policy);
                 }}
               >
                 <div
@@ -154,7 +153,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                     "gray-200 mx-4 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-xs text-green-700 dark:bg-gray-700 dark:text-green-200"
                   }
                 >
-                  <code>{userStackPolicy}</code>
+                  <code>{project.policy}</code>
                 </div>
               </CollapsibleSection>
             </InstructionalStep>

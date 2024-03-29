@@ -152,6 +152,7 @@ export function findChildProperty(obj: any, path: string): any {
     if (part.endsWith("]")) {
       const index = parseInt(
         part.substring(part.indexOf("[") + 1, part.length),
+        10,
       );
       current = current[index];
     } else {

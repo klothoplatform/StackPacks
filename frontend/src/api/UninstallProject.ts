@@ -3,8 +3,11 @@ import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
+import type { WorkflowRunSummary } from "../shared/models/Workflow.ts";
 
-export async function uninstallProject(idToken: string): Promise<string> {
+export async function uninstallProject(
+  idToken: string,
+): Promise<WorkflowRunSummary> {
   let response: AxiosResponse;
   try {
     response = await axios.post("/api/project/workflows/uninstall", undefined, {
@@ -13,7 +16,7 @@ export async function uninstallProject(idToken: string): Promise<string> {
       },
     });
 
-    return response.data.run_id;
+    return response.data as WorkflowRunSummary;
   } catch (e: any) {
     const error = new ApiError({
       errorId: "TearDownStack",

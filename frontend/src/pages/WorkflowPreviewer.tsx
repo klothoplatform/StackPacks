@@ -33,7 +33,7 @@ export const WorkflowPreviewer: FC<{
   return (
     <div
       className={
-        "h-32 max-h-[50%] min-h-32 w-full rounded-lg border border-gray-300 bg-gray-100 p-2 dark:border-gray-700 dark:bg-gray-900"
+        "h-32 max-h-[50%] min-h-32 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900"
       }
     >
       <ReactFlow

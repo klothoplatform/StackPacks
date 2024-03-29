@@ -10,15 +10,16 @@ import {
 import { CallbackPage } from "./pages/CallbackPage";
 import { Auth0ProviderWithNavigate } from "./auth/Auth0ProviderWithNavigate.tsx";
 import FallbackPage from "./pages/FallbackPage.tsx";
-import UserDashboardPage from "./pages/user-dashboard/UserDashboardPage.tsx";
+import UserDashboardPage from "./pages/user-dashboard/ProjectRootPage.tsx";
 import { ProjectPage } from "./pages/user-dashboard/ProjectPage/ProjectPage.tsx";
 import { ConfigureAppPage } from "./pages/ConfigureApp/ConfigureAppPage.tsx";
 import { AddAppsPage } from "./pages/AddAppsPage.tsx";
-import WorkflowsPage from "./pages/Workflows/WorkflowsPage.tsx";
+import WorkflowsPage from "./pages/Workflows/WorkflowsRootPage.tsx";
 import { WorkflowRunsPage } from "./pages/Workflows/WorkflowRunsPage.tsx";
 import { RunOverviewPage } from "./pages/Workflows/WorkflowRunPage/RunOverviewPage.tsx";
 import { JobDetailsPage } from "./pages/Workflows/WorkflowRunPage/JobDetailsPage.tsx";
 import WorkflowRunPage from "./pages/Workflows/WorkflowRunPage/WorkflowRunPage.tsx";
+import { ConfigureEnvironmentPage } from "./pages/ConfigureEnvironment/ConfigureEnvironmentPage.tsx";
 
 const AuthorizedOutlet: FC = () => {
   const { updateAuthentication } = useApplicationStore();
@@ -46,10 +47,10 @@ const AppRouter: FC = function () {
       path: "",
       element: <App />,
       children: [
-        { element: <Navigate to={"/user/dashboard"} />, index: true },
+        { element: <Navigate to={"/project"} />, index: true },
         { path: "callback", element: <CallbackPage /> },
         {
-          path: "user/dashboard",
+          path: "/project",
           element: <UserDashboardPage />,
           children: [
             { element: <ProjectPage />, index: true },
@@ -65,7 +66,11 @@ const AppRouter: FC = function () {
               ],
             },
             {
-              path: ":appId",
+              path: "environment",
+              element: <ConfigureEnvironmentPage />,
+            },
+            {
+              path: "apps/:appId",
               children: [
                 {
                   path: "configure",

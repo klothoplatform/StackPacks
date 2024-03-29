@@ -57,8 +57,9 @@ export interface ChooseAppsFormState {
 export const ChooseAppsStep: FC<
   StepperNavigatorProps & {
     excludedApps?: string[];
+    singleApp?: boolean;
   }
-> = ({ excludedApps, ...props }) => {
+> = ({ excludedApps, singleApp, ...props }) => {
   const {
     stackPacks,
     updateOnboardingWorkflowState,

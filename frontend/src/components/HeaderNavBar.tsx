@@ -9,6 +9,7 @@ import LoginButton from "../auth/Login";
 import useApplicationStore from "../pages/store/ApplicationStore";
 import { Link } from "react-router-dom";
 import { useScreenSize } from "../hooks/useScreenSize";
+import { FaDiscord } from "react-icons/fa";
 
 interface NavbarProps {}
 
@@ -39,7 +40,15 @@ export const HeaderNavBarRow1Right: FC<{
   const { isSmallScreen } = useScreenSize();
 
   return (
-    <div className="flex size-fit items-center justify-end lg:gap-3">
+    <div className="flex size-fit items-center justify-end gap-4 lg:gap-6">
+      <a
+        className="font-bold underline"
+        href="https://klo.dev/discordurl"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <FaDiscord size={26} className={"text-[#5865f2]"} />
+      </a>
       {isAuthenticated && user ? (
         <AccountDropdown />
       ) : (

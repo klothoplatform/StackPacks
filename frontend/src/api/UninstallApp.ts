@@ -3,6 +3,7 @@ import axios from "axios";
 import { ApiError } from "../shared/errors";
 import { trackError } from "../pages/store/ErrorStore";
 import { analytics } from "../shared/analytics.ts";
+import type { WorkflowRunSummary } from "../shared/models/Workflow.ts";
 
 export interface UninstallAppRequest {
   idToken: string;
@@ -12,7 +13,7 @@ export interface UninstallAppRequest {
 export async function uninstallApp({
   idToken,
   appId,
-}: UninstallAppRequest): Promise<string> {
+}: UninstallAppRequest): Promise<WorkflowRunSummary> {
   let response: AxiosResponse;
   try {
     response = await axios.post(
@@ -42,5 +43,5 @@ export async function uninstallApp({
     appId: appId,
   });
 
-  return response.data.run_id;
+  return response.data as WorkflowRunSummary;
 }
