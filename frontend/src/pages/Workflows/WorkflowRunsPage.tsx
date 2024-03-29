@@ -1,4 +1,4 @@
-import { Badge, Dropdown, Table } from "flowbite-react";
+import { Badge, Dropdown, Pagination, Table } from "flowbite-react";
 import type { FC } from "react";
 import React, { useCallback, useEffect, useState } from "react";
 import type { WorkflowRunSummary } from "../../shared/models/Workflow.ts";
@@ -95,11 +95,18 @@ const WorkflowRunsTable: FC<{
   workflowRuns: WorkflowRunSummary[];
   workflowType?: string;
   targetAppId?: string;
-}> = ({ workflowRuns, workflowType, targetAppId }) => {
+  pageSize?: number;
+  activePage?: number;
+}> = ({ workflowRuns, workflowType, targetAppId, pageSize, activePage }) => {
+  pageSize = pageSize || 10;
   const { project } = useApplicationStore();
+  const [currentPage, setCurrentPage] = useState(activePage || 1);
 
-  const [filteredWorkflowRuns, setFilteredWorkflowRuns] =
-    useState<WorkflowRunSummary[]>(workflowRuns);
+  const onPageChange = (page: number) => setCurrentPage(page);
+
+  const [filteredWorkflowRuns, setFilteredWorkflowRuns] = useState<
+    WorkflowRunSummary[][]
+  >(splitArray(workflowRuns, pageSize));
 
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedStatus = searchParams.get("status");
@@ -111,118 +118,136 @@ const WorkflowRunsTable: FC<{
       }
       return !(selectedStatus && workflowRun.status !== selectedStatus);
     });
-    setFilteredWorkflowRuns(filtered);
-  }, [targetAppId, selectedStatus, workflowRuns]);
+    setFilteredWorkflowRuns(splitArray(filtered, pageSize));
+  }, [targetAppId, selectedStatus, workflowRuns, pageSize]);
 
   return (
-    <Table theme={altTable}>
-      <Table.Head>
-        <Table.HeadCell>
-          <span className={"text-base font-medium"}>
-            {filteredWorkflowRuns.length} workflow run
-            {filteredWorkflowRuns.length === 1 ? "" : "s"}
-          </span>
-        </Table.HeadCell>
-        <Table.HeadCell></Table.HeadCell>
-        <Table.HeadCell>
-          <div className="flex w-full justify-end gap-2 font-normal">
-            <InlineDropdown
-              color={"light"}
-              inline
-              label={
-                targetAppId
-                  ? project.stack_packs[targetAppId]?.display_name ||
-                    targetAppId
-                  : "All"
-              }
-              prefix={"Application"}
-            >
-              <Dropdown.Item
-                href={`/project/workflows${workflowType ? "/" + workflowType : ""}`}
+    <div className={"flex flex-col gap-4"}>
+      <Table theme={altTable}>
+        <Table.Head>
+          <Table.HeadCell>
+            <span className={"text-base font-medium"}>
+              {(() => {
+                const count = filteredWorkflowRuns?.reduce(
+                  (acc, runs) => acc + runs.length,
+                  0,
+                );
+                return `${count} workflow run${count === 1 ? "" : "s"}`;
+              })()}
+            </span>
+          </Table.HeadCell>
+          <Table.HeadCell></Table.HeadCell>
+          <Table.HeadCell>
+            <div className="flex w-full justify-end gap-2 font-normal">
+              <InlineDropdown
+                color={"light"}
+                inline
+                label={
+                  targetAppId
+                    ? project.stack_packs[targetAppId]?.display_name ||
+                      targetAppId
+                    : "All"
+                }
+                prefix={"Application"}
               >
-                All
-              </Dropdown.Item>
-              {Object.values(project.stack_packs).map((app, index) => (
                 <Dropdown.Item
-                  key={index}
-                  href={`/project/apps/${app.app_id}/workflows${workflowType ? "/" + workflowType : ""}`}
+                  href={`/project/workflows${workflowType ? "/" + workflowType : ""}`}
                 >
-                  {app.display_name}
+                  All
                 </Dropdown.Item>
-              ))}
-            </InlineDropdown>
-            <InlineDropdown
-              inline
-              prefix={"Status"}
-              color={"light"}
-              label={
-                selectedStatus
-                  ? toWorkflowRunStatusString(
-                      selectedStatus.toUpperCase() as WorkflowRunStatus,
-                    )
-                  : "All"
-              }
-            >
-              <Dropdown.Item
-                onClick={() => {
-                  setSearchParams({ status: "" });
-                }}
+                {Object.values(project.stack_packs).map((app, index) => (
+                  <Dropdown.Item
+                    key={index}
+                    href={`/project/apps/${app.app_id}/workflows${workflowType ? "/" + workflowType : ""}`}
+                  >
+                    {app.display_name}
+                  </Dropdown.Item>
+                ))}
+              </InlineDropdown>
+              <InlineDropdown
+                inline
+                prefix={"Status"}
+                color={"light"}
+                label={
+                  selectedStatus
+                    ? toWorkflowRunStatusString(
+                        selectedStatus.toUpperCase() as WorkflowRunStatus,
+                      )
+                    : "All"
+                }
               >
-                All
-              </Dropdown.Item>
-              {Object.values(WorkflowRunStatus).map((status, index) => (
                 <Dropdown.Item
-                  key={index}
                   onClick={() => {
-                    setSearchParams({ status });
+                    setSearchParams({ status: "" });
                   }}
                 >
-                  {toWorkflowRunStatusString(status as WorkflowRunStatus)}
+                  All
                 </Dropdown.Item>
-              ))}
-            </InlineDropdown>
-          </div>
-        </Table.HeadCell>
-      </Table.Head>
-      <Table.Body className="divide-y">
-        {filteredWorkflowRuns.map((workflowRun, i) => {
-          const appName =
-            project.stack_packs[workflowRun.app_id]?.display_name ||
-            workflowRun.app_id;
-          return (
-            <Table.Row
-              key={i}
-              className="bg-white dark:border-gray-700 dark:bg-gray-800"
-            >
-              <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white">
-                {
-                  <SummaryCellContent
-                    workflowRun={workflowRun}
-                    appName={appName}
-                  />
-                }
-              </Table.Cell>
-              <Table.Cell>
-                {!!workflowRun.app_id && (
-                  <Badge
-                    color={"blue"}
-                    theme={outlineBadge}
-                    className="size-fit"
-                    title={workflowRun.app_id}
-                    href={`/project/apps/${workflowRun.app_id.toLowerCase()}/configure`}
+                {Object.values(WorkflowRunStatus).map((status, index) => (
+                  <Dropdown.Item
+                    key={index}
+                    onClick={() => {
+                      setSearchParams({ status });
+                    }}
                   >
-                    {appName}
-                  </Badge>
-                )}
-              </Table.Cell>
-              <Table.Cell>
-                <ExecutionDetailsContent workflowRun={workflowRun} />
-              </Table.Cell>
-            </Table.Row>
-          );
-        })}
-      </Table.Body>
-    </Table>
+                    {toWorkflowRunStatusString(status as WorkflowRunStatus)}
+                  </Dropdown.Item>
+                ))}
+              </InlineDropdown>
+            </div>
+          </Table.HeadCell>
+        </Table.Head>
+        <Table.Body className="divide-y">
+          {filteredWorkflowRuns[currentPage - 1]?.map((workflowRun, i) => {
+            const appName =
+              project.stack_packs[workflowRun.app_id]?.display_name ||
+              workflowRun.app_id;
+            return (
+              <Table.Row
+                key={i}
+                className="bg-white dark:border-gray-700 dark:bg-gray-800"
+              >
+                <Table.Cell className="whitespace-nowrap font-medium text-gray-900 dark:text-white">
+                  {
+                    <SummaryCellContent
+                      workflowRun={workflowRun}
+                      appName={appName}
+                    />
+                  }
+                </Table.Cell>
+                <Table.Cell>
+                  {!!workflowRun.app_id && (
+                    <Badge
+                      color={"blue"}
+                      theme={outlineBadge}
+                      className="size-fit"
+                      title={workflowRun.app_id}
+                      href={`/project/apps/${workflowRun.app_id.toLowerCase()}/configure`}
+                    >
+                      {appName}
+                    </Badge>
+                  )}
+                </Table.Cell>
+                <Table.Cell>
+                  <ExecutionDetailsContent workflowRun={workflowRun} />
+                </Table.Cell>
+              </Table.Row>
+            );
+          })}
+        </Table.Body>
+      </Table>
+      {filteredWorkflowRuns.length > 1 && (
+        <div className="flex overflow-x-auto sm:justify-center">
+          <Pagination
+            layout="navigation"
+            currentPage={currentPage}
+            totalPages={filteredWorkflowRuns.length}
+            onPageChange={onPageChange}
+            showIcons
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -302,3 +327,11 @@ const SummaryCellContent: FC<{
     </div>
   );
 };
+
+function splitArray<T>(array: T[], size: number): T[][] {
+  let result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+}
