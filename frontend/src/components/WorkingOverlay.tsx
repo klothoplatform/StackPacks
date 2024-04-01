@@ -7,17 +7,20 @@ type WorkingOverlayProps = {
   show: boolean;
   message?: string;
   inset?: boolean;
+  noOverlay?: boolean;
 };
 export const WorkingOverlay: FC<WorkingOverlayProps> = ({
   show,
   message,
   inset,
+  noOverlay,
 }) => {
   return (
     <div
       className={classNames(
-        "z-[1000] flex flex-col items-center justify-center bg-gray-500/40 dark:bg-black/40",
+        "flex flex-col items-center justify-center bg-gray-500/40 dark:bg-black/40",
         {
+          "z-[1000]": !noOverlay,
           "fixed inset-0": inset,
           "size-full": !inset,
           hidden: !show,

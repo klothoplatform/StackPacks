@@ -49,7 +49,7 @@ const sidebarConfig: SidebarGroup[] = [
 ];
 
 function WorkflowsRootPage() {
-  const { isAuthenticated, user, getProject, getStackPacks } =
+  const { isAuthenticated, user, getProject, getStackPacks, addError } =
     useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
@@ -57,7 +57,9 @@ function WorkflowsRootPage() {
 
   const activeItem = sidebarConfig
     .flatMap((group) => group.items)
-    .find((item) => location.pathname.endsWith(item.path))?.id;
+    .find((item) =>
+      location.pathname.endsWith(item.path.replace(/^(\.*\/)+/, "")),
+    )?.id;
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
@@ -69,7 +71,7 @@ function WorkflowsRootPage() {
         await Promise.all([getProject(true), getStackPacks(true)]);
         setIsLoaded(true);
       } catch (error) {
-        trackError(
+        addError(
           new UIError({
             message: "error loading project",
             errorId: "WorkflowsRootPage:useEffect:getUserStack",
@@ -78,7 +80,7 @@ function WorkflowsRootPage() {
         );
       }
     })();
-  }, [getStackPacks, getProject, isAuthenticated, isLoaded]);
+  }, [getStackPacks, getProject, isAuthenticated, isLoaded, addError]);
 
   const { mode } = useThemeMode();
 
@@ -166,7 +168,7 @@ const AuthenticatedWorkflowsPage = withAuthenticationRequired(
   WorkflowsRootPage,
   {
     onRedirecting: () => (
-      <WorkingOverlay show={true} message="Authenticating..." />
+      <WorkingOverlay noOverlay show message="Authenticating..." />
     ),
   },
 );

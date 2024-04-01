@@ -112,7 +112,7 @@ function ProjectRootPage() {
               <Outlet />
             </div>
           ) : (
-            <WorkingOverlay show={true} message="Loading Project..." />
+            <WorkingOverlay show noOverlay message="Loading Project..." />
           )}
         </div>
 
