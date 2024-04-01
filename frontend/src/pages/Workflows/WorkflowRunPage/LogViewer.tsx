@@ -28,7 +28,17 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Virtuoso } from "react-virtuoso";
 import { GrLinkBottom } from "react-icons/gr";
-import type { WorkflowType } from "../../../shared/models/Workflow.ts";
+import type {
+  WorkflowJob,
+  WorkflowType,
+} from "../../../shared/models/Workflow.ts";
+import { toWorkflowJobStatusString } from "../../../shared/models/Workflow.ts";
+import { useInterval } from "usehooks-ts";
+import { utcToZonedTime } from "date-fns-tz";
+import {
+  getDurationString,
+  getLocalTimezone,
+} from "../../../shared/time-util.ts";
 
 type SearchResult = {
   lineNumber: number;
@@ -40,12 +50,14 @@ type SearchResult = {
 
 export const LogViewer: FC<{
   workflowType: WorkflowType;
-  jobNumber: number;
   runNumber: number;
   appId?: string;
-}> = ({ workflowType, jobNumber, runNumber, appId }) => {
+  job: WorkflowJob;
+}> = ({ workflowType, runNumber, appId, job }) => {
+  const jobNumber = job.job_number;
   const logPaneRef = React.useRef<HTMLDivElement>(null);
   const { subscribeToLogStream } = useApplicationStore();
+
   const [done, setDone] = useState(false);
 
   const [log, setLog] = useState([] as string[]);
@@ -186,8 +198,41 @@ export const LogViewer: FC<{
 
   const [showLineNumbers, setShowLineNumbers] = useState(true);
 
+  const [duration, setDuration] = useState<number>(null);
+  const [interval, setInterval] = useState<number | null>(
+    job.initiated_at && !job.completed_at ? 1000 : null,
+  );
+
+  useInterval(() => {
+    if (job.initiated_at && !job.completed_at) {
+      setDuration(
+        (Date.now() -
+          utcToZonedTime(job.initiated_at, getLocalTimezone()).getTime()) /
+          1000,
+      );
+    }
+  }, interval);
+
+  useEffect(() => {
+    if (job.initiated_at && job.completed_at) {
+      setDuration(
+        (utcToZonedTime(job.completed_at, getLocalTimezone()).getTime() -
+          utcToZonedTime(job.initiated_at, getLocalTimezone()).getTime()) /
+          1000,
+      );
+      setInterval(null);
+    } else if (job.initiated_at && !job.completed_at) {
+      setInterval(1000);
+    }
+  }, [job.initiated_at, job.completed_at]);
+
+  const statusText =
+    job.initiated_at && !job.completed_at
+      ? getDurationString(duration)
+      : toWorkflowJobStatusString(job.status);
+
   return (
-    <div className="flex size-full flex-col items-start justify-start gap-4 p-2">
+    <div className="flex size-full flex-col items-start justify-start gap-4">
       <Card className="size-full bg-gray-800 p-2 text-white">
         <div
           ref={logPaneRef}
@@ -195,38 +240,54 @@ export const LogViewer: FC<{
             "flex size-full flex-col scroll-smooth whitespace-pre-wrap py-2 pr-2 text-xs"
           }
         >
-          <div className="mb-2 flex w-full items-center justify-end gap-2 border-b border-gray-700 pb-4">
-            <div className={"max-w-lg"}>
-              <SearchInput
-                mode={"dark"}
-                onUpdate={onSearchChange}
-                onNavigate={(index) => {
-                  setCurrentResult(index);
-                  virtuosoRef.current?.scrollToIndex({
-                    index: results.resultLineNumbers[index] - 1, // 0-based index
-                    align: "start",
-                    behavior: "smooth",
-                  });
-                }}
-              />
-            </div>
-            <Dropdown
-              color={"dark"}
-              placement={"bottom-end"}
-              arrowIcon={false}
-              size={"xs"}
-              label={
-                <HiOutlineCog6Tooth size={20} className={"text-gray-400"} />
-              }
-            >
-              <Dropdown.Item
-                onClick={() => {
-                  setShowLineNumbers(!showLineNumbers);
-                }}
+          <div className="flex flex-col justify-start gap-2 border-b border-gray-700 pb-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex w-fit flex-col gap-0.5 pl-2">
+              <span
+                className="line-clamp-1 w-fit overflow-hidden text-ellipsis text-lg font-bold"
+                title={job?.title}
               >
-                {showLineNumbers ? "Hide line numbers" : "Show line numbers"}
-              </Dropdown.Item>
-            </Dropdown>
+                {job?.title ?? "Job"}
+              </span>
+              <span
+                className="line-clamp-1 w-fit truncate text-xs font-light text-gray-400"
+                title={statusText}
+              >
+                {statusText}
+              </span>
+            </div>
+            <div className="mb-2 flex min-w-fit items-center gap-2">
+              <div className={"max-w-lg"}>
+                <SearchInput
+                  mode={"dark"}
+                  onUpdate={onSearchChange}
+                  onNavigate={(index) => {
+                    setCurrentResult(index);
+                    virtuosoRef.current?.scrollToIndex({
+                      index: results.resultLineNumbers[index] - 1, // 0-based index
+                      align: "start",
+                      behavior: "smooth",
+                    });
+                  }}
+                />
+              </div>
+              <Dropdown
+                color={"dark"}
+                placement={"bottom-end"}
+                arrowIcon={false}
+                size={"xs"}
+                label={
+                  <HiOutlineCog6Tooth size={20} className={"text-gray-400"} />
+                }
+              >
+                <Dropdown.Item
+                  onClick={() => {
+                    setShowLineNumbers(!showLineNumbers);
+                  }}
+                >
+                  {showLineNumbers ? "Hide line numbers" : "Show line numbers"}
+                </Dropdown.Item>
+              </Dropdown>
+            </div>
           </div>
           <Virtuoso
             ref={virtuosoRef}
