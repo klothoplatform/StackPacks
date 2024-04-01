@@ -2,9 +2,9 @@ import { WorkflowPreviewer } from "../../WorkflowPreviewer.tsx";
 import { Badge, Table } from "flowbite-react";
 import type {
   WorkflowRun,
-  WorkflowRunStatus,
   WorkflowType,
 } from "../../../shared/models/Workflow.ts";
+import { WorkflowRunStatus } from "../../../shared/models/Workflow.ts";
 import { toWorkflowRunStatusString } from "../../../shared/models/Workflow.ts";
 import type { FC, PropsWithChildren, ReactNode } from "react";
 import React, { useCallback, useEffect, useState } from "react";
@@ -21,6 +21,7 @@ import type { JobGraph } from "../../../shared/job-graph.ts";
 import { buildJobGraph } from "../../../shared/job-graph.ts";
 import Linkify from "linkify-react";
 import { useInterval } from "usehooks-ts";
+import { StatusReasonCard } from "../../../components/StatusReasonCard.tsx";
 
 export const RunOverviewPage = () => {
   const { runNumber, workflowType, appId } = useParams();
@@ -81,6 +82,16 @@ export const RunOverviewPage = () => {
       <WorkflowPreviewer jobGraph={jobGraph} />
       <h2 className="text-xl font-semibold">Outputs</h2>
       <WorkflowRunOutputs workflowRun={workflowRun} />
+      {![
+        WorkflowRunStatus.New,
+        WorkflowRunStatus.InProgress,
+        WorkflowRunStatus.Succeeded,
+      ].includes(workflowRun.status) && (
+        <>
+          <h2 className="text-xl font-semibold">Status Reason</h2>
+          <StatusReasonCard message={workflowRun.status_reason} />
+        </>
+      )}
     </div>
   );
 };

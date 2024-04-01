@@ -95,6 +95,7 @@ export interface WorkflowRun {
   initiated_at?: number;
   completed_at?: number;
   status: WorkflowRunStatus;
+  status_reason: string;
   app_id?: string;
   jobs: WorkflowJob[];
 }

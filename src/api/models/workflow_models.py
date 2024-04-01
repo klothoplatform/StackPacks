@@ -79,6 +79,7 @@ class WorkflowRunView(BaseModel):
     initiated_at: Optional[datetime]
     completed_at: Optional[datetime]
     status: WorkflowRunStatus
+    status_reason: Optional[str]
     app_id: Optional[str]
     jobs: List[WorkflowJobView]
 
@@ -96,6 +97,7 @@ class WorkflowRunView(BaseModel):
             initiated_at=run.initiated_at,
             completed_at=run.completed_at,
             status=WorkflowRunStatus[run.status],
+            status_reason=run.status_reason,
             app_id=run.app_id(),
             jobs=[WorkflowJobView.from_workflow_job(job) for job in jobs],
         )
