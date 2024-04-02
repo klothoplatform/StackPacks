@@ -58,4 +58,4 @@ async def detailed_errors(request: Request, call_next):
         if request.client.host == "127.0.0.1":
             logger.warning(f"Exception in {request.url}", exc_info=True)
             return JSONResponse(status_code=500, content={"error": str(e)})
-        raise e
+        raise
