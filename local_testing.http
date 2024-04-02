@@ -16,14 +16,13 @@ Content-Type: application/json
 }
 
 ### Add configuration (need to set region and assumed_role_arn once)
-# "assumed_role_arn": "arn:aws:iam::338991950301:role/TestDeployerStackPacks",
 
 PATCH http://localhost:3000/api/project
 Content-Type: application/json
 
 {
   "region": "us-east-1",
-  "assumed_role_arn": "arn:aws:iam::338991950301:role/gg-test-deploy",
+  "assumed_role_arn": "arn:aws:iam::338991950301:role/TestDeployerStackPacks",
   "configuration": {
     "{{app}}": {
       "DBPassword": "hunter2345",
