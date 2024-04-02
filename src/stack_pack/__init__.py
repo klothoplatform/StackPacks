@@ -81,9 +81,7 @@ class Properties(dict[str, Any]):
                 return [
                     {
                         "scope": "resource",
-                        # This has to be equals otherwise you have no ability to set multiple values in an array
-                        # If we do add and you want to have 2 containers in your task definition, its not possible because nothing will add the second one
-                        "operator": "equals",
+                        "operator": "add",
                         "property": convert_value(p),
                         "value": convert_value(v),
                     }

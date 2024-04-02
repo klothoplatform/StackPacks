@@ -14,6 +14,7 @@ KEEP_TMP = os.environ.get("KEEP_TMP", False)
 
 
 class RunEngineRequest(NamedTuple):
+    tag: str
     constraints: List[dict]
     tmp_dir: str
     input_graph: str = None
@@ -49,6 +50,8 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
         [
             "--provider",
             "aws",
+            "--global-tag",
+            request.tag,
             "--output-dir",
             str(dir),
         ]
@@ -62,10 +65,12 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
             cwd=dir,
         )
     except EngineException as e:
+        error_details = json.loads(e.stdout)
+        log.error(
+            "Engine failed with error code %d, details: %s", e.returncode, error_details
+        )
         if e.returncode == 1:
             raise e
-        error_details = json.loads(e.stdout)
-        log.error("Engine failed with error details: %s", error_details)
 
     with open(dir / "dataflow-topology.yaml") as file:
         topology_yaml = file.read()

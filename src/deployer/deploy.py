@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple, Optional, NamedTuple, List
+from typing import List, NamedTuple, Optional, Tuple
 
 from aiomultiprocess import Pool
 from pulumi import automation as auto
@@ -18,20 +18,20 @@ from src.deployer.models.util import (
     complete_workflow_run,
     start_workflow_run,
 )
-from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.deployer.models.workflow_job import (
-    WorkflowJobStatus,
     WorkflowJob,
+    WorkflowJobStatus,
     WorkflowJobType,
 )
+from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
-from src.engine_service.binaries.fetcher import BinaryStorage, Binary
-from src.stack_pack import ConfigValues, StackPack, get_stack_packs, get_app_name
+from src.engine_service.binaries.fetcher import Binary, BinaryStorage
+from src.stack_pack import ConfigValues, StackPack, get_app_name, get_stack_packs
 from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.stack_pack.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.stack_pack.models.project import Project
 from src.stack_pack.storage.iac_storage import IacStorage
 from src.util.aws.ses import AppData, send_deployment_success_email
@@ -85,7 +85,7 @@ async def build_and_deploy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir)
+        builder = AppBuilder(tmp_dir / app_id)
         stack = builder.prepare_stack(iac, pulumi_stack)
         builder.configure_aws(stack, region, assume_role_arn, external_id)
         for k, v in pulumi_config.items():
@@ -429,7 +429,7 @@ async def execute_deployment_workflow(
                 abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
                 return
 
-            live_state = await result.manager.read_deployed_state()
+            live_state = await result.manager.read_deployed_state(tmp_dir)
 
             logger.info(f"Rerunning pack with live state")
             await rerun_pack_with_live_state(
@@ -546,6 +546,7 @@ async def execute_deploy_single_workflow(
         )
         with TempDir() as tmp_dir_str:
             tmp_dir = Path(tmp_dir_str)
+
             result = await deploy_app(
                 deployment_job=deploy_common_job,
                 app=common_app,
@@ -558,7 +559,7 @@ async def execute_deploy_single_workflow(
                 )
                 abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
                 return
-            live_state = await result.manager.read_deployed_state()
+            live_state = await result.manager.read_deployed_state(tmp_dir)
             constraints = live_state.to_constraints(
                 common_stack, common_app.get_configurations()
             )

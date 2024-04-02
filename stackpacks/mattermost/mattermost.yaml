@@ -17,12 +17,18 @@ base:
     aws:ecs_task_definition:mattermost-task:
       Cpu: ${CPU}
       Memory: ${Memory}
-      ContainerDefinitions:
-      - Image: aws:ecr_image:mattermost
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:mattermost
         Name: mattermost
         PortMappings:
         - ContainerPort: 8065
           HostPort: 8065
+        - ContainerPort: 8067
+          HostPort: 8067
+        - ContainerPort: 8074
+          HostPort: 8074
+        - ContainerPort: 8075
+          HostPort: 8075
         Cpu: ${CPU}
         Memory: ${Memory}
         Environment:
@@ -104,6 +110,12 @@ configuration:
       true:
         resources:
           aws:s3_bucket:mattermost-s3:
+          aws:ecs_task_definition:mattermost-task:
+            ContainerDefinitions[0].Environment:
+            - Name: MM_FILESETTINGS_DRIVERNAME
+              Value: amazons3
+            - Name: MM_FILESETTINGS_AMAZONS3BUCKET
+              Value: aws:s3_bucket:mattermost-s3#BucketName
         edges:
           aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:
 

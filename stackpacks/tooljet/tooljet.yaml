@@ -15,7 +15,6 @@ base:
       HealthCheckGracePeriodSeconds: 900
       LoadBalancers[0].ContainerPort: 3000
       TaskDefinition: aws:ecs_task_definition:tooljet-task
-      AssignPublicIp: true
       DesiredCount: 1
     aws:ecs_task_definition:tooljet-task:
       Cpu: ${CPU}
@@ -126,7 +125,7 @@ configuration:
     pulumi_key: klo:tooljet-service-tooljet-memcluster-password
     secret: true
     validation:
-      minLength: 8
+      minLength: 16
       maxLength: 128
 
 outputs:
