@@ -13,6 +13,7 @@ import type { Property } from "../shared/configuration-properties.ts";
 import type { UpdateProjectResponse } from "../api/UpdateProject.ts";
 
 export interface ConfigFormSection {
+  icon?: React.ReactNode;
   title: string;
   propertyMap: Map<string, Property[]>;
   defaultOpened?: boolean;
@@ -32,9 +33,7 @@ export const ConfigureAppsForm: FC<{
   });
 
   const SaveButton = saveButton;
-
   const { isDirty } = methods.formState;
-
   const { updateProject, addError } = useApplicationStore();
 
   const onSubmit = methods.handleSubmit(async (data) => {
@@ -43,7 +42,6 @@ export const ConfigureAppsForm: FC<{
       return;
     }
     const configuration = formStateToAppConfig(data, stackPacks);
-    console.log(configuration);
     let updatedStack: UpdateProjectResponse;
     try {
       updatedStack = await updateProject({ configuration });
@@ -67,10 +65,10 @@ export const ConfigureAppsForm: FC<{
   return (
     <form className={"flex h-fit min-h-0 flex-col gap-2"} onSubmit={onSubmit}>
       <FormProvider {...methods}>
-        <div className={"h-fit min-h-0 w-full overflow-y-auto"}>
+        <div className={"h-fit min-h-0 w-full overflow-y-auto p-2"}>
           <DynamicConfigForm sections={sections} />
         </div>
-        <div className="ml-auto flex gap-4 justify-self-end">
+        <div className="ml-auto flex gap-4 justify-self-end px-2">
           {SaveButton && <SaveButton onClick={onSubmit} />}
           {!SaveButton && (
             <StepperNavigator {...stepperProps} goForwards={onSubmit} />

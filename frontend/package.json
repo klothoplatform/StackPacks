@@ -31,7 +31,6 @@
     "tailwindcss": "^3.4.1",
     "title-case": "^4.3.1",
     "ts-deepmerge": "^7.0.0",
-    "tw-merge": "^0.0.1-alpha.3",
     "usehooks-ts": "^3.0.1",
     "uuid": "^9.0.1",
     "vite": "^5.2.2",

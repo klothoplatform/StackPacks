@@ -4,7 +4,7 @@ import { UIError } from "../../shared/errors.ts";
 import { ErrorBoundary } from "react-error-boundary";
 import { useStepper } from "../../hooks/useStepper.ts";
 import { StepperProvider } from "../../context/StepperProvider.tsx";
-import type { Step } from "../../context/StepperContext.tsx";
+import type { Step } from "../../context/StepperContext.ts";
 import { FallbackRenderer } from "../../components/FallbackRenderer.tsx";
 import { trackError } from "../store/ErrorStore.ts";
 import { ConfigureAppStep } from "./ConfigureAppStep.tsx";

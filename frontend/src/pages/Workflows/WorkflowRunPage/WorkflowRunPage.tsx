@@ -161,32 +161,34 @@ function WorkflowRunPage() {
         </HeaderNavBar>
         <div className={"flex size-full overflow-hidden"}>
           <Sidebar className={"z-5 min-w-fit"}>
-            <Button
-              color={mode}
-              className={"w-fit"}
-              size={"xs"}
-              onClick={() =>
-                navigate("../..", {
-                  relative: "path",
-                })
-              }
-            >
-              <span className={"flex items-center gap-2 whitespace-nowrap"}>
-                <FaArrowLeft />
-                {workflowType === WorkflowType.Any
-                  ? "All Workflows"
-                  : titleCase(workflowType.toLowerCase())}
-              </span>
-            </Button>
-            {!!workflowRun && (
-              <div className="mt-2 flex items-center gap-2 text-2xl font-medium">
-                {statusIcons[workflowRun?.status].large}
-                {titleCase(workflowRun?.workflow_type.toLowerCase() ?? "")}
-                <span className="font-normal text-gray-700 dark:text-gray-400">
-                  {`#${runNumber}`}
+            <div className="flex flex-col gap-2 pl-3">
+              <Button
+                color={mode}
+                className={"w-fit"}
+                size={"xs"}
+                onClick={() =>
+                  navigate("../..", {
+                    relative: "path",
+                  })
+                }
+              >
+                <span className={"flex items-center gap-2 whitespace-nowrap"}>
+                  <FaArrowLeft />
+                  {workflowType === WorkflowType.Any
+                    ? "All Workflows"
+                    : titleCase(workflowType.toLowerCase())}
                 </span>
-              </div>
-            )}
+              </Button>
+              {!!workflowRun && (
+                <div className="mt-2 flex items-center gap-2 text-2xl font-medium">
+                  {statusIcons[workflowRun?.status].large}
+                  {titleCase(workflowRun?.workflow_type.toLowerCase() ?? "")}
+                  <span className="font-normal text-gray-700 dark:text-gray-400">
+                    {`#${runNumber}`}
+                  </span>
+                </div>
+              )}
+            </div>
             <Sidebar.Items>
               {sidebarConfig.map((group, index) => (
                 <Sidebar.ItemGroup title={group.title} key={index}>

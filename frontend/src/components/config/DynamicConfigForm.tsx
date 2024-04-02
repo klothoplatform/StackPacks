@@ -10,6 +10,7 @@ import { ConfigSection } from "./ConfigSection.tsx";
 import { ConfigGroup } from "./ConfigGroup.tsx";
 
 export interface DynamicSection {
+  icon?: React.ReactNode;
   title: string;
   propertyMap: Map<string, Property[]>;
   defaultOpened?: boolean;
@@ -58,6 +59,7 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
             <ConfigSection
               key={index}
               id={section.title}
+              icon={section.icon}
               title={section.title}
               removable={false}
               defaultOpened={section.defaultOpened ?? true}

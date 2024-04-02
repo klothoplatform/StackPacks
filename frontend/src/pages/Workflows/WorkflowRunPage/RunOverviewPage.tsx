@@ -1,4 +1,4 @@
-import { WorkflowPreviewer } from "../../WorkflowPreviewer.tsx";
+import { WorkflowPreviewer } from "./WorkflowPreviewer.tsx";
 import { Badge, Table } from "flowbite-react";
 import type {
   WorkflowRun,

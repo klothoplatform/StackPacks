@@ -1,89 +1,68 @@
-import type { Step } from "../context/StepperContext.tsx";
-import { ChooseAppsStep } from "./onboarding/ChooseAppsStep.tsx";
-import { ConfigureAppsStep } from "./onboarding/ConfigureAppsStep.tsx";
-import { ConnectAccountStep } from "./onboarding/ConnectAccountStep.tsx";
-import { DeploymentStep } from "./onboarding/DeploymentStep.tsx";
-import useApplicationStore from "./store/ApplicationStore.ts";
+import type { Step } from "../../context/StepperContext.ts";
+import { ChooseAppStep } from "./ChooseAppStep.tsx";
+import { ConfigureAppStep } from "./ConfigureAppStep.tsx";
+import { UpdateRoleStep } from "./UpdateRoleStep.tsx";
+import { DeployAppStep } from "./DeployAppStep.tsx";
+import useApplicationStore from "../store/ApplicationStore.ts";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { FC } from "react";
-import React, { useEffect, useState } from "react";
-import { useEffectOnMount } from "../hooks/useEffectOnMount.ts";
+import React, { useEffect } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { FallbackRenderer } from "../components/FallbackRenderer.tsx";
-import { trackError } from "./store/ErrorStore.ts";
-import { UIError } from "../shared/errors.ts";
-import { ErrorOverlay } from "../components/ErrorOverlay.tsx";
-import { StepperProvider } from "../context/StepperProvider.tsx";
-import { useStepper } from "../hooks/useStepper.ts";
-import { useDocumentTitle } from "../hooks/useDocumentTitle.ts";
-import { Stepper } from "../components/Stepper.tsx";
+import { FallbackRenderer } from "../../components/FallbackRenderer.tsx";
+import { trackError } from "../store/ErrorStore.ts";
+import { UIError } from "../../shared/errors.ts";
+import { ErrorOverlay } from "../../components/ErrorOverlay.tsx";
+import { StepperProvider } from "../../context/StepperProvider.tsx";
+import { useStepper } from "../../hooks/useStepper.ts";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
+import { Stepper } from "../../components/Stepper.tsx";
 import { FaRegCircle } from "react-icons/fa6";
+import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 
 type WorkflowStep = Step & {
   component: React.FC<any>;
   props?: Record<string, any>;
 };
 
-export function AddAppsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { updateOnboardingWorkflowState, project } = useApplicationStore();
+export function AddAppPage() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [excludedApps, setExcludedApps] = useState<string[]>([]);
+  const selectedApp = searchParams.get("selectedApps");
 
   const workflowSteps: Array<WorkflowStep> = [
     {
-      id: "choose-apps",
-      title: "Choose Apps",
-      component: ChooseAppsStep,
-      props: {
-        excludedApps,
-        singleApp: true,
-      },
+      id: "choose-app",
+      title: "Choose App",
+      component: ChooseAppStep,
     },
     {
-      id: "configure-stack",
+      id: "configure",
       title: "Configure",
-      component: ConfigureAppsStep,
+      component: ConfigureAppStep,
       props: {
-        excludedApps,
+        selectedApp: selectedApp,
       },
     },
     {
       id: "update-deployment-role",
-      title: `${project?.assumed_role_arn ? "Update" : "Create"} Deployment Role`,
-      component: ConnectAccountStep,
+      title: "Update Deployment Role",
+      component: UpdateRoleStep,
     },
     {
       id: "deploy",
       title: "Deploy",
-      component: DeploymentStep,
+      component: DeployAppStep,
+      props: {
+        selectedApp: selectedApp,
+      },
     },
   ];
 
+  const { project } = useApplicationStore();
   useEffectOnMount(() => {
-    const queryApps = searchParams
-      .get("selectedApps")
-      ?.split(",")
-      ?.filter((qa) => qa);
-    if (queryApps?.length > 0) {
-      updateOnboardingWorkflowState({
-        selectedStackPacks: queryApps,
-      });
-    }
-
-    let currentExclusions = searchParams.get("excludedApps")?.split(",");
-    if (currentExclusions) {
-      setExcludedApps(currentExclusions);
-    } else {
-      currentExclusions = Object.keys(project?.stack_packs ?? {});
-      if (currentExclusions?.length > 0) {
-        setSearchParams((prev) => ({
-          ...Object.fromEntries(prev.entries()),
-          excludedApps: currentExclusions.join(","),
-        }));
-        setExcludedApps(currentExclusions);
-      }
+    if (!project?.region) {
+      navigate("/onboarding");
     }
   });
 

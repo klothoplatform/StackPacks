@@ -1,8 +1,8 @@
 import type { FC, PropsWithChildren } from "react";
 import { useEffect } from "react";
 import React from "react";
-import type { Step } from "./StepperContext";
-import { StepperContext } from "./StepperContext";
+import type { Step } from "./StepperContext.ts";
+import { StepperContext } from "./StepperContext.ts";
 
 export const StepperProvider: FC<
   PropsWithChildren<{

@@ -10,16 +10,17 @@ import {
 import { CallbackPage } from "./pages/CallbackPage";
 import { Auth0ProviderWithNavigate } from "./auth/Auth0ProviderWithNavigate.tsx";
 import FallbackPage from "./pages/FallbackPage.tsx";
-import UserDashboardPage from "./pages/user-dashboard/ProjectRootPage.tsx";
-import { ProjectPage } from "./pages/user-dashboard/ProjectPage/ProjectPage.tsx";
+import UserDashboardPage from "./pages/ProjectPage/ProjectRootPage.tsx";
+import { ProjectPage } from "./pages/ProjectPage/ProjectPage.tsx";
 import { ConfigureAppPage } from "./pages/ConfigureApp/ConfigureAppPage.tsx";
-import { AddAppsPage } from "./pages/AddAppsPage.tsx";
+import { AddAppPage } from "./pages/AddAppPage/AddAppPage.tsx";
 import WorkflowsPage from "./pages/Workflows/WorkflowsRootPage.tsx";
 import { WorkflowRunsPage } from "./pages/Workflows/WorkflowRunsPage.tsx";
 import { RunOverviewPage } from "./pages/Workflows/WorkflowRunPage/RunOverviewPage.tsx";
 import { JobDetailsPage } from "./pages/Workflows/WorkflowRunPage/JobDetailsPage.tsx";
 import WorkflowRunPage from "./pages/Workflows/WorkflowRunPage/WorkflowRunPage.tsx";
 import { ConfigureEnvironmentPage } from "./pages/ConfigureEnvironment/ConfigureEnvironmentPage.tsx";
+import { OnboardingPage } from "./pages/OnboardingPage/OnboardingPage.tsx";
 
 const AuthorizedOutlet: FC = () => {
   const { updateAuthentication } = useApplicationStore();
@@ -50,17 +51,28 @@ const AppRouter: FC = function () {
         { element: <Navigate to={"/project"} />, index: true },
         { path: "callback", element: <CallbackPage /> },
         {
+          path: "/onboarding",
+          element: <OnboardingPage />,
+          children: [
+            {
+              path: ":step",
+              element: <AddAppPage />,
+              index: true,
+            },
+          ],
+        },
+        {
           path: "/project",
           element: <UserDashboardPage />,
           children: [
             { element: <ProjectPage />, index: true },
             {
               path: "add-apps",
-              element: <AddAppsPage />,
+              element: <AddAppPage />,
               children: [
                 {
                   path: ":step",
-                  element: <AddAppsPage />,
+                  element: <AddAppPage />,
                   index: true,
                 },
               ],

@@ -119,9 +119,15 @@ export const ConfigureEnvironmentForm: FC<{
             <Label>Deployment Role ARN</Label>
             <TextInput
               name="assumedRoleArn"
-              placeholder="Deployment Role ARN"
+              placeholder="arn:aws:iam::<account-id>:role/StackSnapRole"
+              {...methods.register("assumedRoleArn", {
+                required: true,
+                validate: (v) =>
+                  /^arn:aws[\w-]*:iam::\d{12}:role\/.+$/.test(v)
+                    ? undefined
+                    : "Please enter a valid IAM Role ARN",
+              })}
               sizing={"sm"}
-              {...methods.register("assumedRoleArn")}
             />
           </div>
           <div className={"flex flex-col gap-2"}>

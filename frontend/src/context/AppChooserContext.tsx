@@ -1,5 +1,5 @@
 import type { Stackpack } from "../shared/models/Stackpack.ts";
-import { createContext } from "react";
+import { createContext, useContext } from "react";
 
 type AppChooserContextProps = {
   apps: Stackpack[];
@@ -13,3 +13,11 @@ export const AppChooserContext = createContext<AppChooserContextProps>({
   selectedApps: [],
   setSelectedApps: () => {},
 });
+
+export const useAppChooser = () => {
+  const context = useContext(AppChooserContext);
+  if (!context) {
+    throw new Error("useAppChooser must be used within an AppChooserProvider");
+  }
+  return context;
+};

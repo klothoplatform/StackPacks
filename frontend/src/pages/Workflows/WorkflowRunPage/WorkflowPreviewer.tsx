@@ -14,12 +14,12 @@ import "@xyflow/react/dist/style.css";
 import { Button, ButtonGroup, useThemeMode } from "flowbite-react";
 import { HiMinus, HiPlus } from "react-icons/hi2";
 import { MdFitScreen } from "react-icons/md";
-import "../react-flow.scss";
+import "../../../react-flow.scss";
 import { useInterval } from "usehooks-ts";
-import { WorkflowJobStatus } from "../shared/models/Workflow.ts";
-import { statusIcons } from "../shared/StatusIcons.tsx";
-import type { JobGraph } from "../shared/job-graph.ts";
-import { getDurationString } from "../shared/time-util.ts";
+import { WorkflowJobStatus } from "../../../shared/models/Workflow.ts";
+import { statusIcons } from "../../../shared/StatusIcons.tsx";
+import type { JobGraph } from "../../../shared/job-graph.ts";
+import { getDurationString } from "../../../shared/time-util.ts";
 import classNames from "classnames";
 import { useNavigate } from "react-router-dom";
 

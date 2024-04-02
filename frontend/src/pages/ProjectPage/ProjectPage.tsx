@@ -1,9 +1,9 @@
 import type { FC, PropsWithChildren, ReactNode } from "react";
 import React, { useEffect, useState } from "react";
-import useApplicationStore from "../../store/ApplicationStore.ts";
-import { UIError } from "../../../shared/errors.ts";
+import useApplicationStore from "../store/ApplicationStore.ts";
+import { UIError } from "../../shared/errors.ts";
 import { Badge, Button, Card, Dropdown, useThemeMode } from "flowbite-react";
-import { useDocumentTitle } from "../../../hooks/useDocumentTitle.ts";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useNavigate } from "react-router-dom";
 import {
   AiFillDelete,
@@ -14,32 +14,32 @@ import {
   AiOutlineQuestionCircle,
 } from "react-icons/ai";
 import classNames from "classnames";
-import { resolveStackpacks } from "../../../shared/models/Stackpack.ts";
+import { resolveStackpacks } from "../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Tooltip } from "../../../components/Tooltip.tsx";
-import { useClickedOutside } from "../../../hooks/useClickedOutside.ts";
+import { Tooltip } from "../../components/Tooltip.tsx";
+import { useClickedOutside } from "../../hooks/useClickedOutside.ts";
 import type {
   ApplicationDeployment,
   Project,
-} from "../../../shared/models/Project.ts";
+} from "../../shared/models/Project.ts";
 import {
   AppLifecycleStatus,
   hasDeploymentInProgress,
   toAppStatusString,
-} from "../../../shared/models/Project.ts";
+} from "../../shared/models/Project.ts";
 import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
 import AWSLogoDark from "/images/aws_logo_white.png";
-import { outlineBadge } from "../../../shared/custom-themes.ts";
+import { outlineBadge } from "../../shared/custom-themes.ts";
 import { RiInstallFill, RiUninstallFill } from "react-icons/ri";
 import UninstallAppModal from "./UninstallAppModal.tsx";
-import { ConfirmationModal } from "../../../components/ConfirmationModal.tsx";
+import { ConfirmationModal } from "../../components/ConfirmationModal.tsx";
 import UninstallAllModal from "./UninstallAllModal.tsx";
 import { HiMiniCog6Tooth } from "react-icons/hi2";
-import { AppLogo } from "../../../components/AppLogo.tsx";
+import { AppLogo } from "../../components/AppLogo.tsx";
 import { useInterval } from "usehooks-ts";
 import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
-import { useEffectOnMount } from "../../../hooks/useEffectOnMount.ts";
+import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { FaRegCopy } from "react-icons/fa6";
 
 const EnvironmentItem: FC<

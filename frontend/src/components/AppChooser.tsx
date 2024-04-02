@@ -1,12 +1,6 @@
 import type { Stackpack } from "../shared/models/Stackpack.ts";
 import type { ChangeEvent, FC } from "react";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Button,
   type CustomFlowbiteTheme,
@@ -22,6 +16,8 @@ import { useScreenSize } from "../hooks/useScreenSize.ts";
 import { MdCheckCircle, MdGridView, MdTableRows } from "react-icons/md";
 import { SelectableCard } from "./SelectableCard.tsx";
 import { AppLogo } from "./AppLogo.tsx";
+import { useAppChooser } from "../context/AppChooserContext.tsx";
+import { AppChooserLayout } from "./AppChooser.ts";
 
 const tabTheme: CustomFlowbiteTheme["tabs"] = {
   tablist: {
@@ -48,52 +44,46 @@ const tabTheme: CustomFlowbiteTheme["tabs"] = {
   },
 };
 
-export enum AppChooserLayout {
-  List,
-  Grid,
-}
-
-export interface ChooseAppsFormState {
-  selectedApps: string[];
-}
-
-export const AppChooserComposite: FC<{
-  excludedApps?: string[];
-}> = ({ excludedApps }) => {
+export const AppChooserComposite: FC = () => {
   const { apps } = useAppChooser();
-  const [filteredApps, setFilteredApps] = useState<Stackpack[]>([
-    ...apps.filter((app) => !excludedApps?.includes(app.id)),
-  ]);
+  const [filteredApps, setFilteredApps] = useState<Stackpack[]>([...apps]);
   const { isXSmallScreen } = useScreenSize();
+  const [selectedLayout, setSelectedLayout] = useState<AppChooserLayout>(
+    AppChooserLayout.Grid,
+  );
 
   useEffect(() => {
-    setFilteredApps(apps.filter((app) => !excludedApps?.includes(app.id)));
-  }, [apps, excludedApps]);
+    setFilteredApps(apps);
+  }, [apps]);
 
   return (
-    <div className="flex size-full flex-col gap-8 overflow-hidden">
+    <div className="flex size-full flex-col gap-2 overflow-hidden">
       <div className="mb-2 flex w-full items-center justify-between gap-2 px-2">
         <div className={"flex w-full justify-center p-1"}>
           <AppSearch apps={apps} onFilter={(fa) => setFilteredApps(fa)} />
-          {/*<div className={"w-fit min-w-fit"}>*/}
-          {/*  <AppChooserLayoutSelector onChange={setLayout} layout={layout} />*/}
-          {/*</div>*/}
         </div>
       </div>
       <div className="mx-auto h-fit max-h-full w-full overflow-y-auto">
+        <div className={"ml-auto w-fit min-w-fit"}>
+          <AppChooserLayoutSelector
+            onChange={(layout) => setSelectedLayout(layout)}
+            layout={selectedLayout}
+          />
+        </div>
         <AppChooser
           apps={filteredApps}
           layout={
             isXSmallScreen || filteredApps.length < 3
               ? AppChooserLayout.List
-              : AppChooserLayout.Grid
+              : selectedLayout
           }
         />
       </div>
     </div>
   );
 };
-const AppChooserLayoutSelector: FC<{
+
+export const AppChooserLayoutSelector: FC<{
   layout?: AppChooserLayout;
   onChange: (layout: AppChooserLayout) => void;
 }> = ({ layout, onChange }) => {
@@ -118,19 +108,40 @@ const AppChooserLayoutSelector: FC<{
         ref={tabsRef}
         onActiveTabChange={onSetActiveTab}
       >
-        <Tabs.Item icon={MdTableRows} title="" />
-        <Tabs.Item icon={MdGridView} title="" />
+        <Tabs.Item
+          icon={MdTableRows}
+          title=""
+          active={layout === AppChooserLayout.List}
+        />
+        <Tabs.Item
+          icon={MdGridView}
+          title=""
+          active={layout === AppChooserLayout.Grid}
+        />
       </Tabs>
     </div>
   );
 };
-const AppChooser: FC<{
+
+export const AppChooser: FC<{
   apps: Stackpack[];
   layout: AppChooserLayout;
-}> = ({ apps, layout }) => {
+  mode?: "multi" | "single";
+}> = ({ apps, layout, mode }) => {
+  mode = mode ?? "multi";
   const { selectedApps, setSelectedApps } = useAppChooser();
   const [_, setSearchParams] = useSearchParams();
   const onClick = (app: Stackpack, selected: boolean) => {
+    if (mode === "single") {
+      setSelectedApps(selectedApps.some((a) => a === app.id) ? [] : [app.id]);
+      setSearchParams((prev) => ({
+        ...Object.fromEntries(prev.entries()),
+        selectedApps: app.id,
+      }));
+      return;
+    }
+
+    // multi
     const alreadySelected = selectedApps.some((a) => a === app.id);
     let updatedSelection = [...selectedApps];
     if (selected && !alreadySelected) {
@@ -138,8 +149,10 @@ const AppChooser: FC<{
     } else if (!selected && alreadySelected) {
       updatedSelection = updatedSelection.filter((a) => a !== app.id);
     }
-    setSearchParams({ selectedApps: updatedSelection.join(",") });
-    console.log(updatedSelection);
+    setSearchParams((prev) => ({
+      ...Object.fromEntries(prev.entries()),
+      selectedApps: updatedSelection.join(","),
+    }));
     setSelectedApps(updatedSelection);
   };
 
@@ -170,7 +183,8 @@ const AppChooser: FC<{
     </div>
   );
 };
-const AppChooserItem: FC<{
+
+export const AppChooserItem: FC<{
   app: Stackpack;
   onClick?: (app: Stackpack, selected: boolean) => void;
   selected?: boolean;
@@ -190,6 +204,9 @@ const AppChooserItem: FC<{
       onDeselect={onDeselect}
       outline
       selected={selected}
+      className={classNames({
+        "bg-primary-200/50 dark:bg-primary-900/50": selected,
+      })}
     >
       <div className="h-fit w-full px-2 pt-2">
         <div className="flex size-full flex-col gap-4">
@@ -239,7 +256,8 @@ const AppChooserItem: FC<{
     </SelectableCard>
   );
 };
-const AppSearch: FC<{
+
+export const AppSearch: FC<{
   apps: Stackpack[];
   onFilter: (apps: Stackpack[]) => void;
 }> = ({ apps, onFilter }) => {
@@ -270,23 +288,4 @@ const AppSearch: FC<{
       onChange={handleInputChange}
     />
   );
-};
-type ChooseAppsContextProps = {
-  apps: Stackpack[];
-  setApps: (apps: Stackpack[]) => void;
-  selectedApps: string[];
-  setSelectedApps: (apps: string[]) => void;
-};
-export const ChooseAppsContext = createContext<ChooseAppsContextProps>({
-  apps: [],
-  setApps: () => {},
-  selectedApps: [],
-  setSelectedApps: () => {},
-});
-const useAppChooser = () => {
-  const context = useContext(ChooseAppsContext);
-  if (!context) {
-    throw new Error("useAppChooser must be used within a ChooseAppsStep");
-  }
-  return context;
 };

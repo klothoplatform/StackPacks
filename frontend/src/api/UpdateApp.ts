@@ -35,7 +35,7 @@ export async function updateApp({
       message: "An error occurred while creating your app.",
       status: e.status,
       statusText: e.message,
-      url: e.request?.url,
+      path: e.request?.url,
       cause: e,
     });
     trackError(error);

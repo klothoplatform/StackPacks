@@ -1,28 +1,25 @@
 import type { FC } from "react";
-import { useEffect, useState } from "react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import type { StepperNavigatorProps } from "../../components/Stepper.tsx";
-import { Card } from "flowbite-react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import type { Property } from "../../shared/configuration-properties.ts";
 import { toFormState } from "../../shared/models/Project.ts";
 import type { Stackpack } from "../../shared/models/Stackpack.ts";
 import { ConfigureAppsForm } from "../../components/ConfigureAppsForm.tsx";
+import { AppLogo } from "../../components/AppLogo.tsx";
+import { useThemeMode } from "flowbite-react";
 
 export interface ConfigFormSection {
+  icon?: React.ReactNode;
   title: string;
   propertyMap: Map<string, Property[]>;
   defaultOpened?: boolean;
   defaultValues: { [key: string]: any };
 }
 
-export const ConfigureAppsStep: FC<
-  StepperNavigatorProps & {
-    excludedApps?: string[];
-  }
-> = ({ excludedApps, ...props }) => {
+export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
   const { project, getStackPacks } = useApplicationStore();
-
+  const { mode } = useThemeMode();
   const [sections, setSections] = useState<ConfigFormSection[]>([]);
   const [stackPacks, setStackPacks] = useState<Map<string, Stackpack>>(
     new Map(),
@@ -36,7 +33,6 @@ export const ConfigureAppsStep: FC<
       const sections: ConfigFormSection[] = Object.entries(
         project?.stack_packs ?? {},
       )
-        .filter(([stackPackId]) => !excludedApps?.includes(stackPackId))
         .map(([stackPackId, appDeployment]) => {
           const config = appDeployment?.configuration;
           const stackPack = stackPacks.get(stackPackId);
@@ -44,6 +40,7 @@ export const ConfigureAppsStep: FC<
             return undefined;
           }
           return {
+            icon: <AppLogo appId={stackPackId} className={"h-4"} mode={mode} />,
             title: stackPack.name,
             propertyMap: new Map<string, Property[]>([
               [stackPackId, Object.values(stackPack.configuration)],
@@ -58,18 +55,14 @@ export const ConfigureAppsStep: FC<
         .filter((section) => section !== undefined) as ConfigFormSection[];
       setSections(sections);
     })();
-  }, [excludedApps, getStackPacks, project]);
+  }, [getStackPacks, mode, project]);
 
   return (
-    <Card className={"min-h-[50vh] w-full p-4"}>
+    <div className={"min-h-[50vh] w-full p-4"}>
       <div className={"flex size-full flex-col dark:text-white"}>
         <div className={"flex size-full flex-col gap-4"}>
-          <h3
-            className={
-              "border-b border-gray-200 pb-1 text-xl font-medium dark:border-gray-700"
-            }
-          >
-            Configure your stack
+          <h3 className={"pb-1 text-xl font-medium dark:border-gray-700"}>
+            Configure selected applications
           </h3>
           {sections.length > 0 && (
             <ConfigureAppsForm
@@ -80,6 +73,6 @@ export const ConfigureAppsStep: FC<
           )}
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

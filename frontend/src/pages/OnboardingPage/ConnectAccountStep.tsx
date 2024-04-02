@@ -2,7 +2,7 @@ import type { FC } from "react";
 import React, { useEffect } from "react";
 import type { StepperNavigatorProps } from "../../components/Stepper.tsx";
 import { StepperNavigator } from "../../components/Stepper.tsx";
-import { Button, Card, List, TextInput } from "flowbite-react";
+import { Button, List, TextInput } from "flowbite-react";
 import { useForm } from "react-hook-form";
 import { useStepper } from "../../hooks/useStepper.ts";
 import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
@@ -56,7 +56,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
         new UIError({
           message: "An error occurred while updating your stack's IAM Role.",
           cause: e,
-          errorId: "ConnectAccountStep:Submit",
+          errorId: "UpdateRoleStep:Submit",
         }),
       );
       return;
@@ -65,14 +65,14 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
   };
 
   return (
-    <Card className={"h-fit w-full overflow-hidden p-4"}>
+    <div className={"h-fit w-full overflow-hidden p-4"}>
       <div
         onSubmit={methods.handleSubmit(completeStep)}
         className={"flex size-full flex-col dark:text-white"}
       >
         <h3 className={"pb-1 text-xl font-medium"}>Connect your AWS account</h3>
-        <div className="flex size-full flex-col justify-between overflow-hidden border-t border-gray-200 pt-4 text-sm dark:border-gray-700">
-          <div className="flex size-full flex-col gap-6 overflow-y-auto overflow-x-hidden p-1">
+        <div className="flex size-full flex-col justify-between overflow-hidden pt-4 text-sm dark:border-gray-700">
+          <div className="flex size-full flex-col gap-6 overflow-y-auto overflow-x-hidden px-4 py-1">
             <p>
               Create an IAM role in your AWS account to enable StackPacks to
               deploy and manage stacks on your behalf.
@@ -96,11 +96,10 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                 </span>
               </Button>
               <br />
-              <p>
-                The following information will be prefilled for you. Please do
-                not make any modifications to these fields.
+              <p className={"pb-2"}>
+                The following information will be prefilled for you.
               </p>
-              <div className={"h-fit w-full px-2"}>
+              <div className={"size-fit max-w-full px-2"}>
                 <div
                   className={
                     "h-fit w-full rounded-lg bg-gray-100 p-4 dark:bg-gray-700"
@@ -126,6 +125,9 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                   </List>
                 </div>
               </div>
+              <p className={"pt-2"}>
+                Please do not make any modifications to these fields.
+              </p>
             </InstructionalStep>
 
             <InstructionalStep title="Step 2">
@@ -134,6 +136,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
               <CollapsibleSection
                 color={"purple"}
                 size={"xs"}
+                collapsed={true}
                 collapsedText={
                   <div className={"flex items-center gap-2"}>
                     <MdContentCopy /> Copy permissions
@@ -150,10 +153,10 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
               >
                 <div
                   className={
-                    "gray-200 mx-4 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-xs text-green-700 dark:bg-gray-700 dark:text-green-200"
+                    "gray-200 mx-4 max-h-80 w-fit max-w-full overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-xs text-green-700 dark:bg-gray-700 dark:text-green-200"
                   }
                 >
-                  <code>{project.policy}</code>
+                  <code>{project?.policy}</code>
                 </div>
               </CollapsibleSection>
             </InstructionalStep>
@@ -175,7 +178,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                 <TextInput
                   type="text"
                   id="awsRoleArn"
-                  placeholder="arn:aws:iam::<account-id>:role/StackPacksRole"
+                  placeholder="arn:aws:iam::<account-id>:role/StackSnapRole"
                   {...methods.register("assumedRoleArn", {
                     required: true,
                     validate: (v) =>
@@ -201,6 +204,6 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

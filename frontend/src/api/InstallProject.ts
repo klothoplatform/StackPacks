@@ -23,7 +23,7 @@ export async function installProject(
       message: "An error occurred while installing your stack.",
       status: e.status,
       statusText: e.message,
-      url: e.request?.url,
+      path: e.request?.url,
       cause: e,
     });
     trackError(error);

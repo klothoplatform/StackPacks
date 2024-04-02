@@ -2,65 +2,52 @@ import { Button, Label, Modal, TextInput } from "flowbite-react";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { AiOutlineLoading } from "react-icons/ai";
-import useApplicationStore from "../../store/ApplicationStore.ts";
-import { UIError } from "../../../shared/errors.ts";
-import { FormFooter } from "../../../components/FormFooter.tsx";
+import useApplicationStore from "../store/ApplicationStore.ts";
+import { UIError } from "../../shared/errors.ts";
+import { FormFooter } from "../../components/FormFooter.tsx";
+import type { WorkflowRunSummary } from "../../shared/models/Workflow.ts";
 import { useNavigate } from "react-router-dom";
-import type { WorkflowRunSummary } from "../../../shared/models/Workflow.ts";
 
-interface UninstallAppModalProps {
+interface UninstallAllModalProps {
   onClose: () => void;
   show?: boolean;
-  id: string;
-  name?: string;
 }
 
-export interface UninstallAppFormState {
+export interface UninstallAllFormState {
   confirmation: string;
   removeFromStack: boolean;
 }
 
-export default function UninstallAppModal({
+export default function UninstallAllModal({
   onClose,
   show,
-  id,
-  name,
-}: UninstallAppModalProps) {
+}: UninstallAllModalProps) {
   const {
     reset,
     register,
     handleSubmit,
     watch,
-    formState: { errors },
-  } = useForm<UninstallAppFormState>();
+    formState: { errors, isValid },
+  } = useForm<UninstallAllFormState>();
 
-  const { addError, uninstallApp } = useApplicationStore();
+  const { addError, uninstallProject } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const navigate = useNavigate();
-
   const onSubmit = async () => {
     let success = false;
     setIsSubmitting(true);
     let response: WorkflowRunSummary | undefined;
     try {
-      response = await uninstallApp(id);
+      response = await uninstallProject();
       success = true;
     } catch (e: any) {
       addError(
         new UIError({
-          errorId: "UninstallAppModal:Submit",
-          message: `Uninstalling ${name} failed`,
-          messageComponent: (
-            <span>
-              Uninstalling <strong>{name}</strong> failed!
-            </span>
-          ),
+          errorId: "UninstallAllModal:Submit",
+          message: `Uninstalling all apps failed`,
+          messageComponent: <span>Uninstalling all apps failed!</span>,
           cause: e,
-          data: {
-            id,
-          },
         }),
       );
     } finally {
@@ -70,7 +57,7 @@ export default function UninstallAppModal({
       onClose();
       if (response) {
         navigate(
-          `/project/apps/${response.app_id}/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
+          `/project/workflows/${response.workflow_type.toLowerCase()}/runs/${response.run_number}`,
         );
       }
     }
@@ -105,12 +92,12 @@ export default function UninstallAppModal({
           onClose?.();
         }}
       >
-        <Modal.Header>Uninstall "{name}"</Modal.Header>
+        <Modal.Header>Uninstall All Apps</Modal.Header>
         <Modal.Body>
           <div className={"flex flex-col gap-6"}>
             <p className={"mb-4 text-sm dark:text-white"}>
-              Uninstalling <strong>{name}</strong> will remove all cloud
-              resources and data associated with it.
+              Uninstalling all apps will remove all cloud resources and data
+              associated with your entire stack.
             </p>
 
             <div>
@@ -142,7 +129,7 @@ export default function UninstallAppModal({
             {/*  <Label htmlFor="removeFromStack">Remove from stack</Label>*/}
             {/*  <span className="text-xs text-gray-400 dark:text-gray-500">*/}
             {/*    <i>*/}
-            {/*      (This will remove the app and its configuration from your*/}
+            {/*      (This will remove all apps and their configuration from your*/}
             {/*      stack.)*/}
             {/*    </i>*/}
             {/*  </span>*/}
@@ -161,7 +148,8 @@ export default function UninstallAppModal({
                 disabled={
                   Object.entries(errors).length > 0 ||
                   !watchConfirmation ||
-                  isSubmitting
+                  isSubmitting ||
+                  !isValid
                 }
                 isProcessing={isSubmitting}
                 processingSpinner={

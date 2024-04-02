@@ -4,7 +4,7 @@ import classNames from "classnames";
 import { FaCheckCircle } from "react-icons/fa";
 import { FaRegCircleDot } from "react-icons/fa6";
 import { useStepper } from "../hooks/useStepper";
-import type { Step } from "../context/StepperContext";
+import type { Step } from "../context/StepperContext.ts";
 import { Button, useThemeMode } from "flowbite-react";
 import { AiOutlineLoading } from "react-icons/ai";
 

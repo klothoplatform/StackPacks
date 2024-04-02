@@ -11,6 +11,7 @@ type ConfigSectionProps = {
   removable?: boolean;
   defaultOpened?: boolean;
   alwaysOpen?: boolean;
+  icon?: React.ReactNode;
 };
 
 export const ConfigSection: FC<PropsWithChildren<ConfigSectionProps>> = ({
@@ -19,6 +20,7 @@ export const ConfigSection: FC<PropsWithChildren<ConfigSectionProps>> = ({
   removable,
   children,
   defaultOpened,
+  icon,
 }) => {
   const { unregister, getValues } = useFormContext();
 
@@ -35,10 +37,11 @@ export const ConfigSection: FC<PropsWithChildren<ConfigSectionProps>> = ({
         <Accordion.Title
           title={title}
           className={
-            "px-2 py-1 text-sm [&>h2]:overflow-hidden [&>h2]:text-ellipsis"
+            "p-2 text-base [&>h2]:overflow-hidden [&>h2]:text-ellipsis"
           }
         >
-          <>
+          <div className={"flex items-center gap-2"}>
+            {icon}
             <div
               className={
                 "flex w-full flex-wrap items-center [&>span:first-child]:hidden"
@@ -60,7 +63,7 @@ export const ConfigSection: FC<PropsWithChildren<ConfigSectionProps>> = ({
                 );
               })}
             </div>
-          </>
+          </div>
         </Accordion.Title>
         <>
           {removable && (

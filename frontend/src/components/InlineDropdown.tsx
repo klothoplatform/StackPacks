@@ -11,7 +11,7 @@ const prefixColors: Record<keyof FlowbiteColors, string> = {
   red: "text-red-300 dark:text-red-300",
   yellow: "text-yellow-500 dark:text-yellow-300",
   indigo: "text-indigo-500 dark:text-indigo-300",
-  purple: "text-purple-500 dark:text-purple-300",
+  purple: "text-purple-300 dark:text-purple-300",
   pink: "text-pink-500 dark:text-pink-300",
   teal: "text-teal-500 dark:text-teal-300",
   cyan: "text-cyan-500 dark:text-cyan-300",

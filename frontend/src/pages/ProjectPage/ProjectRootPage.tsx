@@ -59,8 +59,8 @@ function ProjectRootPage() {
   }, [getStackPacks, getProject, isAuthenticated, isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && !Object.keys(project?.stack_packs ?? {}).length) {
-      navigate("./add-apps");
+    if (isLoaded && !project?.id) {
+      navigate("/onboarding");
     }
   }, [isLoaded, navigate, project]);
 
