@@ -15,6 +15,15 @@ def abort_workflow_run(
     if default_run_status is None:
         default_run_status = WorkflowRunStatus.CANCELED
     logger.info(f"Aborting workflow run {run.composite_key()}")
+    if run.status not in [
+        WorkflowRunStatus.NEW.value,
+        WorkflowRunStatus.IN_PROGRESS.value,
+        WorkflowRunStatus.PENDING.value,
+    ]:
+        logger.info(
+            f"Workflow run {run.composite_key()} is already in a terminal state"
+        )
+        return
     jobs = run.get_jobs()
     failed = False
     has_in_progress_jobs = False

@@ -94,7 +94,7 @@ class WorkflowRun(Model):
         for run in cls.query(
             project_id,
             range_key_condition=cls.range_key.startswith(
-                f"{workflow_type.value}#{app_id + '#' if app_id else ''}"
+                f"{workflow_type.value}#{app_id if app_id else ''}#"
             ),
             scan_index_forward=False,
             limit=1,
@@ -134,8 +134,6 @@ class WorkflowRun(Model):
         initiated_by: str = None,
         notification_email: str = None,
     ):
-        previous_run = cls.get_latest_run(project_id, workflow_type, app_id)
-
         run = cls(
             project_id=project_id,
             type=workflow_type.value,
@@ -144,6 +142,7 @@ class WorkflowRun(Model):
             notification_email=notification_email,
         )
         for i in range(5):
+            previous_run = cls.get_latest_run(project_id, workflow_type, app_id)
             run_number = previous_run.run_number() + 1 if previous_run else 1
             run.range_key = cls.compose_range_key(
                 workflow_type=workflow_type.value, app_id=app_id, run_number=run_number

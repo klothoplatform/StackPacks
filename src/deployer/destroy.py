@@ -10,11 +10,15 @@ from src.dependencies.injection import get_iac_storage
 from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.util import abort_workflow_run, complete_workflow_run
-from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.models.workflow_job import (
     WorkflowJobStatus,
     WorkflowJobType,
     WorkflowJob,
+)
+from src.deployer.models.workflow_run import (
+    WorkflowRun,
+    WorkflowType,
+    WorkflowRunStatus,
 )
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
@@ -116,14 +120,23 @@ async def run_destroy_application(
     project = Project.get(project_id)
     app = AppDeployment.get_latest_deployed_version(project_id, app_id)
     if app is None:
+        job_status = WorkflowJobStatus.SUCCEEDED
         logger.info(f"Skipping destroy for {app_id} as it is not deployed")
         destroy_request.workflow_job.update(
             actions=[
-                WorkflowJob.status.set(WorkflowJobStatus.SKIPPED.value),
+                WorkflowJob.status.set(job_status.value),
                 WorkflowJob.status_reason.set("Not deployed"),
                 WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
             ]
         )
+        app = AppDeployment.get_latest_version(project_id, app_id)
+        if app and app.status not in [
+            AppLifecycleStatus.NEW.value,
+            AppLifecycleStatus.UNINSTALLED.value,
+        ]:
+            app.transition_status(
+                status=job_status, action=WorkflowJobType.DESTROY, reason="Not deployed"
+            )
         return DeploymentResult(
             manager=None,
             status=WorkflowJobStatus.SKIPPED,
@@ -233,7 +246,10 @@ async def destroy_applications(
         tmp_dir=tmp_dir,
     )
 
-    return all(result.status == WorkflowJobStatus.SUCCEEDED for result in results)
+    return all(
+        result.status in [WorkflowJobStatus.SUCCEEDED, WorkflowJobStatus.SKIPPED]
+        for result in results
+    )
 
 
 async def destroy_app(
@@ -302,13 +318,13 @@ async def execute_destroy_single_workflow(run: WorkflowRun, destroy_common: bool
                 ]:
                     await destroy_app(destroy_common_job, tmp_dir)
                 else:
-                    abort_workflow_run(run, default_run_status=WorkflowJobStatus.FAILED)
+                    abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
                     return
             complete_workflow_run(run)
 
     except Exception as e:
         logger.error(f"Error destroying {run.composite_key()}: {e}")
-        abort_workflow_run(run)
+        abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
     finally:
         project.update(actions=[Project.destroy_in_progress.set(False)])
 

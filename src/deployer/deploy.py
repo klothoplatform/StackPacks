@@ -114,8 +114,8 @@ async def build_and_deploy(
             reason=reason,
             stack=pulumi_stack,
         )
-    except Exception as e:
-        logger.error(f"Error deploying {app_id}: {e}", exc_info=True)
+    except Exception:
+        logger.error(f"Error deploying {app_id}", exc_info=True)
         pulumi_stack.update(
             actions=[
                 PulumiStack.status.set(WorkflowJobStatus.FAILED.value),
@@ -350,7 +350,7 @@ async def execute_deployment_workflow(
             ),
         )
         common_stack = CommonStack(list(stack_packs.values()), project.features)
-        apps: list[UserApp] = []
+        apps: list[AppDeployment] = []
 
         for app_name, version in project.apps.items():
             if app_name == Project.COMMON_APP_NAME:
@@ -370,7 +370,6 @@ async def execute_deployment_workflow(
             )
 
         try:
-
             logger.info(f"Deploying common stack")
             binary_storage.ensure_binary(Binary.IAC)
 
@@ -423,20 +422,11 @@ async def execute_deployment_workflow(
                         ),
                     ]
                 )
-            if result.status == WorkflowJobStatus.FAILED:
-                run.update(
-                    actions=[
-                        WorkflowRun.status.set(WorkflowRunStatus.FAILED.value),
-                        WorkflowRun.status_reason.set(
-                            f"{get_app_name(Project.COMMON_APP_NAME)} failed to deploy: {result.reason}"
-                        ),
-                    ]
-                )
                 for app in apps:
                     app.transition_status(
                         WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, result.reason
                     )
-                abort_workflow_run(run)
+                abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
                 return
 
             live_state = await result.manager.read_deployed_state()
@@ -465,14 +455,14 @@ async def execute_deployment_workflow(
                 if run.notification_email is not None:
                     app_data = [
                         AppData(
-                            app_name=app.get_app_name(),
+                            app_name=app.display_name or app.app_id(),
                             login_url=app.outputs.get("URL"),
                         )
                         for app in apps
                     ]
                     send_deployment_success_email(get_ses_client(), email, app_data)
         except Exception as e:
-            abort_workflow_run(run)
+            abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
             for app_name, version in project.apps.items():
                 if app_name == Project.COMMON_APP_NAME:
                     continue
@@ -566,7 +556,7 @@ async def execute_deploy_single_workflow(
                 app.transition_status(
                     result.status, WorkflowJobType.DEPLOY, result.reason
                 )
-                abort_workflow_run(run)
+                abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
                 return
             live_state = await result.manager.read_deployed_state()
             constraints = live_state.to_constraints(
@@ -588,11 +578,17 @@ async def execute_deploy_single_workflow(
             )
             complete_workflow_run(run)
             if run.notification_email is not None:
+                app_data = [
+                    AppData(
+                        app_name=app.display_name or app.app_id(),
+                        login_url=app.outputs.get("URL"),
+                    )
+                ]
                 send_deployment_success_email(
-                    get_ses_client(), run.notification_email, [app_id]
+                    get_ses_client(), run.notification_email, app_data
                 )
     except Exception as e:
-        abort_workflow_run(run)
+        abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
         if app.status == AppLifecycleStatus.PENDING.value:
             app.transition_status(
                 WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, str(e)

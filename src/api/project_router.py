@@ -33,8 +33,8 @@ class StackResponse(BaseModel):
 
 @router.post("/api/project")
 async def create_stack(
-        request: Request,
-        body: StackRequest,
+    request: Request,
+    body: StackRequest,
 ) -> StackResponse:
     user_id = await get_user_id(request)
     try:
@@ -94,8 +94,8 @@ class UpdateStackRequest(BaseModel):
 
 @router.patch("/api/project")
 async def update_stack(
-        request: Request,
-        body: UpdateStackRequest,
+    request: Request,
+    body: UpdateStackRequest,
 ) -> StackResponse:
     user_id = await get_user_id(request)
     project = Project.get(user_id)
@@ -115,7 +115,7 @@ async def update_stack(
                 raise HTTPException(
                     status_code=400,
                     detail="Cannot change region while project has deployed "
-                           "applications",
+                    "applications",
                 )
         actions.append(Project.region.set(body.region))
     if len(actions) > 0:
@@ -124,7 +124,6 @@ async def update_stack(
     # TODO: Determine if the base stack needs changing (this will only be true when we have samples that arent just ECS + VPC)
     # If this is the case we also need to build in the diff ability of the base stack to ensure that we arent going to delete any imported resources to other stacks
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
-    policy = None
     if body.configuration or body.health_monitor_enabled:
         configuration: dict[str, ConfigValues] = body.configuration or {}
         if body.health_monitor_enabled:
@@ -134,7 +133,9 @@ async def update_stack(
             project.features = []
         if body.configuration is None:
             for app, version in project.apps.items():
-                app_deployment = AppDeployment.get(project.id, AppDeployment.compose_range_key(app, version))
+                app_deployment = AppDeployment.get(
+                    project.id, AppDeployment.compose_range_key(app, version)
+                )
                 configuration[app] = app_deployment.get_configurations()
                 logger.info(f"Configuration for {app} is {configuration[app]}")
         stack_packs = get_stack_packs()
@@ -178,7 +179,7 @@ async def my_stack(request: Request) -> ProjectView:
 
 @router.get("/api/project/workflows/runs")
 async def get_workflow_runs(
-        request: Request,
+    request: Request,
 ):
     user_id = await get_user_id(request)
 
@@ -205,9 +206,9 @@ class AppRequest(BaseModel):
 
 @router.post("/api/project/{app_id}")
 async def add_app(
-        request: Request,
-        app_id: str,
-        body: AppRequest,
+    request: Request,
+    app_id: str,
+    body: AppRequest,
 ) -> StackResponse:
     user_id = await get_user_id(request)
     project = Project.get(user_id)
@@ -250,9 +251,9 @@ async def add_app(
 
 @router.patch("/api/project/{app_id}")
 async def update_app(
-        request: Request,
-        app_id: str,
-        body: AppRequest,
+    request: Request,
+    app_id: str,
+    body: AppRequest,
 ) -> StackResponse:
     user_id = await get_user_id(request)
     project = Project.get(user_id)
@@ -289,8 +290,8 @@ async def update_app(
 
 @router.delete("/api/project/{app_name}")
 async def remove_app(
-        request: Request,
-        app_name: str,
+    request: Request,
+    app_name: str,
 ):
     user_id = await get_user_id(request)
     project = Project.get(user_id)
@@ -305,8 +306,8 @@ async def remove_app(
         configuration[app] = user_app.get_configurations()
 
     if len(configuration) == 0 or (
-            len(configuration) == 1
-            and configuration.get(Project.COMMON_APP_NAME, None) is not None
+        len(configuration) == 1
+        and configuration.get(Project.COMMON_APP_NAME, None) is not None
     ):
         project.apps = {}
         project.save()

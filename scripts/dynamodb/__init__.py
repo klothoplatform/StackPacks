@@ -106,7 +106,7 @@ async def get_user_app(pack_id, app_name):
     dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
 
     # Get the table
-    table = dynamodb.Table("UserApps")
+    table = dynamodb.Table("AppDeployments")
 
     # Create the app_id
     app_id = f"{pack_id}#{app_name}"
