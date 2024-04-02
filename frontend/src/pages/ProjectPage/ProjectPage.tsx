@@ -27,8 +27,6 @@ import {
   hasDeploymentInProgress,
   toAppStatusString,
 } from "../../shared/models/Project.ts";
-import AWSLogoLight from "/images/Amazon_Web_Services_Logo.svg";
-import AWSLogoDark from "/images/aws_logo_white.png";
 import { outlineBadge } from "../../shared/custom-themes.ts";
 import { RiInstallFill, RiUninstallFill } from "react-icons/ri";
 import UninstallAppModal from "./UninstallAppModal.tsx";
@@ -118,7 +116,6 @@ export const ProjectPage: FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { mode } = useThemeMode();
-  const AWSLogo = mode === "dark" ? AWSLogoDark : AWSLogoLight;
   const navigate = useNavigate();
   const [refreshInterval, setRefreshInterval] = useState(30 * 1000);
 

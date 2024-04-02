@@ -27,7 +27,7 @@ type WorkflowStep = Step & {
 };
 
 export function OnboardingPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { updateOnboardingWorkflowState, project, getProject } =
     useApplicationStore();
   const navigate = useNavigate();

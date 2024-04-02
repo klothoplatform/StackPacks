@@ -23,7 +23,7 @@ export async function getStackPacks(
       message: "An error occurred while getting the StackPack list.",
       status: e.status,
       statusText: e.message,
-      path: e.request?.url,
+      url: e.request?.url,
       cause: e,
     });
     trackError(error);

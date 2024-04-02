@@ -9,10 +9,7 @@ import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { UIError } from "../../shared/errors.ts";
 import { AiOutlineLoading } from "react-icons/ai";
 import { setEquals } from "../../shared/object-util.ts";
-import {
-  AppChooserContext,
-  useAppChooser,
-} from "../../context/AppChooserContext.tsx";
+import { AppChooserContext } from "../../context/AppChooserContext.tsx";
 import { useScreenSize } from "../../hooks/useScreenSize.ts";
 import { AppChooserLayout } from "../../components/AppChooser.ts";
 import {
@@ -20,6 +17,7 @@ import {
   AppChooserLayoutSelector,
   AppSearch,
 } from "../../components/AppChooser.tsx";
+import { useAppChooser } from "../../hooks/UseAppChooser.tsx";
 
 export interface ChooseAppsFormState {
   selectedApps: string[];

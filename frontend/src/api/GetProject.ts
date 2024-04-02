@@ -27,7 +27,7 @@ export async function getProject(idToken: string): Promise<Project> {
       message: "An error occurred while getting your project.",
       status: e.response?.status,
       statusText: e.response?.message || e.message,
-      path: e.request?.url,
+      url: e.request?.url,
       cause: e,
     });
     trackError(error);

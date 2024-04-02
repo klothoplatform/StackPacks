@@ -31,7 +31,7 @@ export async function uninstallApp({
       message: "An error occurred while tearing down your app.",
       status: e.status,
       statusText: e.message,
-      path: e.request?.url,
+      url: e.request?.url,
       cause: e,
     });
     trackError(error);

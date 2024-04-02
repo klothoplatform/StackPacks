@@ -57,7 +57,7 @@ export async function subscribeToLogStream({
           message: await response.text(),
           status: response.status,
           statusText: response.statusText,
-          path: response.url,
+          url: response.url,
         });
       } else {
         throw new RetryableError();

@@ -32,7 +32,7 @@ export async function updateProject(
       message: "An error occurred while updating your project",
       status: e.status,
       statusText: e.message,
-      path: e.request?.url,
+      url: e.request?.url,
       cause: e,
     });
     trackError(error);

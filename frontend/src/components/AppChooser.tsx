@@ -16,8 +16,8 @@ import { useScreenSize } from "../hooks/useScreenSize.ts";
 import { MdCheckCircle, MdGridView, MdTableRows } from "react-icons/md";
 import { SelectableCard } from "./SelectableCard.tsx";
 import { AppLogo } from "./AppLogo.tsx";
-import { useAppChooser } from "../context/AppChooserContext.tsx";
 import { AppChooserLayout } from "./AppChooser.ts";
+import { useAppChooser } from "../hooks/UseAppChooser.tsx";
 
 const tabTheme: CustomFlowbiteTheme["tabs"] = {
   tablist: {

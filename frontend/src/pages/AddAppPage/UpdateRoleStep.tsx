@@ -14,8 +14,6 @@ export interface ConnectAccountFormState {
   assumedRoleArn: string;
 }
 
-const MANAGED_POLICIES = [].map(encodeURIComponent).join("&policies=");
-
 export const UpdateRoleStep: FC<StepperNavigatorProps> = (props) => {
   const {
     onboardingWorkflowState: { externalId },
@@ -34,7 +32,7 @@ export const UpdateRoleStep: FC<StepperNavigatorProps> = (props) => {
     });
   }, [methods, project?.assumed_role_arn]);
 
-  const { isValid, errors, isDirty } = methods.formState;
+  const { isValid, isDirty } = methods.formState;
 
   const completeStep = async (data: ConnectAccountFormState) => {
     if (!isDirty) {

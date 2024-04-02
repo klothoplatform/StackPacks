@@ -34,7 +34,7 @@ export async function createProject(
       message: "An error occurred while creating your stack.",
       status: e.status,
       statusText: e.message,
-      path: e.request?.url,
+      url: e.request?.url,
       cause: e,
     });
     trackError(error);
