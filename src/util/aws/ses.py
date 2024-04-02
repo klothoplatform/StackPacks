@@ -78,7 +78,9 @@ def create_installation_body_text(apps: list[AppData]):
     """
 
 
-def send_deployment_success_email(client: boto3.client, recipient: str, applications: list[AppData]):
+def send_deployment_success_email(
+    client: boto3.client, recipient: str, applications: list[AppData]
+):
     # This address must be verified with Amazon SES.
     sender_address = os.getenv("SES_SENDER_ADDRESS", None)
     sender = f"Stack Snap <{sender_address}>"

@@ -850,7 +850,7 @@ class TestDeploy(aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         user_pack = MagicMock(
-            spec=Project ,
+            spec=Project,
             id="id",
             apps={"common": 1},
             tear_down_in_progress=True,
