@@ -23,9 +23,9 @@ from src.deployer.models.workflow_run import (
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.stack_pack.models.app_deployment import AppDeployment, AppLifecycleStatus
-from src.stack_pack.models.project import Project
-from src.stack_pack.storage.iac_storage import IaCDoesNotExistError
+from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
+from src.project.models.project import Project
+from src.project.storage.iac_storage import IaCDoesNotExistError
 from src.util.logging import logger
 from src.util.tmp import TempDir
 

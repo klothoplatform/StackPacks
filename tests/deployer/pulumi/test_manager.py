@@ -1,7 +1,7 @@
 import aiounittest
 from unittest.mock import patch, MagicMock
 from src.deployer.pulumi.manager import AppManager
-from src.stack_pack.live_state import LiveState
+from src.project.live_state import LiveState
 from src.engine_service.engine_commands.get_live_state import GetLiveStateRequest
 
 

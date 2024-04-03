@@ -29,11 +29,11 @@ from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
 from src.deployer.pulumi.manager import AppManager, LiveState
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
-from src.stack_pack import ConfigValues, StackPack, get_app_name, get_stack_packs
-from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.app_deployment import AppDeployment, AppLifecycleStatus
-from src.stack_pack.models.project import Project
-from src.stack_pack.storage.iac_storage import IacStorage
+from src.project import ConfigValues, StackPack, get_app_name, get_stack_packs
+from src.project.common_stack import CommonStack
+from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
+from src.project.models.project import Project
+from src.project.storage.iac_storage import IacStorage
 from src.util.aws.ses import AppData, send_deployment_success_email
 from src.util.logging import logger
 from src.util.tmp import TempDir
@@ -114,8 +114,10 @@ async def build_and_deploy(
             reason=reason,
             stack=pulumi_stack,
         )
-    except Exception:
-        logger.error(f"Error deploying {app_id}", exc_info=True)
+    except Exception as e:
+        logger.error(
+            f"Error deploying {app_id} for project {project_id}: {e}", exc_info=True
+        )
         pulumi_stack.update(
             actions=[
                 PulumiStack.status.set(WorkflowJobStatus.FAILED.value),

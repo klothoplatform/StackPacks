@@ -1,6 +1,6 @@
 import asyncio
-from datetime import datetime, timezone
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Iterable
 
@@ -21,14 +21,14 @@ from src.deployer.models.workflow_run import (
     WorkflowType,
 )
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.stack_pack import ConfigValues, StackPack
-from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.models.app_deployment import (
+from src.project import ConfigValues, StackPack
+from src.project.common_stack import CommonStack
+from src.project.models.app_deployment import (
     AppLifecycleStatus,
     AppDeployment,
     AppDeploymentView,
 )
-from src.stack_pack.storage.iac_storage import IacStorage
+from src.project.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.logging import logger
 
@@ -57,11 +57,11 @@ class Project(Model):
     policy: str = UnicodeAttribute(null=True)
 
     def get_workflow_runs(
-        self,
-        *,
-        workflow_type: Optional[WorkflowType],
-        status: Optional[WorkflowRunStatus],
-        app_id: Optional[str],
+            self,
+            *,
+            workflow_type: Optional[WorkflowType],
+            status: Optional[WorkflowRunStatus],
+            app_id: Optional[str],
     ) -> Iterable[WorkflowRun]:
         range_key_condition = WorkflowRun.range_key.startswith(
             f"{workflow_type.value}#{app_id if app_id is not None else ''}"
@@ -80,13 +80,13 @@ class Project(Model):
             return filter(lambda x: x.app_id() == app_id, results)
 
     async def run_base(
-        self,
-        stack_packs: List[StackPack],
-        config: ConfigValues,
-        iac_storage: IacStorage,
-        binary_storage: BinaryStorage,
-        tmp_dir: str,
-        dry_run: bool = False,
+            self,
+            stack_packs: List[StackPack],
+            config: ConfigValues,
+            iac_storage: IacStorage,
+            binary_storage: BinaryStorage,
+            tmp_dir: str,
+            dry_run: bool = False,
     ) -> Policy:
         base_stack = CommonStack(stack_packs, self.features)
         base_version = self.apps.get(Project.COMMON_APP_NAME, None)
@@ -95,10 +95,10 @@ class Project(Model):
             try:
                 app = None
                 for result in AppDeployment.query(
-                    self.id,
-                    range_key_condition=AppDeployment.range_key
-                    == f"{Project.COMMON_APP_NAME}#{base_version}",
-                    limit=1,
+                        self.id,
+                        range_key_condition=AppDeployment.range_key
+                                            == f"{Project.COMMON_APP_NAME}#{base_version:08}",
+                        limit=1,
                 ):
                     app = result
                     break
@@ -107,11 +107,12 @@ class Project(Model):
                     project_id=self.id, app_id=Project.COMMON_APP_NAME
                 )
                 if (
-                    latest_version is not None
-                    and app is not None
-                    and latest_version.version() >= app.version()
+                        latest_version is not None
+                        and app is not None
+                        and latest_version.version() >= app.version()
                 ):
-                    app.range_key.version = latest_version.version() + 1
+                    app.range_key = AppDeployment.compose_range_key(app_id=app.app_id(),
+                                                                    version=latest_version.version() + 1)
                     app.deployments = {}
             except DoesNotExist as e:
                 logger.info(
@@ -149,14 +150,14 @@ class Project(Model):
         return policy
 
     async def run_pack(
-        self,
-        stack_packs: dict[str, StackPack],
-        config: dict[str, ConfigValues],
-        tmp_dir: str,
-        iac_storage: IacStorage = None,
-        binary_storage: BinaryStorage = None,
-        increment_versions: bool = True,
-        imports: list[any] = [],
+            self,
+            stack_packs: dict[str, StackPack],
+            config: dict[str, ConfigValues],
+            tmp_dir: str,
+            iac_storage: IacStorage = None,
+            binary_storage: BinaryStorage = None,
+            increment_versions: bool = True,
+            imports: list[any] = [],
     ) -> Policy:
         """Run the stack packs with the given configuration and return the combined policy
 
@@ -197,10 +198,12 @@ class Project(Model):
                             project_id=self.id, app_id=app_id
                         )
                         if (
-                            latest_version is not None
-                            and latest_version.version() >= app.version()
+                                latest_version is not None
+                                and latest_version.version() >= app.version()
                         ):
-                            app.r = latest_version.version() + 1
+                            app.range_key = AppDeployment.compose_range_key(
+                                app_id=app.app_id(), version=latest_version.version() + 1
+                            )
                             app.deployments = {}
                 except DoesNotExist as e:
                     logger.info(
@@ -215,7 +218,7 @@ class Project(Model):
                     created_at=datetime.now(timezone.utc),
                     configuration=config,
                     status=AppLifecycleStatus.NEW.value,
-                    display_name=stack_packs[app_id].name,
+                    display_name=stack_packs[app_id].name if stack_packs.get(app_id, None) else app_id,
                 )
             apps.append(app)
 

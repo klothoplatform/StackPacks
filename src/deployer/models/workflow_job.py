@@ -13,7 +13,7 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import PutError
 from pynamodb.models import Model
 
-from src.stack_pack import get_app_name
+from src.project import get_app_name
 from src.util.logging import logger
 
 

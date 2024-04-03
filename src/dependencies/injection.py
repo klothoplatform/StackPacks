@@ -3,7 +3,7 @@ import os
 import boto3
 
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.stack_pack.storage.iac_storage import IacStorage
+from src.project.storage.iac_storage import IacStorage
 
 if os.getenv("STACK_SNAP_BINARIES_BUCKET_NAME", None) is None:
     s3_resource = boto3.resource(

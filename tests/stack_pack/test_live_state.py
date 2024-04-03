@@ -2,9 +2,9 @@ from unittest.mock import Mock
 
 import aiounittest
 
-from src.stack_pack import ConfigValues, Edges, Properties, Resources
-from src.stack_pack.common_stack import CommonStack
-from src.stack_pack.live_state import LiveState
+from src.project import ConfigValues, Edges, Properties, Resources
+from src.project.common_stack import CommonStack
+from src.project.live_state import LiveState
 
 
 class TestLiveState(aiounittest.AsyncTestCase):

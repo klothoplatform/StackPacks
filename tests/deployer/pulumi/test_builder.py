@@ -2,6 +2,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import aiounittest
+from pulumi.automation import ConfigValue
 
 from src.deployer.pulumi.builder import AppBuilder
 from src.util.tmp import TempDir
@@ -14,11 +15,11 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
     @patch("src.deployer.pulumi.builder.zipfile.ZipFile")
     @patch("src.deployer.pulumi.builder.io.BytesIO")
     def test_prepare_stack(
-        self,
-        mock_bytes_io,
-        mock_zip_file,
-        mock_run,
-        mock_create_or_select_stack,
+            self,
+            mock_bytes_io,
+            mock_zip_file,
+            mock_run,
+            mock_create_or_select_stack,
     ):
         # Setup mock objects
         builder = AppBuilder("tmp_dir")
@@ -47,14 +48,18 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
 
         # Call the method
         builder = AppBuilder(MagicMock())
-        builder.configure_aws(mock_stack, "arn", "region")
+        builder.configure_aws(mock_stack, role_arn="arn", region="region", external_id="external_id")
 
         # Assert calls
-        self.assertEqual(len(mock_stack.mock_calls), 2)
-        self.assertEqual(mock_stack.set_config.call_count, 2)
+        self.assertEqual(len(mock_stack.mock_calls), 3)
+        self.assertEqual(mock_stack.set_config.call_count, 3)
         mock_stack.set_config.assert_any_call("aws:region", "region")
+
         mock_stack.set_config.assert_any_call(
             "aws:assumeRole.roleArn", "arn", path=True
+        )
+        mock_stack.set_config.assert_any_call(
+            "aws:assumeRole.externalId", "external_id", path=True
         )
 
     @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")

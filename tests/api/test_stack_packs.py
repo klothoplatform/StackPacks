@@ -15,8 +15,8 @@ from src.api.stack_packs import (
     stream_deployment_logs,
     update_app,
 )
-from src.stack_pack.models.app_deployment import AppDeployment
-from src.stack_pack.models.project import Project, ProjectView
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project, ProjectView
 from src.util.aws.iam import Policy
 
 

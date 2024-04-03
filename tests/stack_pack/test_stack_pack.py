@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic_yaml import parse_yaml_file_as
 
-from src.stack_pack import StackPack
+from src.project import StackPack
 
 
 class TestStackPack(unittest.TestCase):

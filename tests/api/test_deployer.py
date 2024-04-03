@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 import aiounittest
 from fastapi.responses import StreamingResponse
 
-from src.api.deployer import (
+from src.api.workflow_router import (
     install,
     install_app,
-    tear_down,
-    tear_down_app,
+    uninstall_all_apps,
+    uninstall_app,
 )
 from src.deployer.deploy import (
     execute_deployment_workflow,
@@ -17,9 +17,9 @@ from src.deployer.destroy import (
     execute_destroy_all_workflow,
     execute_destroy_single_workflow,
 )
-from src.stack_pack import StackPack
-from src.stack_pack.models.app_deployment import AppDeployment
-from src.stack_pack.models.project import Project
+from src.project import StackPack
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project
 
 
 class TestRoutes(aiounittest.AsyncTestCase):
@@ -86,7 +86,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
-        user_pack = MagicMock(spec=Project, tear_down_in_progress=False)
+        user_pack = MagicMock(spec=Project, uninstall_in_progress=False)
         mock_get_pack.return_value = user_pack
         user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
@@ -123,7 +123,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.uuid")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get_latest_version")
-    async def test_install_app_tear_down_ongoing(
+    async def test_install_app_uninstall_ongoing(
         self,
         mock_get_latest_app,
         mock_get_pack,
@@ -136,7 +136,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
-        user_pack = MagicMock(spec=Project, tear_down_in_progress=True)
+        user_pack = MagicMock(spec=Project, uninstall_in_progress=True)
         mock_get_pack.return_value = user_pack
         user_app = MagicMock(spec=AppDeployment)
 
@@ -163,7 +163,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.get_user_id")
     @patch("src.api.deployer.BackgroundTasks")
     @patch("src.api.deployer.uuid")
-    async def test_tear_down(
+    async def test_uninstall(
         self,
         mock_uuid,
         mock_bg,
@@ -173,7 +173,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         mock_uuid.uuid4.return_value = "deployment_id"
         mock_get_user_id.return_value = "user_id"
 
-        response = await tear_down(MagicMock(), mock_bg)
+        response = await uninstall_all_apps(MagicMock(), mock_bg)
 
         # Assert calls
         mock_get_user_id.assert_called_once()
@@ -193,7 +193,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.uuid")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get_latest_deployed_version")
-    async def test_tear_down_app(
+    async def test_uninstall_app(
         self,
         mock_get_latest_app,
         mock_get_pack,
@@ -209,7 +209,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
 
-        response = await tear_down_app(
+        response = await uninstall_app(
             MagicMock(),
             mock_bg,
             "app1",
@@ -238,7 +238,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.deployer.uuid")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get_latest_deployed_version")
-    async def test_tear_down_app_wont_destroy_common(
+    async def test_uninstall_app_wont_destroy_common(
         self,
         mock_get_latest_app,
         mock_get_pack,
@@ -256,7 +256,7 @@ class TestRoutes(aiounittest.AsyncTestCase):
         user_app = MagicMock(spec=AppDeployment)
         mock_get_latest_app.return_value = user_app
 
-        response = await tear_down_app(
+        response = await uninstall_app(
             MagicMock(),
             mock_bg,
             "app1",

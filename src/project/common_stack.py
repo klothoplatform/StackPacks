@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
 
-from src.stack_pack import (
+from src.project import (
     BaseRequirements,
     ConfigValues,
     Edges,

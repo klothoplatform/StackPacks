@@ -7,7 +7,7 @@ from src.engine_service.engine_commands.get_live_state import (
     GetLiveStateRequest,
     get_live_state,
 )
-from src.stack_pack.live_state import LiveState
+from src.project.live_state import LiveState
 
 
 class AppManager:
