@@ -140,9 +140,9 @@ base:
     aws:cloudfront_distribution:stacksnap-distribution:
       # TODO: figure out a way to make this less brittle
       Aliases:
-        - dev.stacksnap.io
+        - ${Alias}
       ViewerCertificate:
-        AcmCertificateArn: arn:aws:acm:us-east-1:338991950301:certificate/de37adbe-563d-4b81-b878-8be0e8175ce4 # dev.stacksnap.io
+        AcmCertificateArn: ${CertificateArn}
         SslSupportMethod: sni-only
       CustomErrorResponses:
         - ErrorCode: 403
@@ -187,3 +187,19 @@ base:
     aws:ecs_capacity_provider:stacksnap-capacity-provider -> aws:auto_scaling_group:stacksnap-asg:
     aws:ecs_capacity_provider:stacksnap-capacity-provider -> aws:ecs_cluster_capacity_provider:stacksnap-cluster-capacity-provider:
     aws:auto_scaling_group:stacksnap-asg -> aws:ec2_launch_template:stacksnap-ecs-launch-template:
+
+configuration:
+  Alias:
+    name: Alias
+    description: The alias to use for the cloudfront distribution
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
+  CertificateArn:
+    name: CertificateArn
+    description: The certificate ARN to use for the cloudfront distribution
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128

@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 
 import asyncclick as click
 from pydantic_yaml import parse_yaml_file_as
@@ -9,7 +11,7 @@ from src.engine_service.engine_commands.run import (
     RunEngineResult,
     run_engine,
 )
-from src.project import StackPack
+from src.project import ConfigValues, StackPack
 
 
 @click.group()
@@ -21,14 +23,12 @@ async def iac():
 @click.option(
     "--file", prompt="yaml file", help="The yaml file noting the iac scaffold."
 )
-@click.option("--engine-path", help="The engine path")
-@click.option("--iac-binary-path", help="The iac path.")
+@click.option("--config", help="The config file.")
 @click.option("--project-name", prompt="project name", help="The project name.")
 @click.option("--output-dir", prompt="output directory", help="The output directory.")
 async def generate_iac(
     file: str,
-    engine_path: str,
-    iac_binary_path: str,
+    config: str,
     project_name: str,
     output_dir: str,
 ):
@@ -37,16 +37,22 @@ async def generate_iac(
     except Exception as e:
         raise ValueError(f"Failed to parse {file}") from e
 
-    if engine_path:
-        os.environ.update({"ENGINE_PATH": engine_path})
-    if iac_binary_path:
-        os.environ.update({"IAC_PATH": iac_binary_path})
+    user_config = {}
+    if config:
+        config_path = Path(config)
+        if config_path.suffix == ".yaml":
+            user_config = parse_yaml_file_as(ConfigValues, config)
+        elif config_path.suffix == ".json":
+            config_dict = json.load(config_path)
+            user_config = ConfigValues(config_dict.items())
+        else:
+            raise ValueError(f"Invalid config file (must be json or yaml): {config}")
 
     os.makedirs(output_dir, exist_ok=True)
 
     request = RunEngineRequest(
         tag=project_name,
-        constraints=sp.to_constraints({}),
+        constraints=sp.to_constraints(user_config),
         tmp_dir=output_dir,
     )
 
