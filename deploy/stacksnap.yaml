@@ -66,7 +66,7 @@ base:
             Value: aws:ecs_task_definition:stacksnap-task#ContainerDefinitions[0].MountPoints[0].ContainerPath
     aws:ecr_image:stacksnap-task-image:
       BaseImage: python:3.11-slim-bookworm
-      Context: ".."
+      Context: ../.. # from deploy/<env> to root
       Dockerfile: Dockerfile
     # Compute Infrastructure
     aws:ecs_cluster:stacksnap-ecs-cluster:
