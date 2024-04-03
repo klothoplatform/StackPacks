@@ -43,8 +43,9 @@ async def generate_iac(
         if config_path.suffix == ".yaml":
             user_config = parse_yaml_file_as(ConfigValues, config)
         elif config_path.suffix == ".json":
-            config_dict = json.load(config_path)
-            user_config = ConfigValues(config_dict.items())
+            with open(config_path, "r") as config_path:
+                config_dict = json.load(config_path)
+                user_config = ConfigValues(config_dict.items())
         else:
             raise ValueError(f"Invalid config file (must be json or yaml): {config}")
 
@@ -64,3 +65,4 @@ async def generate_iac(
             tmp_dir=output_dir,
         )
     )
+    sp.copy_files(user_config, Path(output_dir), root=Path(file).parent)

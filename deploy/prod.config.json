@@ -1,4 +1,4 @@
 {
   "Alias": "app.stacksnap.io",
-  "CertificateArn": "arn:aws:acm:us-east-1:338991950301:certificate/de37adbe-563d-4b81-b878-8be0e8175ce4"
+  "CertificateArn": "arn:aws:acm:us-east-1:200804570572:certificate/6cb3a564-c850-4d97-b740-5cd189df90f2"
 }

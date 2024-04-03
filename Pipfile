@@ -28,6 +28,7 @@ black = "*"
 pre-commit = "*"
 coverage = "*"
 moto = "*"
+asyncclick = "*"
 
 [requires]
 python_version = "3.11"

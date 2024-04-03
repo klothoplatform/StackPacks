@@ -188,6 +188,10 @@ base:
     aws:ecs_capacity_provider:stacksnap-capacity-provider -> aws:ecs_cluster_capacity_provider:stacksnap-cluster-capacity-provider:
     aws:auto_scaling_group:stacksnap-asg -> aws:ec2_launch_template:stacksnap-ecs-launch-template:
 
+  files:
+    Dockerfile: {}
+    container_start.sh: {}
+
 configuration:
   Alias:
     name: Alias
