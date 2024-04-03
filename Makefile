@@ -50,7 +50,7 @@ frontend/node_modules: frontend/package.json frontend/package-lock.json
 
 start: frontend/node_modules
 	npm --prefix frontend run start
-
+	
 build-frontend-dev:
 	npm --prefix frontend run build-dev
 

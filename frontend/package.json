@@ -84,6 +84,7 @@
     "serve": "vite preview --port 3100",
     "serve:dev": "npm run build:dev && vite preview --mode production --port 3100",
     "serve:prod": "npm run build:prod && vite preview --mode production --port 3100",
+    "build-local": "env-cmd -f ./.env npm run build",
     "build-dev": "env-cmd -f ./.env.dev npm run build",
     "build-prod": "env-cmd -f ./.env.prod npm run build",
     "test:unit": "vitest run",

@@ -36,3 +36,6 @@ def create_binary_bucket():
 
 def get_binary_storage():
     return BinaryStorage(create_binary_bucket())
+
+def get_pulumi_state_bucket_name():
+    return os.environ.get("PULUMI_STATE_BUCKET_NAME", None)

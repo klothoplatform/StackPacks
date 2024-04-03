@@ -64,6 +64,8 @@ base:
             Value: aws:ses_email_identity:stacksnap-email-identity#EmailIdentity
           - Name: DEPLOY_LOG_DIR
             Value: aws:ecs_task_definition:stacksnap-task#ContainerDefinitions[0].MountPoints[0].ContainerPath
+          - Name: PULUMI_STATE_BUCKET_NAME
+            Value: aws:s3_bucket:stacksnap-pulumi-state-bucket#BucketName
     aws:ecr_image:stacksnap-task-image:
       BaseImage: python:3.11-slim-bookworm
       Context: ../.. # from deploy/<env> to root
@@ -123,6 +125,7 @@ base:
     aws:s3_bucket:stacksnap-binaries:
     aws:s3_bucket:stacksnap-iac-store:
     aws:s3_bucket:stacksnap-ui:
+    aws:s3_bucket:stacksnap-pulumi-state-bucket:
     aws:efs_file_system:stacksnap-shared-storage:
     # Secrets & Identity
     aws:secret:stacksnap-pulumi-access-token:
@@ -187,6 +190,7 @@ base:
     aws:ecs_service:stacksnap-service -> aws:dynamodb_table:pulumi-stacks:
     aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-binaries:
     aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-iac-store:
+    aws:ecs_service:stacksnap-service -> aws:s3_bucket:stacksnap-pulumi-state-bucket:
     aws:ecs_service:stacksnap-service -> aws:efs_file_system:stacksnap-shared-storage:
     # Secrets & Identity
     aws:ecs_service:stacksnap-service -> aws:secret:stacksnap-pulumi-access-token:
