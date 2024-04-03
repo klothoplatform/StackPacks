@@ -11,11 +11,6 @@ on:
         description: The stage (environment) of the deployment
         required: true
         type: string
-      region:
-        description: The region to deploy to
-        required: true
-        type: string
-        default: us-east-1
       engine-ref:
         description: the ref (branch, tag or SHA) of the engine to build
         required: false
@@ -27,18 +22,13 @@ on:
         description: The stage (environment) of the deployment
         required: true
         type: environment
-      region:
-        description: The region to deploy to
-        required: true
-        type: string
-        default: us-east-1
       engine-ref:
         required: false
         type: string
         default: main
 
 concurrency:
-  group: ci-${{ inputs.stage }}-${{ inputs.region }}
+  group: ci-${{ inputs.stage }}-${{ env.AWS_REGION }}
 
 jobs:
 
@@ -67,7 +57,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ env.AWS_REGION }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Download Binaries
         uses: actions/download-artifact@v4
@@ -86,14 +76,14 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           PULUMI_CONFIG_PASSPHRASE: ""
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
         with:
           command: refresh
           work-dir: "./deploy"
-          stack-name: "stacksnap-${{ inputs.stage }}-${{ inputs.region }}"
+          stack-name: "stacksnap-${{ inputs.stage }}-${{ env.AWS_REGION }}"
           upsert: true
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -107,16 +97,16 @@ jobs:
         with:
           command: up
           work-dir: "./deploy"
-          stack-name: "stacksnap-${{ inputs.stage }}-${{ inputs.region }}"
+          stack-name: "stacksnap-${{ inputs.stage }}-${{ env.AWS_REGION }}"
           upsert: true
           config-map: |
             {
-              aws:region: { value: "${{ inputs.region }}", secret: false },
+              aws:region: { value: "${{ env.AWS_REGION }}", secret: false },
             }
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           PULUMI_CONFIG_PASSPHRASE: ""
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
@@ -141,28 +131,28 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
       - name: Upload binaries to S3
         run: |
           aws s3 sync binaries/ s3://${{ steps.pulumi-outputs.outputs.stacksnap_binaries_BucketName }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
       - name: Invalidate CloudFront Cache
         run: |
-          distributionArn=$(aws resourcegroupstaggingapi get-resources --tag-filters Key=RESOURCE_NAME,Values=stacksnap-distribution --region ${{ inputs.region }} --resource-type-filters cloudfront:distribution --query "ResourceTagMappingList[0].ResourceARN" --output text)
+          distributionArn=$(aws resourcegroupstaggingapi get-resources --tag-filters Key=RESOURCE_NAME,Values=stacksnap-distribution --region ${{ env.AWS_REGION }} --resource-type-filters cloudfront:distribution --query "ResourceTagMappingList[0].ResourceARN" --output text)
           aws cloudfront create-invalidation --distribution-id "${distributionArn##*/}" --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
       - name: Upload Secrets
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           aws secretsmanager put-secret-value --secret-id stacksnap-pulumi-access-token --secret-string "${PULUMI_ACCESS_TOKEN}"
       - name: pulumi - up
@@ -170,16 +160,16 @@ jobs:
         with:
           command: up
           work-dir: "./deploy"
-          stack-name: "stacksnap-${{ inputs.stage }}-${{ inputs.region }}"
+          stack-name: "stacksnap-${{ inputs.stage }}-${{ env.AWS_REGION }}"
           upsert: true
           config-map: |
             {
-              aws:region: { value: "${{ inputs.region }}", secret: false },
+              aws:region: { value: "${{ env.AWS_REGION }}", secret: false },
             }
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           PULUMI_CONFIG_PASSPHRASE: ""
-          AWS_REGION: ${{ inputs.region }}
+          AWS_REGION: ${{ env.AWS_REGION }}
           STAGE: ${{ inputs.stage }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
