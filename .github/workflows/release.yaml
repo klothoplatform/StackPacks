@@ -77,8 +77,8 @@ jobs:
       - name: Generate IaC
         run: |
           pipenv install --dev
-          export ENGINE_PATH="$(find . -name 'engine' -type f)"
-          export IAC_PATH="$(find . -name 'iac' -type f)"
+          export ENGINE_PATH="$(find $(pwd) -name 'engine' -type f)"
+          export IAC_PATH="$(find $(pwd) -name 'iac' -type f)"
           echo "ENGINE_PATH: $ENGINE_PATH ; IAC_PATH: $IAC_PATH"
           PYTHONPATH=. pipenv run python scripts/cli.py iac generate-iac --file ./deploy/stacksnap.yaml --config ./deploy/${{ inputs.stage }}.config.json --project-name stacksnap-${{ inputs.stage }} --output-dir deploy/${{ inputs.stage }}
       - name: Pulumi Refresh
