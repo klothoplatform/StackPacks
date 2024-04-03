@@ -55,9 +55,9 @@ base:
           - Name: STACK_SNAP_BINARIES_BUCKET_NAME
             Value: aws:s3_bucket:stacksnap-binaries#BucketName
           - Name: AUTH0_DOMAIN
-            Value: klotho-dev.us.auth0.com
+            Value: ${AuthDomain}
           - Name: AUTH0_AUDIENCE
-            Value: hZwtQWajZBlAM7lKOp6jr98py5v13jCk
+            Value: ${AuthAudience}
           - Name: PULUMI_ACCESS_TOKEN_ID
             Value: aws:secret:stacksnap-pulumi-access-token#Id
           - Name: SES_SENDER_ADDRESS
@@ -212,6 +212,20 @@ configuration:
   CertificateArn:
     name: CertificateArn
     description: The certificate ARN to use for the cloudfront distribution
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
+  AuthDomain:
+    name: AuthDomain
+    description: The Auth0 domain
+    type: string
+    validation:
+      minLength: 1
+      maxLength: 128
+  AuthAudience:
+    name: AuthAudience
+    description: The Auth0 audience
     type: string
     validation:
       minLength: 1
