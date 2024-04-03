@@ -8,7 +8,7 @@ import type {
   FlowbiteColors,
 } from "flowbite-react";
 import { Card } from "flowbite-react";
-import { twMerge } from "tw-merge";
+import { twMerge } from "tailwind-merge";
 
 type SelectableCardProps = CardProps & {
   selected?: boolean;

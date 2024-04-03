@@ -1,5 +1,5 @@
 import type { FC, ImgHTMLAttributes } from "react";
-import { twMerge } from "tw-merge";
+import { twMerge } from "tailwind-merge";
 import Gitea from "/images/logos/gitea.svg";
 import Mattermost from "/images/logos/mattermost.svg";
 import mattermostDark from "/images/logos/mattermost-dark.svg";
