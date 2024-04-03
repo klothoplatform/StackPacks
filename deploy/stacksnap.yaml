@@ -17,18 +17,21 @@ base:
       ExecutionRole: aws:iam_role:stacksnap-ecs-task-role
       TaskRole: aws:iam_role:stacksnap-ecs-task-role
       Volumes:
-        - Name: "docker_sock"
+        - Name: docker_sock
           Host:
-            SourcePath: "/var/run/docker.sock"
+            SourcePath: /var/run/docker.sock
       ContainerDefinitions[0]:
         Image: aws:ecr_image:stacksnap-task-image
         Name: stacksnap-backend
         Cpu: 512
         Memory: 3200
         Essential: true
+        MountPoints[0]:
+          SourceVolume: stacksnap-service-stacksnap-shared-storage
+          ContainerPath: /app/deployments
         MountPoints:
-          -  SourceVolume: "docker_sock"
-             ContainerPath: "/var/run/docker.sock"
+          -  SourceVolume: docker_sock
+             ContainerPath: /var/run/docker.sock
         PortMappings[0]:
           ContainerPort: 80
           HostPort: 80
@@ -59,6 +62,8 @@ base:
             Value: aws:secret:stacksnap-pulumi-access-token#Id
           - Name: SES_SENDER_ADDRESS
             Value: aws:ses_email_identity:stacksnap-email-identity#EmailIdentity
+          - Name: DEPLOY_LOG_DIR
+            Value: aws:ecs_task_definition:stacksnap-task#ContainerDefinitions[0].MountPoints[0].ContainerPath
     aws:ecr_image:stacksnap-task-image:
       BaseImage: python:3.11-slim-bookworm
       Context: ".."
@@ -75,40 +80,44 @@ base:
     aws:ecs_capacity_provider:stacksnap-capacity-provider:
     # Data Persistence
     aws:dynamodb_table:projects:
-      Attributes:
-          - Name: id
-            Type: S
+      Attributes[0]:
+        Name: id
+        Type: S
       HashKey: id
     aws:dynamodb_table:project-applications:
+      Attributes[0]:
+        Name: project_id
+        Type: S
       Attributes:
-        - Name: project_id
-          Type: S
-        - Name: range_key
-          Type: S
+      - Name: range_key
+        Type: S
       HashKey: project_id
       RangeKey: range_key
     aws:dynamodb_table:workflow-runs:
+      Attributes[0]:
+        Name: project_id
+        Type: S
       Attributes:
-        - Name: project_id
-          Type: S
-        - Name: range_key
-          Type: S
+      - Name: range_key
+        Type: S
       HashKey: project_id
       RangeKey: range_key
     aws:dynamodb_table:workflow-jobs:
-        Attributes:
-          - Name: partition_key
-            Type: S
-          - Name: job_number
-            Type: N
-        HashKey: partition_key
-        RangeKey: job_number
-    aws:dynamodb_table:pulumi-stacks:
+      Attributes[0]:
+        Name: partition_key
+        Type: S
       Attributes:
-        - Name: project_name
-          Type: S
-        - Name: name
-          Type: S
+      - Name: job_number
+        Type: N
+      HashKey: partition_key
+      RangeKey: job_number
+    aws:dynamodb_table:pulumi-stacks:
+      Attributes[0]:
+        Name: project_name
+        Type: S
+      Attributes:
+      - Name: name
+        Type: S
       HashKey: project_name
       RangeKey: name
     aws:s3_bucket:stacksnap-binaries:
