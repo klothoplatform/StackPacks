@@ -9,7 +9,7 @@ from src.engine_service.engine_commands.run import (
     RunEngineResult,
     run_engine,
 )
-from src.stack_pack import StackPack
+from src.project import StackPack
 
 
 @click.group()

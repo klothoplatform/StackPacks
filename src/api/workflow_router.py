@@ -20,8 +20,8 @@ from src.deployer.destroy import (
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.pulumi.deploy_logs import DeploymentDir
-from src.stack_pack.models.app_deployment import AppDeployment
-from src.stack_pack.models.project import Project
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project
 from src.util.logging import logger
 
 router = APIRouter()

@@ -22,8 +22,8 @@ from src.engine_service.engine_commands.run import (
     RunEngineResult,
     run_engine,
 )
-from src.stack_pack import ConfigValues, StackPack
-from src.stack_pack.storage.iac_storage import IacStorage
+from src.project import ConfigValues, StackPack
+from src.project.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.compress import zip_directory_recurse
 from src.util.logging import logger
@@ -94,6 +94,21 @@ class AppDeployment(Model):
                     else None
                 )
             ),
+        )
+
+    def __eq__(self, other):
+        return (
+            self.project_id == other.project_id
+            and self.range_key == other.range_key
+            and self.iac_stack_composite_key == other.iac_stack_composite_key
+            and self.created_by == other.created_by
+            and self.created_at == other.created_at
+            and self.outputs == other.outputs
+            and self.deployments == other.deployments
+            and self.status == other.status
+            and self.status_reason == other.status_reason
+            and self.configuration == other.configuration
+            and self.display_name == other.display_name
         )
 
     def transition_status(

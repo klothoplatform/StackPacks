@@ -2,8 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from src.stack_pack import ConfigValues, Edges, Resources
-from src.stack_pack.common_stack import CommonStack
+from src.project import ConfigValues, Edges, Resources
+from src.project.common_stack import CommonStack
 from src.util.logging import logger
 
 

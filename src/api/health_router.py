@@ -4,7 +4,7 @@ from pynamodb.exceptions import DoesNotExist
 
 from src.auth.token import AuthError
 from src.dependencies.injection import get_ses_client
-from src.stack_pack.models.project import Project
+from src.project.models.project import Project
 from src.util.aws.ses import send_klotho_engineering_email
 from src.util.logging import logger
 

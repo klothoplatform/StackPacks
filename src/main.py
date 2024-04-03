@@ -13,8 +13,8 @@ from src.auth.token import AuthError
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.models.workflow_job import WorkflowJob
-from src.stack_pack.models.app_deployment import AppDeployment
-from src.stack_pack.models.project import Project
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project
 from src.util.logging import logger
 
 

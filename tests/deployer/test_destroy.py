@@ -20,9 +20,9 @@ from src.deployer.models.deployment import (
     PulumiStack,
 )
 from src.deployer.pulumi.manager import AppManager
-from src.stack_pack.models.app_deployment import AppLifecycleStatus, AppDeployment
-from src.stack_pack.models.project import Project
-from src.stack_pack.storage.iac_storage import IaCDoesNotExistError, IacStorage
+from src.project.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.project.models.project import Project
+from src.project.storage.iac_storage import IaCDoesNotExistError, IacStorage
 
 
 class TestDestroy(aiounittest.AsyncTestCase):

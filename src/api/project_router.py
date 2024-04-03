@@ -8,10 +8,10 @@ from src.auth.token import get_user_id
 from src.dependencies.injection import get_iac_storage, get_binary_storage
 from src.deployer.models.workflow_run import WorkflowType, WorkflowRun
 from src.engine_service.binaries.fetcher import Binary
-from src.stack_pack import ConfigValues, get_stack_packs
-from src.stack_pack.common_stack import Feature
-from src.stack_pack.models.app_deployment import AppDeployment
-from src.stack_pack.models.project import Project, ProjectView
+from src.project import ConfigValues, get_stack_packs
+from src.project.common_stack import Feature
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project, ProjectView
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
