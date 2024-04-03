@@ -83,7 +83,7 @@ jobs:
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
         with:
           command: refresh
-          work-dir: "./deploy"
+          work-dir: "./deploy/${{ inputs.stage }}"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
       - name: Use Node.js
@@ -92,12 +92,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: npm install
         run: npm install
-        working-directory: ./deploy
+        working-directory: ./deploy/${{ inputs.stage }}
       - name: pulumi - up
         uses: pulumi/actions@v4
         with:
           command: up
-          work-dir: "./deploy"
+          work-dir: "./deploy/${{ inputs.stage }}"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
           config-map: |
@@ -116,7 +116,7 @@ jobs:
         run: |
           echo "stacksnap_binaries_BucketName=$(pulumi stack output stacksnap_binaries_BucketName)" >> $GITHUB_OUTPUT
           echo "stacksnap_ui_BucketName=$(pulumi stack output stacksnap_ui_BucketName)" >> $GITHUB_OUTPUT
-        working-directory: ./deploy
+        working-directory: ./deploy/${{ inputs.stage }}
         shell: bash
       - name: build frontend
         run: |
@@ -160,7 +160,7 @@ jobs:
         uses: pulumi/actions@v4
         with:
           command: up
-          work-dir: "./deploy"
+          work-dir: "./deploy/${{ inputs.stage }}"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
           config-map: |
