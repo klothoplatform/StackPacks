@@ -16,24 +16,17 @@ export const JobDetailsPage = () => {
   const jobStatus = job?.status;
   return (
     <div className="flex size-full flex-col gap-4">
-      {![
-        WorkflowJobStatus.New,
-        WorkflowJobStatus.InProgress,
-        WorkflowJobStatus.Succeeded,
-      ].includes(jobStatus) && (
-        <>
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200">
-            Status Reason
-          </h2>
-          <StatusReasonCard message={statusReason} />
-        </>
-      )}
       <LogViewer
         workflowType={workflowType.toUpperCase() as WorkflowType}
         appId={appId}
         job={job}
         runNumber={parseInt(runNumber, 10)}
       />
+      {![
+        WorkflowJobStatus.New,
+        WorkflowJobStatus.InProgress,
+        WorkflowJobStatus.Succeeded,
+      ].includes(jobStatus) && <StatusReasonCard message={statusReason} />}
     </div>
   );
 };

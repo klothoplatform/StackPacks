@@ -9,6 +9,7 @@ import {
   ReactFlow,
   useEdges,
   useNodes,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Button, ButtonGroup, useThemeMode } from "flowbite-react";
@@ -25,16 +26,26 @@ import { useNavigate } from "react-router-dom";
 
 export const WorkflowPreviewer: FC<{
   jobGraph: JobGraph;
-}> = ({ jobGraph: { nodes, edges } }) => {
+}> = ({ jobGraph: { nodes, edges, maxOutgoingEdges } }) => {
   const { mode } = useThemeMode();
 
   const nodeTypes = useMemo(() => ({ workflowStep: WorkflowStepNode }), []);
 
+  const heightMap = {
+    1: "h-[8rem]",
+    2: "h-[16rem]",
+    3: "h-[24rem]",
+    4: "h-[32rem]",
+  };
+  const { fitView } = useReactFlow();
+  const height = Math.min(4, maxOutgoingEdges);
+  fitView({ nodes });
   return (
     <div
-      className={
-        "h-32 max-h-[50%] min-h-32 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900"
-      }
+      className={classNames(
+        heightMap[height] || "h-[8rem]",
+        "max-h-[50%] min-h-[8rem] w-full rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900",
+      )}
     >
       <ReactFlow
         colorMode={mode === "auto" ? "system" : mode}

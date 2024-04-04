@@ -7,6 +7,7 @@ import { getLocalTimezone } from "./time-util.ts";
 export interface JobGraph {
   nodes: Node[];
   edges: Edge[];
+  maxOutgoingEdges: number;
 }
 
 export function buildJobGraph(jobs: WorkflowJob[]): JobGraph {
@@ -41,10 +42,22 @@ export function buildJobGraph(jobs: WorkflowJob[]): JobGraph {
         });
       })
       .flat() ?? [];
+  const outgoingEdgeCounts: Record<string, number> = {};
+  edges.forEach((edge) => {
+    if (outgoingEdgeCounts[edge.source]) {
+      outgoingEdgeCounts[edge.source] += 1;
+    } else {
+      outgoingEdgeCounts[edge.source] = 1;
+    }
+  });
+  const maxOutgoingEdges = Math.max(...Object.values(outgoingEdgeCounts));
 
   const initialGraph = { nodes, edges };
 
-  return getLayoutedElements(initialGraph.nodes, initialGraph.edges);
+  return {
+    maxOutgoingEdges,
+    ...getLayoutedElements(initialGraph.nodes, initialGraph.edges),
+  };
 }
 
 const dagreGraph = new dagre.graphlib.Graph();

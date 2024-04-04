@@ -4,8 +4,10 @@ import type {
   WorkflowRun,
   WorkflowType,
 } from "../../../shared/models/Workflow.ts";
-import { WorkflowRunStatus } from "../../../shared/models/Workflow.ts";
-import { toWorkflowRunStatusString } from "../../../shared/models/Workflow.ts";
+import {
+  toWorkflowRunStatusString,
+  WorkflowRunStatus,
+} from "../../../shared/models/Workflow.ts";
 import type { FC, PropsWithChildren, ReactNode } from "react";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -13,7 +15,7 @@ import {
   getLocalTimezone,
   getTimeText,
 } from "../../../shared/time-util.ts";
-import { altTable, outlineBadge } from "../../../shared/custom-themes.ts";
+import { flatTable, outlineBadge } from "../../../shared/custom-themes.ts";
 import { useParams } from "react-router-dom";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import { utcToZonedTime } from "date-fns-tz";
@@ -22,6 +24,9 @@ import { buildJobGraph } from "../../../shared/job-graph.ts";
 import Linkify from "linkify-react";
 import { useInterval } from "usehooks-ts";
 import { StatusReasonCard } from "../../../components/StatusReasonCard.tsx";
+import { Container, ContainerHeader } from "../../../components/Container.tsx";
+import { ReactFlowProvider } from "@xyflow/react";
+import { RiExternalLinkLine } from "react-icons/ri";
 
 export const RunOverviewPage = () => {
   const { runNumber, workflowType, appId } = useParams();
@@ -30,6 +35,7 @@ export const RunOverviewPage = () => {
   const [jobGraph, setJobGraph] = useState<JobGraph>({
     nodes: [],
     edges: [],
+    maxOutgoingEdges: 0,
   });
 
   useEffect(() => {
@@ -79,18 +85,16 @@ export const RunOverviewPage = () => {
           utcToZonedTime(workflowRun.initiated_at, getLocalTimezone()).getTime()
         }
       />
-      <WorkflowPreviewer jobGraph={jobGraph} />
-      <h2 className="text-xl font-semibold">Outputs</h2>
+      <ReactFlowProvider>
+        <WorkflowPreviewer jobGraph={jobGraph} />
+      </ReactFlowProvider>
       <WorkflowRunOutputs workflowRun={workflowRun} />
       {![
         WorkflowRunStatus.New,
         WorkflowRunStatus.InProgress,
         WorkflowRunStatus.Succeeded,
       ].includes(workflowRun.status) && (
-        <>
-          <h2 className="text-xl font-semibold">Status Reason</h2>
-          <StatusReasonCard message={workflowRun.status_reason} />
-        </>
+        <StatusReasonCard message={workflowRun.status_reason} />
       )}
     </div>
   );
@@ -176,9 +180,18 @@ const SummaryItem: FC<
 const WorkflowRunOutputs: FC<{
   workflowRun: WorkflowRun;
 }> = ({ workflowRun }) => {
+  const hasOutputs = workflowRun.jobs.some(
+    (job) => Object.keys(job.outputs ?? {}).length,
+  );
+
+  if (!hasOutputs) {
+    return null;
+  }
+
   return (
-    <div className="h-fit w-full rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-      <Table theme={altTable}>
+    <Container className={"p-0"}>
+      <ContainerHeader className={"px-4 pb-2 pt-4"}>Outputs</ContainerHeader>
+      <Table theme={flatTable} className={"mb-2"}>
         <Table.Head>
           <Table.HeadCell>Job</Table.HeadCell>
           <Table.HeadCell>Output Key</Table.HeadCell>
@@ -198,6 +211,7 @@ const WorkflowRunOutputs: FC<{
                       <Table.Cell>{key}</Table.Cell>
                       <Table.Cell>
                         <Linkify
+                          as={ExternalLinkWrapper}
                           options={{
                             attributes: {
                               target: "_blank",
@@ -216,6 +230,14 @@ const WorkflowRunOutputs: FC<{
           )}
         </Table.Body>
       </Table>
-    </div>
+    </Container>
+  );
+};
+
+const ExternalLinkWrapper: FC<PropsWithChildren> = ({ children }) => {
+  return (
+    <span className="flex items-center gap-1 text-blue-500 hover:underline">
+      {children} <RiExternalLinkLine />
+    </span>
   );
 };

@@ -262,6 +262,9 @@ async def stream_deployment_logs(
                     "data": "done",
                     "id": str(uuid.uuid4()),
                 }
+            except Exception as e:
+                logger.error("Error streaming logs", exc_info=e)
+                raise
             finally:
                 deployment_log.close()
 

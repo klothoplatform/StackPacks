@@ -99,3 +99,30 @@ export const altTable: CustomFlowbiteTheme["table"] = {
       "odd:bg-gray-50 even:bg-gray-50 odd:dark:bg-gray-800 even:dark:bg-gray-700",
   },
 };
+
+export const flatTable: CustomFlowbiteTheme["table"] = {
+  root: {
+    base: "w-full text-left text-sm text-gray-800 dark:text-white",
+    shadow:
+      "absolute left-0 top-0 -z-10 h-full w-full bg-white drop-shadow-md dark:bg-black",
+    wrapper: "relative",
+  },
+  body: {
+    base: "group/body divide-y divide-gray-200 dark:divide-gray-700",
+    cell: {
+      base: "px-6 py-4",
+    },
+  },
+  head: {
+    base: "group/head text-sm text-gray-700 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700",
+    cell: {
+      base: "px-6 py-2",
+    },
+  },
+  row: {
+    base: "group/row odd:dark:bg-gray-900 even:dark:bg-gray-800",
+    hovered: "hover:bg-gray-50 dark:hover:bg-gray-600",
+    striped:
+      "odd:bg-white even:bg-gray-100 odd:dark:bg-gray-800 even:dark:bg-gray-700",
+  },
+};

@@ -8,7 +8,7 @@ import React, {
 import { useLocation } from "react-router-dom";
 import useApplicationStore from "../../store/ApplicationStore.ts";
 import type { CustomFlowbiteTheme } from "flowbite-react";
-import { Button, Card, Dropdown, TextInput } from "flowbite-react";
+import { Button, Dropdown, TextInput } from "flowbite-react";
 import Ansi from "ansi-to-react-18";
 import type { EventSourceMessage } from "@microsoft/fetch-event-source";
 import {
@@ -39,6 +39,7 @@ import {
   getDurationString,
   getLocalTimezone,
 } from "../../../shared/time-util.ts";
+import { Container } from "../../../components/Container.tsx";
 
 type SearchResult = {
   lineNumber: number;
@@ -232,8 +233,8 @@ export const LogViewer: FC<{
       : toWorkflowJobStatusString(job.status);
 
   return (
-    <div className="flex size-full flex-col items-start justify-start gap-4">
-      <Card className="size-full bg-gray-800 p-2 text-white">
+    <div className="flex size-full flex-col items-start justify-start gap-4 text-white">
+      <Container className="relative size-full bg-gray-800 p-2">
         <div
           ref={logPaneRef}
           className={
@@ -365,7 +366,7 @@ export const LogViewer: FC<{
             )}
           </span>
         </div>
-      </Card>
+      </Container>
     </div>
   );
 };
