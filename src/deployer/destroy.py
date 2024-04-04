@@ -85,6 +85,9 @@ async def run_destroy(
             manager=None, status=result_status, reason=reason, stack=pulumi_stack
         )
     except Exception as e:
+        logger.error(
+            f"Error destroying {destroy_job.composite_key()}: {e}", exc_info=True
+        )
         pulumi_stack.update(
             actions=[
                 PulumiStack.status.set(WorkflowJobStatus.FAILED.value),
@@ -139,7 +142,7 @@ async def run_destroy_application(
             )
         return DeploymentResult(
             manager=None,
-            status=WorkflowJobStatus.SKIPPED,
+            status=WorkflowJobStatus.SUCCEEDED,
             reason="Not deployed",
             stack=None,
         )

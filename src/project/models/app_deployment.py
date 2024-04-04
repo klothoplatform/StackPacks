@@ -13,6 +13,7 @@ from pynamodb.attributes import (
     UTCDateTimeAttribute,
 )
 from pynamodb.models import Model
+from typing_extensions import deprecated
 
 from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJobType
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
@@ -153,9 +154,11 @@ class AppDeployment(Model):
             ]
         )
 
+    @deprecated("Use app_id() instead")
     def get_app_id(self):
         return self.app_id()
 
+    @deprecated("Use self.project_id instead")
     def get_project_id(self):
         return self.project_id
 
@@ -222,7 +225,7 @@ class AppDeployment(Model):
             AppDeployment.range_key.startswith(f"{app_id}#"),
             filter_condition=AppDeployment.deployments.exists(),  # Only include items where status is not null
             scan_index_forward=False,  # Sort in descending order
-            limit=1,  # Only retrieve the first item
+            page_size=10,  # Only check the ten most recent versions
         )
         result = next(
             iter(results), None

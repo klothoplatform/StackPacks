@@ -20,7 +20,7 @@ class HealthRequest(BaseModel):
 
 
 @router.post("/api/health")
-async def create_stack(
+async def report_health_event(
     request: Request,
     body: HealthRequest,
 ):

@@ -32,7 +32,10 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         app_deployment_view = app.to_view_model()
 
         # Assert
-        self.assertEqual("app", app_deployment_view.app_id, )
+        self.assertEqual(
+            "app",
+            app_deployment_view.app_id,
+        )
         self.assertEqual(1, app_deployment_view.version)
         self.assertEqual("created_by", app_deployment_view.created_by)
         self.assertEqual({"config": "value"}, app_deployment_view.configuration)
@@ -155,7 +158,9 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
         )
         mock_export_iac.assert_called_once_with(
-            ExportIacRequest(input_graph="resources_yaml", name="project_id", tmp_dir="dir")
+            ExportIacRequest(
+                input_graph="resources_yaml", name="project_id", tmp_dir="dir"
+            )
         )
         mock_stack_pack.copy_files.assert_called_once_with(
             {"config": "value"}, Path("dir")
@@ -196,7 +201,9 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             status_reason="status_reason",
         )
         appv2.save()
-        appv2 = AppDeployment.get("project_id", AppDeployment.compose_range_key("app", 2))
+        appv2 = AppDeployment.get(
+            "project_id", AppDeployment.compose_range_key("app", 2)
+        )
 
         # Act
         latest_version = AppDeployment.get_latest_version("project_id", "app")
@@ -227,12 +234,12 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             status_reason="status_reason",
         )
         appv2.save()
-        appv1 = AppDeployment.get("project_id", AppDeployment.compose_range_key("app", 1))
 
         # Act
         latest_version = AppDeployment.get_latest_deployed_version("project_id", "app")
 
         # Assert
+        appv1.refresh()
         self.assertEqual(appv1, latest_version)
 
     def test_compose_range_key(self):

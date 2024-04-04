@@ -7,11 +7,19 @@ from src.deployer.destroy import (
     DeploymentResult,
     StackDeploymentRequest,
     run_destroy,
-    run_destroy_application, run_concurrent_destroys, destroy_applications, destroy_app,
-    execute_destroy_single_workflow, execute_destroy_all_workflow,
+    run_destroy_application,
+    run_concurrent_destroys,
+    destroy_applications,
+    destroy_app,
+    execute_destroy_single_workflow,
+    execute_destroy_all_workflow,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
-from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJobType, WorkflowJob
+from src.deployer.models.workflow_job import (
+    WorkflowJobStatus,
+    WorkflowJobType,
+    WorkflowJob,
+)
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.pulumi.manager import AppManager
 from src.project.models.app_deployment import AppLifecycleStatus, AppDeployment
@@ -65,10 +73,10 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.AppBuilder")
     @patch("src.deployer.destroy.DeploymentDir")
     async def test_run_destroy(
-            self,
-            DeploymentDir,
-            mock_app_builder,
-            mock_app_deployer,
+        self,
+        DeploymentDir,
+        mock_app_builder,
+        mock_app_deployer,
     ):
         # Setup mock objects
         DeploymentDir.return_value = MagicMock()
@@ -83,7 +91,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_deployer.destroy_and_remove_stack.side_effect = destroy_and_remove_stack
 
         destroy_job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -104,11 +114,12 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
         mock_app_builder.assert_called_once_with(Path("/tmp"))
-        mock_builder.prepare_stack.assert_called_once_with(
-            b"iac", stack
-        )
+        mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
         mock_builder.configure_aws.assert_called_once_with(
-            mock_builder.prepare_stack.return_value, "region", "arn", external_id="external_id"
+            mock_builder.prepare_stack.return_value,
+            "region",
+            "arn",
+            external_id="external_id",
         )
         mock_app_deployer.assert_called_once_with(
             mock_builder.prepare_stack.return_value,
@@ -123,10 +134,10 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.AppBuilder")
     @patch("src.deployer.destroy.DeploymentDir")
     async def test_run_destroy_with_exception(
-            self,
-            DeploymentDir,
-            mock_app_builder,
-            mock_app_deployer,
+        self,
+        DeploymentDir,
+        mock_app_builder,
+        mock_app_deployer,
     ):
         # Setup mock objects
         DeploymentDir.return_value = MagicMock()
@@ -139,7 +150,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         destroy_job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -160,11 +173,12 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
         mock_app_builder.assert_called_once_with(Path("/tmp"))
-        mock_builder.prepare_stack.assert_called_once_with(
-            b"iac", stack
-        )
+        mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
         mock_builder.configure_aws.assert_called_once_with(
-            mock_builder.prepare_stack.return_value, "region", "arn", external_id="external_id"
+            mock_builder.prepare_stack.return_value,
+            "region",
+            "arn",
+            external_id="external_id",
         )
         mock_app_deployer.assert_called_once_with(
             mock_builder.prepare_stack.return_value,
@@ -178,9 +192,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.get_iac_storage")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application(
-            self,
-            mock_run_destroy,
-            mock_get_iac_storage,
+        self,
+        mock_run_destroy,
+        mock_get_iac_storage,
     ):
         # Arrange
         mock_iac_storage = MagicMock(
@@ -197,7 +211,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         destroy_job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -235,16 +251,17 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.get_iac_storage")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application_no_deployed_version(
-            self,
-            mock_run_destroy,
-            mock_get_iac_storage,
+        self,
+        mock_run_destroy,
+        mock_get_iac_storage,
     ):
         # Arrange
         self.app1.update(
             actions=[
                 AppDeployment.status.set(AppLifecycleStatus.NEW.value),
-                AppDeployment.deployments.set([])
-            ])
+                AppDeployment.deployments.set([]),
+            ]
+        )
 
         mock_iac_storage = MagicMock(
             spec=IacStorage,
@@ -253,7 +270,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_iac_storage.return_value = mock_iac_storage
 
         destroy_job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -283,9 +302,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.get_iac_storage")
     @patch("src.deployer.destroy.run_destroy")
     async def test_run_destroy_application_no_iac(
-            self,
-            mock_run_destroy,
-            mock_get_iac_storage,
+        self,
+        mock_run_destroy,
+        mock_get_iac_storage,
     ):
         # Arrange
         mock_iac_storage = MagicMock(
@@ -302,7 +321,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         destroy_job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -332,7 +353,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.destroy.run_destroy_application")
     @patch("src.deployer.destroy.Pool")
-    async def test_run_concurrent_destroys(self, mock_pool, mock_run_destroy_application):
+    async def test_run_concurrent_destroys(
+        self, mock_pool, mock_run_destroy_application
+    ):
         # Arrange
         app2 = AppDeployment(
             project_id="project",
@@ -356,11 +379,15 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             )
             if kwds["destroy_request"].workflow_job.modified_app_id == "app1":
                 self.app1.update(
-                    actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
                 )
             elif kwds["destroy_request"].workflow_job.modified_app_id == "app2":
                 app2.update(
-                    actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
                 )
             return DeploymentResult(
                 manager=None,
@@ -373,8 +400,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         stack_deployment_requests = [
             StackDeploymentRequest(
                 workflow_job=WorkflowJob.create_job(
-                    partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None,
-                                                                    run_number=1),
+                    partition_key=WorkflowJob.compose_partition_key(
+                        "project", WorkflowType.DESTROY.value, None, run_number=1
+                    ),
                     job_type=WorkflowJobType.DESTROY,
                     modified_app_id="app1",
                     initiated_by="user",
@@ -385,10 +413,8 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             StackDeploymentRequest(
                 workflow_job=WorkflowJob.create_job(
                     partition_key=WorkflowJob.compose_partition_key(
-                        "project",
-                        WorkflowType.DESTROY.value,
-                        None,
-                        run_number=2),
+                        "project", WorkflowType.DESTROY.value, None, run_number=2
+                    ),
                     job_type=WorkflowJobType.DESTROY,
                     modified_app_id="app2",
                     initiated_by="user",
@@ -410,16 +436,16 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                 call(
                     mock_run_destroy_application,
                     kwds={
-                        'destroy_request': stack_deployment_requests[0],
-                        'tmp_dir': self.tmp_dir
-                    }
+                        "destroy_request": stack_deployment_requests[0],
+                        "tmp_dir": self.tmp_dir,
+                    },
                 ),
                 call(
                     mock_run_destroy_application,
                     kwds={
-                        'destroy_request': stack_deployment_requests[1],
-                        'tmp_dir': self.tmp_dir
-                    }
+                        "destroy_request": stack_deployment_requests[1],
+                        "tmp_dir": self.tmp_dir,
+                    },
                 ),
             ]
         )
@@ -429,7 +455,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         workflow_jobs = list(WorkflowJob.scan())
         self.assertEqual(2, len(workflow_jobs))
-        assert all(job.status == WorkflowJobStatus.SUCCEEDED.value for job in workflow_jobs)
+        assert all(
+            job.status == WorkflowJobStatus.SUCCEEDED.value for job in workflow_jobs
+        )
         self.app1.refresh()
         app2.refresh()
         self.assertEqual(AppLifecycleStatus.UNINSTALLED.value, self.app1.status)
@@ -451,15 +479,17 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         jobs = [
             WorkflowJob.create_job(
-                partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None,
-                                                                run_number=1),
+                partition_key=WorkflowJob.compose_partition_key(
+                    "project", WorkflowType.DESTROY.value, None, run_number=1
+                ),
                 job_type=WorkflowJobType.DESTROY,
                 modified_app_id="app1",
                 initiated_by="user",
             ),
             WorkflowJob.create_job(
-                partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None,
-                                                                run_number=2),
+                partition_key=WorkflowJob.compose_partition_key(
+                    "project", WorkflowType.DESTROY.value, None, run_number=2
+                ),
                 job_type=WorkflowJobType.DESTROY,
                 modified_app_id="app2",
                 initiated_by="user",
@@ -473,11 +503,19 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                 )
                 if request.workflow_job.modified_app_id == "app1":
                     self.app1.update(
-                        actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                        actions=[
+                            AppDeployment.status.set(
+                                AppLifecycleStatus.UNINSTALLED.value
+                            )
+                        ]
                     )
                 elif request.workflow_job.modified_app_id == "app2":
                     app2.update(
-                        actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                        actions=[
+                            AppDeployment.status.set(
+                                AppLifecycleStatus.UNINSTALLED.value
+                            )
+                        ]
                     )
             return (
                 ["app1", "app2"],
@@ -515,7 +553,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                     pulumi_config={},
                 ),
             ],
-            tmp_dir=self.tmp_dir
+            tmp_dir=self.tmp_dir,
         )
         for job in jobs:
             job.refresh()
@@ -527,8 +565,8 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.destroy.run_concurrent_destroys")
     async def test_destroy_app(
-            self,
-            mock_run_concurrent_deployments,
+        self,
+        mock_run_concurrent_deployments,
     ):
         d_result = DeploymentResult(
             manager=MagicMock(spec=AppManager),
@@ -544,17 +582,25 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                 )
                 if request.workflow_job.modified_app_id == "app1":
                     self.app1.update(
-                        actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                        actions=[
+                            AppDeployment.status.set(
+                                AppLifecycleStatus.UNINSTALLED.value
+                            )
+                        ]
                     )
             return (
                 ["app1"],
                 [d_result],
             )
 
-        mock_run_concurrent_deployments.side_effect = run_concurrent_destroys_side_effect
+        mock_run_concurrent_deployments.side_effect = (
+            run_concurrent_destroys_side_effect
+        )
 
         job = WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key("project", WorkflowType.DESTROY.value, None, run_number=1),
+            partition_key=WorkflowJob.compose_partition_key(
+                "project", WorkflowType.DESTROY.value, None, run_number=1
+            ),
             job_type=WorkflowJobType.DESTROY,
             modified_app_id="app1",
             initiated_by="user",
@@ -570,7 +616,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                     pulumi_config={},
                 )
             ],
-            tmp_dir=self.tmp_dir
+            tmp_dir=self.tmp_dir,
         )
 
         job.refresh()
@@ -581,9 +627,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.destroy_app")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_single(
-            self,
-            mock_tmp_dir,
-            mock_destroy_app,
+        self,
+        mock_tmp_dir,
+        mock_destroy_app,
     ):
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
 
@@ -601,11 +647,15 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             )
             if destroy_job.modified_app_id == "app1":
                 self.app1.update(
-                    actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
                 )
             elif destroy_job.modified_app_id == Project.COMMON_APP_NAME:
                 self.common_app.update(
-                    actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)]
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
                 )
             return DeploymentResult(
                 manager=MagicMock(spec=AppManager),
@@ -625,14 +675,8 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_destroy_app.assert_has_calls(
             [
-                call(
-                    jobs[0],
-                    Path("/tmp")
-                ),
-                call(
-                    jobs[1],
-                    Path("/tmp")
-                ),
+                call(jobs[0], Path("/tmp")),
+                call(jobs[1], Path("/tmp")),
             ]
         )
         self.assertEqual(WorkflowJobStatus.SUCCEEDED.value, jobs[0].status)
@@ -645,9 +689,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.destroy_app")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_single_failed(
-            self,
-            mock_tmp_dir,
-            mock_destroy_app,
+        self,
+        mock_tmp_dir,
+        mock_destroy_app,
     ):
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
 
@@ -665,7 +709,11 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                     actions=[WorkflowJob.status.set(WorkflowJobStatus.FAILED.value)]
                 )
                 self.app1.update(
-                    actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALL_FAILED.value)]
+                    actions=[
+                        AppDeployment.status.set(
+                            AppLifecycleStatus.UNINSTALL_FAILED.value
+                        )
+                    ]
                 )
                 return DeploymentResult(
                     manager=MagicMock(spec=AppManager),
@@ -687,12 +735,11 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         jobs = list(workflow_run.get_jobs())
-        common_job = [job for job in jobs if job.modified_app_id == Project.COMMON_APP_NAME][0]
+        common_job = [
+            job for job in jobs if job.modified_app_id == Project.COMMON_APP_NAME
+        ][0]
         app1_job = [job for job in jobs if job.modified_app_id == "app1"][0]
-        mock_destroy_app.assert_called_once_with(
-            app1_job,
-            Path("/tmp")
-        )
+        mock_destroy_app.assert_called_once_with(app1_job, Path("/tmp"))
         self.assertEqual(WorkflowJobStatus.FAILED.value, app1_job.status)
         self.assertEqual(WorkflowJobStatus.CANCELED.value, common_job.status)
         self.app1.refresh()
@@ -705,13 +752,11 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.destroy_app")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_destroy_in_progress(
-            self,
-            mock_tmp_dir,
-            mock_tear_down_app,
+        self,
+        mock_tmp_dir,
+        mock_tear_down_app,
     ):
-        self.project.update(
-            actions=[Project.destroy_in_progress.set(True)]
-        )
+        self.project.update(actions=[Project.destroy_in_progress.set(True)])
 
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
 
@@ -742,10 +787,10 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.destroy_app")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_pack(
-            self,
-            mock_temp_dir,
-            mock_destroy_app,
-            mock_destroy_applications,
+        self,
+        mock_temp_dir,
+        mock_destroy_app,
+        mock_destroy_applications,
     ):
         # Arrange
         mock_temp_dir.return_value = MagicMock()
@@ -761,21 +806,45 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         def destroy_applications_side_effect(destroy_jobs, tmp_dir):
             for job in destroy_jobs:
-                job.update(actions=[WorkflowJob.status.set(WorkflowJobStatus.SUCCEEDED.value)])
+                job.update(
+                    actions=[WorkflowJob.status.set(WorkflowJobStatus.SUCCEEDED.value)]
+                )
                 if job.modified_app_id == "common":
-                    self.common_app.update(actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)])
+                    self.common_app.update(
+                        actions=[
+                            AppDeployment.status.set(
+                                AppLifecycleStatus.UNINSTALLED.value
+                            )
+                        ]
+                    )
                 if job.modified_app_id == "app1":
-                    self.app1.update(actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)])
+                    self.app1.update(
+                        actions=[
+                            AppDeployment.status.set(
+                                AppLifecycleStatus.UNINSTALLED.value
+                            )
+                        ]
+                    )
             return True
 
         mock_destroy_applications.side_effect = destroy_applications_side_effect
 
         def destroy_app_side_effect(destroy_job, tmp_dir):
-            destroy_job.update(actions=[WorkflowJob.status.set(WorkflowJobStatus.SUCCEEDED.value)])
+            destroy_job.update(
+                actions=[WorkflowJob.status.set(WorkflowJobStatus.SUCCEEDED.value)]
+            )
             if destroy_job.modified_app_id == "common":
-                self.common_app.update(actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)])
+                self.common_app.update(
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
+                )
             if destroy_job.modified_app_id == "app1":
-                self.app1.update(actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)])
+                self.app1.update(
+                    actions=[
+                        AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
+                    ]
+                )
             return DeploymentResult(
                 manager=MagicMock(spec=AppManager),
                 status=WorkflowJobStatus.SUCCEEDED,
@@ -796,11 +865,10 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             destroy_jobs=[
                 app1_job,
             ],
-            tmp_dir=self.tmp_dir
+            tmp_dir=self.tmp_dir,
         )
         mock_destroy_app.assert_called_once_with(
-            destroy_job=common_job,
-            tmp_dir=self.tmp_dir
+            destroy_job=common_job, tmp_dir=self.tmp_dir
         )
         self.assertEqual(WorkflowJobStatus.SUCCEEDED.value, app1_job.status)
         self.assertEqual(WorkflowJobStatus.SUCCEEDED.value, common_job.status)
@@ -815,10 +883,10 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.destroy_app")
     @patch("src.deployer.destroy.TempDir")
     async def test_tear_down_pack_app_fails(
-            self,
-            mock_temp_dir,
-            mock_destroy_app,
-            mock_destroy_applications,
+        self,
+        mock_temp_dir,
+        mock_destroy_app,
+        mock_destroy_applications,
     ):
 
         # Arrange
@@ -827,8 +895,16 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         def destroy_applications_side_effect(destroy_jobs, tmp_dir):
             if len(destroy_jobs) == 1 and destroy_jobs[0].modified_app_id == "app1":
-                destroy_jobs[0].update(actions=[WorkflowJob.status.set(WorkflowJobStatus.FAILED.value)])
-                self.app1.update(actions=[AppDeployment.status.set(AppLifecycleStatus.UNINSTALL_FAILED.value)])
+                destroy_jobs[0].update(
+                    actions=[WorkflowJob.status.set(WorkflowJobStatus.FAILED.value)]
+                )
+                self.app1.update(
+                    actions=[
+                        AppDeployment.status.set(
+                            AppLifecycleStatus.UNINSTALL_FAILED.value
+                        )
+                    ]
+                )
             else:
                 raise ValueError("Unexpected app")
 
@@ -856,6 +932,8 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         self.app1.refresh()
         self.common_app.refresh()
         self.assertEqual(AppLifecycleStatus.UNINSTALL_FAILED.value, self.app1.status)
-        self.assertEqual(AppLifecycleStatus.UNINSTALL_FAILED.value, self.common_app.status)
+        self.assertEqual(
+            AppLifecycleStatus.UNINSTALL_FAILED.value, self.common_app.status
+        )
         workflow_run.refresh()
         self.assertEqual(WorkflowJobStatus.FAILED.value, workflow_run.status)

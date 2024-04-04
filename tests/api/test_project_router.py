@@ -4,8 +4,15 @@ import aiounittest
 from fastapi import HTTPException
 from pynamodb.exceptions import DoesNotExist
 
-from src.api.project_router import StackResponse, StackRequest, create_stack, add_app, AppRequest, update_app, \
-    remove_app
+from src.api.project_router import (
+    StackResponse,
+    StackRequest,
+    create_stack,
+    add_app,
+    AppRequest,
+    update_app,
+    remove_app,
+)
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
 from src.util.aws.iam import Policy
@@ -20,13 +27,13 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.project_router.Project")
     @patch("src.api.project_router.TempDir")
     async def test_create_stack(
-            self,
-            mock_tmp_dir,
-            mock_project,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_tmp_dir,
+        mock_project,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
         project_view = ProjectView(
@@ -96,13 +103,13 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     async def test_create_stack_Stack_exists(
-            self,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
         mock_pack = MagicMock(
@@ -142,14 +149,14 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_add_app(
-            self,
-            mock_get_app,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_get_app,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -214,14 +221,14 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_add_app_empty_stack(
-            self,
-            mock_get_app,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_get_app,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -280,14 +287,14 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_update_app(
-            self,
-            mock_get_app,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_get_app,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -352,14 +359,14 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_remove_app(
-            self,
-            mock_get_app,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
+        self,
+        mock_get_app,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -410,12 +417,12 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_remove_app_last_app(
-            self,
-            mock_get_app,
-            mock_get_pack,
-            mock_tmp_dir,
-            mock_get_user_id,
-            mock_get_stack_packs,
+        self,
+        mock_get_app,
+        mock_get_pack,
+        mock_tmp_dir,
+        mock_get_user_id,
+        mock_get_stack_packs,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"

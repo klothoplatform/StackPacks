@@ -7,12 +7,25 @@ from src.deployer.deploy import (
     DeploymentResult,
     StackDeploymentRequest,
     build_and_deploy,
-    run_concurrent_deployments, build_and_deploy_application, rerun_pack_with_live_state, deploy_applications,
-    deploy_app, execute_deploy_single_workflow, execute_deployment_workflow,
+    run_concurrent_deployments,
+    build_and_deploy_application,
+    rerun_pack_with_live_state,
+    deploy_applications,
+    deploy_app,
+    execute_deploy_single_workflow,
+    execute_deployment_workflow,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
-from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJobType, WorkflowJob
-from src.deployer.models.workflow_run import WorkflowRun, WorkflowType, WorkflowRunStatus
+from src.deployer.models.workflow_job import (
+    WorkflowJobStatus,
+    WorkflowJobType,
+    WorkflowJob,
+)
+from src.deployer.models.workflow_run import (
+    WorkflowRun,
+    WorkflowType,
+    WorkflowRunStatus,
+)
 from src.deployer.pulumi.manager import AppManager
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import StackPack, Output
@@ -34,11 +47,11 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.auto.ConfigValue")
     @patch("src.deployer.deploy.DeploymentDir")
     async def test_build_and_deploy(
-            self,
-            DeploymentDir,
-            auto_config_value,
-            AppBuilder,
-            mock_app_deployer,
+        self,
+        DeploymentDir,
+        auto_config_value,
+        AppBuilder,
+        mock_app_deployer,
     ):
         DeploymentDir.return_value = MagicMock()
 
@@ -47,7 +60,9 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         auto_config_value.side_effect = lambda v, secret=None: v
         mock_deployer = MagicMock()
         mock_app_deployer.return_value = mock_deployer
-        mock_deployer.deploy = AsyncMock(return_value=(WorkflowJobStatus.SUCCEEDED, "reason"))
+        mock_deployer.deploy = AsyncMock(
+            return_value=(WorkflowJobStatus.SUCCEEDED, "reason")
+        )
 
         deployment_job = WorkflowJob(
             partition_key=WorkflowJob.compose_partition_key(
@@ -99,11 +114,11 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.AppBuilder")
     @patch("src.deployer.deploy.DeploymentDir")
     async def test_build_and_deploy_handles_exception(
-            self,
-            DeploymentDir,
-            AppBuilder,
-            auto_config_value,
-            mock_app_deployer,
+        self,
+        DeploymentDir,
+        AppBuilder,
+        auto_config_value,
+        mock_app_deployer,
     ):
         DeploymentDir.return_value = MagicMock()
 
@@ -143,12 +158,12 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         # Assert calls
-        pulumi_stack = PulumiStack.get(*PulumiStack.split_composite_key(deployment_job.iac_stack_composite_key))
+        pulumi_stack = PulumiStack.get(
+            *PulumiStack.split_composite_key(deployment_job.iac_stack_composite_key)
+        )
         self.assertEqual(WorkflowJobStatus.FAILED.value, pulumi_stack.status)
         AppBuilder.assert_called_once_with(Path("/tmp"))
-        mock_builder.prepare_stack.assert_called_once_with(
-            b"iac", pulumi_stack
-        )
+        mock_builder.prepare_stack.assert_called_once_with(b"iac", pulumi_stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", None
         )
@@ -168,13 +183,19 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.build_and_deploy")
     async def test_build_and_deploy_application(
-            self,
-            mock_build_and_deploy,
-            mock_get_iac_storage,
+        self,
+        mock_build_and_deploy,
+        mock_get_iac_storage,
     ):
         # Arrange
-        project = Project(id="id", region="region", assumed_role_arn="arn", apps={"app1": 1}, created_by="user",
-                          owner="owner")
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={"app1": 1},
+            created_by="user",
+            owner="owner",
+        )
         project.save()
 
         app = AppDeployment(
@@ -261,7 +282,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.Pool")
     @patch("src.deployer.deploy.build_and_deploy_application")
     async def test_run_concurrent_deployments(
-            self, mock_build_and_deploy_application, mock_pool
+        self, mock_build_and_deploy_application, mock_pool
     ):
         mock_pool_instance = mock_pool.return_value.__aenter__.return_value
         mock_pool_instance.apply = mock_build_and_deploy_application
@@ -277,8 +298,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             StackDeploymentRequest(
                 WorkflowJob(
                     partition_key=WorkflowJob.compose_partition_key(
-                        project_id="project", workflow_type=WorkflowJobType.DEPLOY.value, owning_app_id=None,
-                        run_number=1
+                        project_id="project",
+                        workflow_type=WorkflowJobType.DEPLOY.value,
+                        owning_app_id=None,
+                        run_number=1,
                     ),
                     job_number=1,
                     title="title",
@@ -291,8 +314,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             StackDeploymentRequest(
                 WorkflowJob(
                     partition_key=WorkflowJob.compose_partition_key(
-                        project_id="project", workflow_type=WorkflowJobType.DEPLOY.value, owning_app_id=None,
-                        run_number=2
+                        project_id="project",
+                        workflow_type=WorkflowJobType.DEPLOY.value,
+                        owning_app_id=None,
+                        run_number=2,
                     ),
                     job_number=2,
                     title="title",
@@ -321,7 +346,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             created_by="user",
             status=WorkflowJobStatus.PENDING.value,
             status_reason="Deployment in progress",
-            configuration={"key1": "value1"}
+            configuration={"key1": "value1"},
         )
         app1.save()
 
@@ -331,7 +356,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             created_by="user",
             status=WorkflowJobStatus.PENDING.value,
             status_reason="Deployment in progress",
-            configuration={"key2": "value2"}
+            configuration={"key2": "value2"},
         )
         app2.save()
 
@@ -341,7 +366,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             assumed_role_arn="arn",
             apps={"app1": 1, "app2": 1},
             created_by="user",
-            owner="owner")
+            owner="owner",
+        )
 
         common_app = AppDeployment(
             project_id="id",
@@ -393,7 +419,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.run_concurrent_deployments")
     async def test_deploy_applications(
-            self, mock_run_concurrent_deployments, mock_get_stack_packs
+        self, mock_run_concurrent_deployments, mock_get_stack_packs
     ):
         # Arrange
         app1 = AppDeployment(
@@ -422,7 +448,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             assumed_role_arn="arn",
             apps={"app1": 1, "app2": 1},
             created_by="user",
-            owner="owner")
+            owner="owner",
+        )
         project.save()
 
         sp1 = MagicMock(
@@ -513,12 +540,18 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.deploy.run_concurrent_deployments")
     async def test_deploy_app(
-            self,
-            mock_run_concurrent_deployments,
+        self,
+        mock_run_concurrent_deployments,
     ):
 
-        project = Project(id="id", region="region", assumed_role_arn="arn", apps={"app1": 1}, created_by="user",
-                          owner="owner")
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={"app1": 1},
+            created_by="user",
+            owner="owner",
+        )
         project.save()
 
         app = AppDeployment(
@@ -591,21 +624,27 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.send_deployment_success_email")
     @patch("src.deployer.deploy.get_stack_packs")
     async def test_deploy_single(
-            self,
-            mock_get_stack_packs,
-            mock_send_email,
-            mock_get_ses_client,
-            mock_temp_dir,
-            mock_common_stack,
-            mock_get_binary_storage,
-            mock_get_iac_storage,
-            mock_deploy_app,
-            mock_run_app,
+        self,
+        mock_get_stack_packs,
+        mock_send_email,
+        mock_get_ses_client,
+        mock_temp_dir,
+        mock_common_stack,
+        mock_get_binary_storage,
+        mock_get_iac_storage,
+        mock_deploy_app,
+        mock_run_app,
     ):
 
-        project = Project(id="id", region="region", assumed_role_arn="arn",
-                          apps={Project.COMMON_APP_NAME: 1, "app1": 1},
-                          created_by="user", owner="owner", features=["feature1", "feature2"])
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={Project.COMMON_APP_NAME: 1, "app1": 1},
+            created_by="user",
+            owner="owner",
+            features=["feature1", "feature2"],
+        )
         project.save()
 
         common_app = AppDeployment(
@@ -647,10 +686,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         def deploy_side_effect(
-                deployment_job,
-                app,
-                stack_pack,
-                tmp_dir,
+            deployment_job,
+            app,
+            stack_pack,
+            tmp_dir,
         ):
             app.status = AppLifecycleStatus.INSTALLED.value
             app.save()
@@ -720,22 +759,28 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.get_binary_storage")
     async def test_deploy_single_common_stack_fails(
-            self,
-            mock_get_binary_storage,
-            mock_get_stack_packs,
-            mock_send_email,
-            mock_get_ses_client,
-            mock_temp_dir,
-            mock_common_stack,
-            mock_get_iac_storage,
-            mock_deploy_app,
-            mock_run_app,
+        self,
+        mock_get_binary_storage,
+        mock_get_stack_packs,
+        mock_send_email,
+        mock_get_ses_client,
+        mock_temp_dir,
+        mock_common_stack,
+        mock_get_iac_storage,
+        mock_deploy_app,
+        mock_run_app,
     ):
         mock_get_binary_storage.return_value = MagicMock()
 
-        project = Project(id="id", region="region", assumed_role_arn="arn",
-                          apps={Project.COMMON_APP_NAME: 1, "app1": 1},
-                          created_by="user", owner="owner", features=["feature1", "feature2"])
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={Project.COMMON_APP_NAME: 1, "app1": 1},
+            created_by="user",
+            owner="owner",
+            features=["feature1", "feature2"],
+        )
 
         project.save()
 
@@ -781,10 +826,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         def deploy_side_effect(
-                deployment_job,
-                app,
-                stack_pack,
-                tmp_dir,
+            deployment_job,
+            app,
+            stack_pack,
+            tmp_dir,
         ):
             app.status = AppLifecycleStatus.UPDATE_FAILED.value
             app.save()
@@ -830,17 +875,17 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_ses_client")
     @patch("src.deployer.deploy.send_deployment_success_email")
     async def test_deploy_project(
-            self,
-            mock_send_email,
-            mock_get_ses_client,
-            mock_temp_dir,
-            mock_common_stack,
-            mock_get_iac_storage,
-            mock_get_binary_storage,
-            mock_deploy_app,
-            mock_rerun_pack_with_live_state,
-            mock_deploy_applications,
-            mock_get_stack_packs,
+        self,
+        mock_send_email,
+        mock_get_ses_client,
+        mock_temp_dir,
+        mock_common_stack,
+        mock_get_iac_storage,
+        mock_get_binary_storage,
+        mock_deploy_app,
+        mock_rerun_pack_with_live_state,
+        mock_deploy_applications,
+        mock_get_stack_packs,
     ):
         # Arrange
         sp1 = MagicMock(spec=StackPack)
@@ -849,9 +894,15 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_iac_storage = mock_get_iac_storage.return_value
         mock_binary_storage = mock_get_binary_storage.return_value
 
-        project = Project(id="id", region="region", assumed_role_arn="arn",
-                          apps={"common": 1, "app1": 1},
-                          created_by="user", owner="owner", features=["feature1", "feature2"])
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={"common": 1, "app1": 1},
+            created_by="user",
+            owner="owner",
+            features=["feature1", "feature2"],
+        )
         project.save()
 
         app1 = AppDeployment(
@@ -897,25 +948,28 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         workflow_run.save()
 
         def deploy_apps_side_effect(
-                deployment_jobs,
-                tmp_dir,
+            deployment_jobs,
+            tmp_dir,
         ):
             for job in deployment_jobs:
                 job.status = WorkflowJobStatus.SUCCEEDED.value
                 job.save()
-                AppDeployment.get_latest_version(project_id=project.id, app_id=job.modified_app_id).update(
+                AppDeployment.get_latest_version(
+                    project_id=project.id, app_id=job.modified_app_id
+                ).update(
                     actions=[
                         AppDeployment.status.set(AppLifecycleStatus.INSTALLED.value)
-                    ])
+                    ]
+                )
             return True
 
         mock_deploy_applications.side_effect = deploy_apps_side_effect
 
         def deploy_side_effect(
-                deployment_job,
-                app,
-                stack_pack,
-                tmp_dir,
+            deployment_job,
+            app,
+            stack_pack,
+            tmp_dir,
         ):
             app.status = AppLifecycleStatus.INSTALLED.value
             app.save()
@@ -961,19 +1015,25 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.send_deployment_success_email")
     async def test_deploy_pack_blocks_if_teardown_ongoing(
-            self,
-            mock_send_email,
-            mock_common_stack,
-            mock_get_iac_storage,
-            mock_deploy_app,
-            mock_rerun_pack_with_live_state,
-            mock_deploy_applications,
+        self,
+        mock_send_email,
+        mock_common_stack,
+        mock_get_iac_storage,
+        mock_deploy_app,
+        mock_rerun_pack_with_live_state,
+        mock_deploy_applications,
     ):
 
-        project = Project(id="id", region="region", assumed_role_arn="arn",
-                          apps={"common": 1, "app1": 1},
-                          created_by="user", owner="owner", features=["feature1", "feature2"],
-                          destroy_in_progress=True)
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={"common": 1, "app1": 1},
+            created_by="user",
+            owner="owner",
+            features=["feature1", "feature2"],
+            destroy_in_progress=True,
+        )
         project.save()
 
         common_app = AppDeployment(
@@ -1028,23 +1088,29 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.send_deployment_success_email")
     @patch("src.deployer.deploy.get_binary_storage")
     async def test_deploy_pack_common_stack_failed(
-            self,
-            mock_get_binary_storage,
-            mock_send_email,
-            mock_get_ses_client,
-            mock_temp_dir,
-            mock_common_stack,
-            mock_get_iac_storage,
-            mock_deploy_app,
-            mock_rerun_pack_with_live_state,
-            mock_deploy_applications,
-            mock_get_stack_packs,
+        self,
+        mock_get_binary_storage,
+        mock_send_email,
+        mock_get_ses_client,
+        mock_temp_dir,
+        mock_common_stack,
+        mock_get_iac_storage,
+        mock_deploy_app,
+        mock_rerun_pack_with_live_state,
+        mock_deploy_applications,
+        mock_get_stack_packs,
     ):
         # Arrange
 
-        project = Project(id="id", region="region", assumed_role_arn="arn",
-                            apps={"common": 1, "app1": 1},
-                            created_by="user", owner="owner", features=["feature1", "feature2"])
+        project = Project(
+            id="id",
+            region="region",
+            assumed_role_arn="arn",
+            apps={"common": 1, "app1": 1},
+            created_by="user",
+            owner="owner",
+            features=["feature1", "feature2"],
+        )
         project.save()
 
         common_app = AppDeployment(
@@ -1084,7 +1150,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
 
-
         workflow_run = WorkflowRun.create(
             project_id="id",
             workflow_type=WorkflowType.DEPLOY,
@@ -1094,12 +1159,14 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         def deploy_side_effect(
-                deployment_job,
-                app,
-                stack_pack,
-                tmp_dir,
+            deployment_job,
+            app,
+            stack_pack,
+            tmp_dir,
         ):
-            AppDeployment.transition_status(app, WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, "fail")
+            AppDeployment.transition_status(
+                app, WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, "fail"
+            )
             for job in workflow_run.get_jobs():
                 job.status = WorkflowJobStatus.FAILED.value
                 job.save()

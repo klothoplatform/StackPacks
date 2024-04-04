@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Optional
 
 import boto3
 from pydantic import BaseModel
@@ -15,26 +16,15 @@ CHARSET = "UTF-8"
 
 def create_app_data(app_name: str, login_url: str):
     return (
-        '<table style="width:100%; border: 1px solid black;">'
-        "<tr>"
-        '<th style="text-align: left;">Application Name</th>'
-        '<th style="text-align: left;">Login URL</th>'
-        "</tr>"
-        "<tr>"
-        f"<td>{app_name}</td>"
-        f'<td><a href="{login_url}">{login_url}</a></td>'
-        "</tr>"
-        "</table>"
+        f"Application Name: {app_name}\n" + f"Login URL: {login_url}\n"
+        if login_url
+        else ""
     )
-
-
-def create_app_data(app_name: str, login_url: str):
-    return f"Application Name: {app_name}\nLogin URL: {login_url}\n"
 
 
 class AppData(BaseModel):
     app_name: str
-    login_url: str
+    login_url: Optional[str]
 
     def to_html(self):
         return create_app_data(self.app_name, self.login_url)
@@ -78,7 +68,9 @@ def create_installation_body_text(apps: list[AppData]):
     """
 
 
-def send_deployment_success_email(client: boto3.client, recipient: str, applications: list[AppData]):
+def send_deployment_success_email(
+    client: boto3.client, recipient: str, applications: list[AppData]
+):
     # This address must be verified with Amazon SES.
     sender_address = os.getenv("SES_SENDER_ADDRESS", None)
     sender = f"Stack Snap <{sender_address}>"
