@@ -3,8 +3,8 @@ from typing import Optional
 
 import jsons
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
 from sse_starlette import EventSourceResponse
+from starlette.responses import Response, StreamingResponse
 
 from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
