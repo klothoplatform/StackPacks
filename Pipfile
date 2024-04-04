@@ -28,6 +28,7 @@ black = "*"
 pre-commit = "*"
 coverage = "*"
 moto = "*"
+aiohttp = "*"
 
 [requires]
 python_version = "3.11"

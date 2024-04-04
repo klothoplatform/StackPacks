@@ -6,7 +6,7 @@ import aiounittest
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
-from src.project import StackPack, ConfigValues
+from src.project import StackPack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.storage.iac_storage import IacStorage
 from tests.test_utils.pynamo_test import PynamoTest
@@ -234,14 +234,12 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             status_reason="status_reason",
         )
         appv2.save()
-        appv1 = AppDeployment.get(
-            "project_id", AppDeployment.compose_range_key("app", 1)
-        )
 
         # Act
         latest_version = AppDeployment.get_latest_deployed_version("project_id", "app")
 
         # Assert
+        appv1.refresh()
         self.assertEqual(appv1, latest_version)
 
     def test_compose_range_key(self):

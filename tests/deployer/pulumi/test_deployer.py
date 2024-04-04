@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import aiounittest
 
-from src.deployer.models.deployment import DeploymentStatus
+from src.deployer.models.workflow_job import WorkflowJobStatus
 from src.deployer.pulumi.deployer import AppDeployer
 
 
@@ -31,7 +31,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
         mock_deploy_log.on_output.assert_called_once()
 
         # Assert return value
-        self.assertEqual(result_status, DeploymentStatus.SUCCEEDED)
+        self.assertEqual(result_status, WorkflowJobStatus.SUCCEEDED)
         self.assertEqual(reason, "Deployment succeeded.")
 
     @patch("src.deployer.pulumi.deployer.auto.UpResult")
@@ -55,7 +55,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
         mock_deploy_dir.get_log.assert_called_once_with("stack_name")
         mock_deploy_log.on_output.assert_called_once()
 
-        self.assertEqual(result_status, DeploymentStatus.FAILED)
+        self.assertEqual(result_status, WorkflowJobStatus.FAILED)
         self.assertEqual(reason, "preview error")
 
     async def test_destroy_and_remove_stack(self):
@@ -78,7 +78,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
         mock_deploy_log.on_output.assert_called_once()
 
         # Assert return value
-        self.assertEqual(result_status, DeploymentStatus.SUCCEEDED)
+        self.assertEqual(result_status, WorkflowJobStatus.SUCCEEDED)
         self.assertEqual(reason, "Stack removed successfully.")
 
     async def test_destroy_and_remove_stack_error(self):
@@ -101,5 +101,5 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
         mock_deploy_dir.get_log.assert_called_once_with("stack_name")
         mock_deploy_log.on_output.assert_called_once()
 
-        self.assertEqual(result_status, DeploymentStatus.FAILED)
+        self.assertEqual(result_status, WorkflowJobStatus.FAILED)
         self.assertEqual(reason, "destroy error")

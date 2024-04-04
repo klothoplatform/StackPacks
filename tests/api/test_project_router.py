@@ -3,51 +3,50 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiounittest
 from fastapi import HTTPException
 from pynamodb.exceptions import DoesNotExist
-from sse_starlette import EventSourceResponse
 
-from src.api.stack_packs import (
-    AppRequest,
-    StackRequest,
+from src.api.project_router import (
     StackResponse,
-    add_app,
+    StackRequest,
     create_stack,
-    remove_app,
-    stream_deployment_logs,
+    add_app,
+    AppRequest,
     update_app,
+    remove_app,
 )
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
 from src.util.aws.iam import Policy
 
 
-class TestStackPackRoutes(aiounittest.AsyncTestCase):
+class TestProjectRoutes(aiounittest.AsyncTestCase):
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.Project")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.Project")
+    @patch("src.api.project_router.TempDir")
     async def test_create_stack(
         self,
         mock_tmp_dir,
-        mock_user_pack,
+        mock_project,
         mock_get_user_id,
         mock_get_stack_packs,
         mock_get_iac_storage,
         mock_get_binary_storage,
     ):
         mock_get_user_id.return_value = "user_id"
-        user_stack = ProjectView(
+        project_view = ProjectView(
             id="id", owner="user_id", created_by="user_id", created_at=0
         )
-        mock_pack = MagicMock(
+        mock_project.get.side_effect = DoesNotExist
+        mock_project_instance = MagicMock(
             spec=Project,
             id="user_id",
-            to_user_stack=MagicMock(return_value=user_stack),
+            to_view_model=MagicMock(return_value=project_view),
         )
-        mock_user_pack.get.side_effect = DoesNotExist()
-        mock_user_pack.return_value = mock_pack
+        mock_project.get.side_effect = DoesNotExist()
+        mock_project.return_value = mock_project_instance
         sps = {"app1": MagicMock(), "app2": MagicMock()}
         mock_get_stack_packs.return_value = sps
         iac_storage = mock_get_iac_storage.return_value
@@ -55,52 +54,53 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         policy1 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy1"))
         policy2 = MagicMock(spec=Policy, __str__=MagicMock(return_value="policy2"))
-        mock_pack.run_base = AsyncMock(return_value=policy1)
-        mock_pack.run_pack = AsyncMock(return_value=policy2)
+        mock_project_instance.run_base = AsyncMock(return_value=policy1)
+        mock_project_instance.run_pack = AsyncMock(return_value=policy2)
 
         response: StackResponse = await create_stack(
             MagicMock(), StackRequest(configuration={"app1": {"config1": "value1"}})
         )
 
         mock_get_user_id.assert_called_once()
-        mock_user_pack.get.assert_called_once_with("user_id")
-        mock_user_pack.assert_called_once_with(
+        mock_project.get.assert_called_once_with("user_id")
+        mock_project.assert_called_once_with(
             id="user_id",
             owner="user_id",
             created_by="user_id",
             apps={"app1": 0},
             region=None,
-            features=["health_monitor"],
             assumed_role_arn=None,
+            assumed_role_external_id=None,
+            features=["health_monitor"],
         )
         mock_get_stack_packs.assert_called_once()
         self.assertEqual(mock_get_iac_storage.call_count, 2)
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
-        mock_pack.run_base.assert_called_once_with(
+        mock_project_instance.run_base.assert_called_once_with(
             stack_packs=list(sps.values()),
             config={},
             iac_storage=iac_storage,
             binary_storage=binary_storage,
             tmp_dir="/tmp",
         )
-        mock_pack.run_pack.assert_called_once_with(
+        mock_project_instance.run_pack.assert_called_once_with(
             stack_packs=sps,
             config={"app1": {"config1": "value1"}},
             iac_storage=iac_storage,
             binary_storage=binary_storage,
             tmp_dir="/tmp",
         )
-        mock_pack.save.assert_called_once()
+        mock_project_instance.save.assert_called_once()
         policy2.combine.assert_called_once_with(policy1)
-        self.assertEqual(response.stack, user_stack)
+        self.assertEqual(response.stack, project_view)
         self.assertEqual(response.policy, "policy2")
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     async def test_create_stack_Stack_exists(
         self,
@@ -141,11 +141,11 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         mock_pack.run_pack.assert_not_called()
         mock_pack.save.assert_not_called()
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_add_app(
@@ -171,7 +171,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
+            to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
@@ -188,7 +188,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_get_pack.assert_called_once_with("user_id")
-        mock_get_app.assert_called_once_with("user_id#app2", 1)
+        mock_get_app.assert_called_once_with("user_id", f"app2#{1:08}")
         user_app.get_configurations.assert_called_once()
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
@@ -210,14 +210,14 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         user_pack.save.assert_called_once()
 
         # Assert response
-        self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
+        self.assertEqual(response.stack, user_pack.to_view_model.return_value)
         self.assertEqual(response.policy, str(policy))
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_add_app_empty_stack(
@@ -243,7 +243,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
+            to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
 
@@ -276,14 +276,14 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         user_pack.save.assert_called_once()
 
         # Assert response
-        self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
+        self.assertEqual(response.stack, user_pack.to_view_model.return_value)
         self.assertEqual(response.policy, str(policy))
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_update_app(
@@ -309,7 +309,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             run_pack=AsyncMock(return_value=policy),
             run_base=AsyncMock(return_value=policy2),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
+            to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
@@ -326,7 +326,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_get_pack.assert_called_once_with("user_id")
-        mock_get_app.assert_called_once_with("user_id#app2", 1)
+        mock_get_app.assert_called_once_with("user_id", f"app2#{1:08}")
         user_app.get_configurations.assert_called_once()
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
@@ -348,14 +348,14 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         user_pack.save.assert_called_once()
 
         # Assert response
-        self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
+        self.assertEqual(response.stack, user_pack.to_view_model.return_value)
         self.assertEqual(response.policy, str(policy))
 
-    @patch("src.api.stack_packs.get_binary_storage")
-    @patch("src.api.stack_packs.get_iac_storage")
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_binary_storage")
+    @patch("src.api.project_router.get_iac_storage")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_remove_app(
@@ -379,7 +379,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             apps={"app1": 1, "app2": 1},
             run_pack=AsyncMock(return_value=policy),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
+            to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
         user_app = MagicMock(
@@ -394,7 +394,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
 
         # Assert calls
         mock_get_pack.assert_called_once_with("user_id")
-        mock_get_app.assert_called_once_with("user_id#app2", 1)
+        mock_get_app.assert_called_once_with("user_id", f"app2#{1:08}")
         user_app.get_configurations.assert_called_once()
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
@@ -408,12 +408,12 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         user_pack.save.assert_called_once()
 
         # Assert response
-        self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
+        self.assertEqual(response.stack, user_pack.to_view_model.return_value)
         self.assertEqual(response.policy, str(policy))
 
-    @patch("src.api.stack_packs.get_stack_packs")
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.TempDir")
+    @patch("src.api.project_router.get_stack_packs")
+    @patch("src.api.project_router.get_user_id")
+    @patch("src.api.project_router.TempDir")
     @patch.object(Project, "get")
     @patch.object(AppDeployment, "get")
     async def test_remove_app_last_app(
@@ -435,7 +435,7 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
             apps={"app1": 1},
             run_pack=AsyncMock(return_value=policy),
             save=MagicMock(),
-            to_user_stack=MagicMock(return_value=MagicMock(spec=ProjectView)),
+            to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
         )
         mock_get_pack.return_value = user_pack
 
@@ -450,30 +450,5 @@ class TestStackPackRoutes(aiounittest.AsyncTestCase):
         user_pack.save.assert_called_once()
 
         # Assert response
-        self.assertEqual(response.stack, user_pack.to_user_stack.return_value)
+        self.assertEqual(response.stack, user_pack.to_view_model.return_value)
         self.assertEqual(response.policy, None)
-
-    @patch("src.api.stack_packs.get_user_id")
-    @patch("src.api.stack_packs.DeploymentDir")
-    async def test_stream_deployment_logs(self, mock_deploy_dir_ctor, mock_get_user_id):
-        # Setup mock objects
-        mock_get_user_id.return_value = "user_id"
-        mock_deploy_dir = MagicMock()
-        mock_deploy_dir_ctor.return_value = mock_deploy_dir
-        mock_deploy_log = MagicMock()
-        mock_deploy_dir.get_log.return_value = mock_deploy_log
-        mock_deploy_log.tail.return_value = MagicMock()
-
-        response: EventSourceResponse = await stream_deployment_logs(
-            MagicMock(),
-            "app_id",
-            "deployment_id",
-        )
-
-        # Assert calls
-        mock_deploy_dir_ctor.assert_called_once_with("user_id", "deployment_id")
-        mock_deploy_dir.get_log.assert_called_once_with("app_id")
-        mock_deploy_log.tail.assert_called_once()
-
-        # Assert response
-        self.assertEqual(response.status_code, 200)

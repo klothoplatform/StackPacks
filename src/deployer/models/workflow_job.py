@@ -105,7 +105,6 @@ class WorkflowJob(Model):
 
     @classmethod
     def get_latest_job(cls, partition_key: str):
-
         for job in cls.query(partition_key, scan_index_forward=False, limit=1):
             return job
 

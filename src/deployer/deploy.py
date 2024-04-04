@@ -285,8 +285,8 @@ async def deploy_applications(
         app = AppDeployment.get_latest_version(
             project_id=job.project_id(), app_id=app_id
         )
-        apps[app.get_app_id()] = app
-        sp = sps[app.get_app_id()]
+        apps[app.app_id()] = app
+        sp = sps[app.app_id()]
         pulumi_config = sp.get_pulumi_configs(app.get_configurations())
         outputs = {k: v.value_string() for k, v in sp.outputs.items()}
         deployment_stacks.append(
@@ -533,7 +533,7 @@ async def execute_deploy_single_workflow(
         actions=[
             AppDeployment.status.set(AppLifecycleStatus.PENDING.value),
             AppDeployment.status_reason.set(
-                f"Updating Common Resources, then deploying {app.get_app_id()}."
+                f"Updating Common Resources, then deploying {app.app_id()}."
             ),
         ]
     )
@@ -584,13 +584,14 @@ async def execute_deploy_single_workflow(
                 app_data = [
                     AppData(
                         app_name=app.display_name or app.app_id(),
-                        login_url=app.outputs.get("URL"),
+                        login_url=app.outputs.get("URL", None) if app.outputs else None,
                     )
                 ]
                 send_deployment_success_email(
                     get_ses_client(), run.notification_email, app_data
                 )
     except Exception as e:
+        logger.error(f"Error deploying {app.get_app_id()}: {e}", exc_info=True)
         abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
         if app.status == AppLifecycleStatus.PENDING.value:
             app.transition_status(
