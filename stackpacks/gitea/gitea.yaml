@@ -45,10 +45,8 @@ base:
         Image: aws:ecr_image:gitea
         PortMappings[0]:
           ContainerPort: 3000
-          HostPort: 3000
         PortMappings:
         - ContainerPort: 2222
-          HostPort: 2222
           Protocol: TCP
         MountPoints[0]:
           ContainerPath: /data

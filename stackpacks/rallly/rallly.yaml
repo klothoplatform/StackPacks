@@ -23,7 +23,6 @@ base:
         Image: aws:ecr_image:rallly
         PortMappings[0]:
           ContainerPort: 3000
-          HostPort: 3000
         Cpu: ${CPU}
         Memory: ${Memory}
         Environment:

@@ -23,7 +23,6 @@ base:
         Image: aws:ecr_image:matomo
         PortMappings[0]:
           ContainerPort: 80
-          HostPort: 80
         MountPoints[0]:
           ContainerPath: /data
           SourceVolume: matomo-data

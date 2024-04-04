@@ -1,0 +1,114 @@
+name: wordpress
+id: wordpress
+description: Content management system for creating and managing websites
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+base:
+  resources:
+    aws:ecr_image:wordpress:
+      BaseImage: wordpress
+      Dockerfile: Dockerfile
+    aws:ecs_service:wordpress-service:
+      TaskDefinition: aws:ecs_task_definition:wordpress-task
+    aws:ecs_task_definition:wordpress-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:wordpress
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: WORDPRESS_DB_HOST
+          Value: aws:rds_instance:wordpress-db#Endpoint
+        - Name: WORDPRESS_DB_USER
+          Value: aws:rds_instance:wordpress-db#Username
+        - Name: WORDPRESS_DB_PASSWORD
+          Value: aws:rds_instance:wordpress-db#Password
+        - Name: WORDPRESS_DB_NAME
+          Value: aws:rds_instance:wordpress-db#DatabaseName
+        MountPoints[0]:
+          ContainerPath: /var/www/html
+          SourceVolume: wordpress-data
+    aws:load_balancer:wordpress-lb:
+      Type: application
+      Scheme: internet-facing
+    aws:target_group:wordpress-tg:
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /
+        Matcher: 200
+    aws:load_balancer_listener:wordpress-lb:wordpress-listener:
+      LoadBalancer: aws:load_balancer:wordpress-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:wordpress-tg
+    aws:rds_instance:wordpress-db:
+      Engine: mysql
+      EngineVersion: 8.0.35
+    aws:cloudfront_distribution:wordpress-cf:
+    aws:efs_file_system:wordpress-efs:
+    aws:efs_access_point:wordpress-efs:wordpress-data:
+      FileSystem: aws:efs_file_system:wordpress-efs
+      PosixUser:
+          Gid: 33
+          Uid: 33
+      RootDirectory:
+          CreationInfo:
+              OwnerGid: 1000
+              OwnerUid: 1000
+              Permissions: "777"
+          Path: /mnt/data
+  edges:
+    aws:cloudfront_distribution:wordpress-cf -> aws:load_balancer:wordpress-lb:
+    aws:load_balancer:wordpress-lb -> aws:ecs_service:wordpress-service:
+    aws:ecs_service:wordpress-service -> aws:rds_instance:wordpress-db:
+    aws:ecs_task_definition:wordpress-task -> aws:efs_access_point:wordpress-efs:wordpress-data:
+    aws:efs_access_point:wordpress-efs:wordpress-data -> aws:efs_file_system:wordpress-efs:
+    # Service to FS edge sets up the mount_target
+    aws:ecs_service:wordpress-service -> aws:efs_file_system:wordpress-efs:
+  files: {}
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the Wordpress service
+    type: number
+    default: 256
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the Wordpress service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DBUsername:
+    name: Database Username
+    description: The username to use for the Wordpress database
+    type: string
+    default: wordpressuser
+    pulumi_key: klo:wordpress-db-username
+    validation:
+      minLength: 1
+      maxLength: 63
+
+
+  DBPassword:
+    name: Database Password
+    description: The password to use for the Wordpress database
+    type: string
+    pulumi_key: klo:wordpress-db-password
+    secret: true
+    validation:
+      minLength: 8
+      maxLength: 128

@@ -35,14 +35,16 @@ class AppBuilder:
         log.info(f"Creating stack for {pulumi_stack.project_name} {pulumi_stack.name}")
         s3_opts = auto.LocalWorkspaceOptions(
             project_settings=auto.ProjectSettings(
-                name=PulumiStack.sanitize_stack_name(f"{pulumi_stack.project_name}/{pulumi_stack.name}"),
+                name=PulumiStack.sanitize_stack_name(
+                    f"{pulumi_stack.project_name}/{pulumi_stack.name}"
+                ),
                 runtime="nodejs",
-                backend=auto.ProjectBackend(f's3://{self.state_bucket_name}')
+                backend=auto.ProjectBackend(f"s3://{self.state_bucket_name}"),
             ),
             env_vars={
                 "PULUMI_CONFIG_PASSPHRASE": "",
                 "PULUMI_CONFIG_PASSPHRASE_FILE": "",
-            }
+            },
         )
         os.environ["PULUMI_DEBUG"] = "true"
         stack = auto.create_or_select_stack(

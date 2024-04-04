@@ -23,7 +23,6 @@ base:
         Image: aws:ecr_image:keila
         PortMappings[0]:
           ContainerPort: 4000
-          HostPort: 4000
         Cpu: ${CPU}
         Memory: ${Memory}
         Environment:

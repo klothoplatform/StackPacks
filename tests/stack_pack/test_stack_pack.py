@@ -1,9 +1,14 @@
+import re
 import unittest
 from pathlib import Path
 
 from pydantic_yaml import parse_yaml_file_as
 
+<<<<<<< Updated upstream
 from src.project import StackPack
+=======
+from src.stack_pack import StackPack, get_stack_packs
+>>>>>>> Stashed changes
 
 
 class TestStackPack(unittest.TestCase):
@@ -162,3 +167,31 @@ class TestStackPack(unittest.TestCase):
         cfg = self.sp.get_pulumi_configs({"PulumiConfig": "different value"})
 
         self.assertEqual({"klo:pulumi-config": "different value"}, cfg)
+
+    def test_stack_packs_dont_conflict(self):
+        
+        property_checks = [
+            {   
+             
+                "pattern": "^ContainerDefinitions\[.*\].PortMappings\[.*\].HostPort$",
+                "eval": "unique"
+            }
+        ]
+        sps = get_stack_packs()
+        
+        for check in property_checks:
+            values = {}
+            for sp in list(sps.values()):
+                for constraint in sp.to_constraints({}):
+                    if constraint.get("scope") == "resource" and re.match(check.get("pattern", ""), constraint.get("property", "")):
+                        val = constraint.get("value")
+                        if values.get(val) is None:
+                            values[val] = [sp.name]
+                        else:
+                            values[val].append(sp.name)
+                            
+                            
+            if check.get("eval") == "unique":
+                for val in values:
+                    if len(values[val]) > 1:
+                        self.fail(f"Property {check.get('pattern')} is not unique, contained in {values[val]} with value {val}")
