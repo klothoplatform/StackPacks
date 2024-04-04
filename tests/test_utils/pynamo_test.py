@@ -1,3 +1,4 @@
+import os
 from typing import Type, List
 from unittest import TestCase
 
@@ -9,6 +10,7 @@ from pynamodb.models import Model
 class PynamoTest(object):
     mock_aws: MockAWS = mock_aws()
     models: List[Type[Model]] = []
+    _unset_region = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,10 +29,15 @@ class PynamoTest(object):
 
     @classmethod
     def setUpClass(cls):
+        if os.environ.get("AWS_DEFAULT_REGION") is None:
+            cls._unset_region = True
+            os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
         cls.mock_aws.start()
 
     @classmethod
     def tearDownClass(cls):
+        if cls._unset_region:
+            del os.environ["AWS_DEFAULT_REGION"]
         cls.mock_aws.stop()
 
     def setUp(self):
