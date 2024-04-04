@@ -142,7 +142,8 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
       - name: Invalidate CloudFront Cache
         run: |
-          distributionArn=$(aws resourcegroupstaggingapi get-resources --tag-filters Key=RESOURCE_NAME,Values=stacksnap-distribution --region ${{ vars.AWS_REGION }} --resource-type-filters cloudfront:distribution --query "ResourceTagMappingList[0].ResourceARN" --output text)
+          # TODO: use something more robust - multiple deployments of stacksnap will result in multiple distributions with the same RESOURCE_NAME tag
+          distributionArn=$(aws resourcegroupstaggingapi get-resources --tag-filters Key=RESOURCE_NAME,Values=stacksnap-distribution --region us-east-1 --resource-type-filters cloudfront:distribution --query "ResourceTagMappingList[0].ResourceARN" --output text)
           aws cloudfront create-invalidation --distribution-id "${distributionArn##*/}" --paths "/*"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
