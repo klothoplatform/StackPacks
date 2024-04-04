@@ -155,7 +155,11 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
         mock_run_engine.assert_called_once_with(
-            RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
+            RunEngineRequest(
+                constraints=["constraint1", "constraint2"],
+                tmp_dir="dir",
+                tag="project_id/app",
+            )
         )
         mock_export_iac.assert_called_once_with(
             ExportIacRequest(

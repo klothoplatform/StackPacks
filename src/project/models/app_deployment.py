@@ -181,7 +181,7 @@ class AppDeployment(Model):
         binary_storage.ensure_binary(Binary.ENGINE)
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(
-                tag=f"{self.get_project_id()}/{self.get_app_id()}",
+                tag=f"{self.project_id}/{self.app_id()}",
                 constraints=constraints,
                 tmp_dir=dir,
             )

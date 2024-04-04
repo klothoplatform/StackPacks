@@ -94,7 +94,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         # Assert calls
-        AppBuilder.assert_called_once_with(Path("/tmp"))
+        AppBuilder.assert_called_once_with(Path("/tmp/app"))
         mock_builder.prepare_stack.assert_called_once()
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", "external_id"
@@ -162,7 +162,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             *PulumiStack.split_composite_key(deployment_job.iac_stack_composite_key)
         )
         self.assertEqual(WorkflowJobStatus.FAILED.value, pulumi_stack.status)
-        AppBuilder.assert_called_once_with(Path("/tmp"))
+        AppBuilder.assert_called_once_with(Path("/tmp/app"))
         mock_builder.prepare_stack.assert_called_once_with(b"iac", pulumi_stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", None
