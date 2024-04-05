@@ -84,7 +84,7 @@ export function AddAppPage() {
         }}
       >
         <div className="flex size-full flex-row justify-center overflow-hidden">
-          <div className="flex size-full max-w-[1400px] grow flex-col gap-6 p-6">
+          <div className="flex size-full max-w-[1400px] grow flex-col gap-6">
             <StepperProvider
               steps={workflowSteps}
               onGoBack={(step) =>

@@ -150,9 +150,9 @@ export const ChooseAppsStep: FC<StepperNavigatorProps & {}> = ({
       value={{ apps, setApps, selectedApps, setSelectedApps }}
     >
       <FormProvider {...methods}>
-        <div className={"min-h-[50vh] w-full overflow-hidden p-4"}>
+        <div className={"min-h-[50vh] w-full overflow-hidden"}>
           <div className={"flex size-full flex-col dark:text-white"}>
-            <div className={"flex size-full flex-col overflow-hidden pt-10"}>
+            <div className={"flex size-full flex-col overflow-hidden"}>
               <h2 className={"mx-auto pb-1 text-3xl font-medium"}>
                 Pick your software
               </h2>
