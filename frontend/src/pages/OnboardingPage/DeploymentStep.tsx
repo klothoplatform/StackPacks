@@ -18,8 +18,6 @@ export interface DeploymentFormState {
   region: string;
 }
 
-const defaultRegion = "us-east-1";
-
 export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   const { installProject, addError, updateProject, project } =
     useApplicationStore();
@@ -29,7 +27,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
   const navigate = useNavigate();
 
   const defaultValues: DeploymentFormState = {
-    region: project?.region || defaultRegion,
+    region: project?.region,
   };
 
   const methods = useForm<DeploymentFormState>({ defaultValues });
@@ -111,7 +109,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                     disabled={updatingRegion}
                     color={"purple"}
                     prefix={"region"}
-                    label={awsRegions[watchRegion]}
+                    label={awsRegions[watchRegion] || "Select a region"}
                     placement={"bottom-start"}
                     size={"sm"}
                     theme={{
@@ -133,9 +131,16 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                     })}
                   </InlineDropdown>
                   {updatingRegion && (
-                    <AiOutlineLoading3Quarters
-                      className={"animate-spin text-primary-200"}
-                    />
+                    <div
+                      className={
+                        "flex w-fit items-center gap-2 text-xs italic text-gray-500 dark:text-gray-400"
+                      }
+                    >
+                      <span>Updating region...</span>
+                      <AiOutlineLoading3Quarters
+                        className={"animate-spin text-gray-200"}
+                      />
+                    </div>
                   )}
                 </div>
               </div>

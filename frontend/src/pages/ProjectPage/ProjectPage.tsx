@@ -67,7 +67,7 @@ function EnvironmentSection(props: { project: Project }) {
 
   return (
     <Container className="overflow-auto">
-      <div className="flex h-fit w-full flex-col justify-between md:flex-row">
+      <div className="flex h-fit w-full flex-col justify-between gap-4 md:flex-row">
         <EnvironmentItem label={"Cloud Provider"}>AWS</EnvironmentItem>
         <EnvironmentItem label={"Region"}>
           {props.project?.region || "Not set"}

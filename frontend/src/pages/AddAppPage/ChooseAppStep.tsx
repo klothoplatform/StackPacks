@@ -175,7 +175,7 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
                       <div
                         className={"flex items-center gap-2 whitespace-nowrap"}
                       >
-                        {project?.id ? "Update" : "Create"} Project
+                        {isSubmitting ? "Adding app..." : "Add app"}
                       </div>
                     </Button>
                   )}

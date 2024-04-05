@@ -316,7 +316,7 @@ const SummaryCellContent: FC<{
         </span>
         <Link
           to={`/project${workflowRun.app_id ? "/apps/" + workflowRun.app_id.toLowerCase() : ""}/workflows/${workflowRun.workflow_type.toLowerCase()}/runs/${workflowRun.run_number}`}
-          className="text-lg font-bold hover:text-blue-600 hover:underline dark:text-white dark:hover:text-blue-500"
+          className="text-base font-bold hover:text-blue-600 hover:underline dark:text-white dark:hover:text-blue-500"
         >
           {title}
         </Link>

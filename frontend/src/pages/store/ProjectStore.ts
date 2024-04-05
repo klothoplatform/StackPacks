@@ -108,7 +108,9 @@ export const projectStore: StateCreator<
       defaultConfiguration,
       modifications.configuration,
     );
-
+    if (!modifications.region)
+      // set a default region if none is provided on creation
+      modifications.region = "us-east-1";
     return await get().createProject(modifications);
   },
   updateProject: async (stack: Partial<Project>) => {
