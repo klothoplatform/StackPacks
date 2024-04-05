@@ -14,5 +14,4 @@ jobs:
     uses: ./.github/workflows/release.yaml
     with:
       stage: dev
-      region: us-east-1
     secrets: inherit
