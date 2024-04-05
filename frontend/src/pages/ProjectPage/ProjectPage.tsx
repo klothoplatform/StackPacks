@@ -39,6 +39,8 @@ import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { FaRegCopy } from "react-icons/fa6";
+import { Container } from "../../components/Container.tsx";
+import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
 
 const EnvironmentItem: FC<
   PropsWithChildren<{
@@ -64,49 +66,69 @@ function EnvironmentSection(props: { project: Project }) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div className="flex h-fit w-full justify-between rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-      <button
-        className="flex flex-col items-start gap-4 lg:flex-row lg:gap-10"
-        onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
-        onMouseOver={() => setHovered(true)}
-        onMouseOut={() => setHovered(false)}
-        onClick={() =>
-          props.project?.assumed_role_arn &&
-          navigator.clipboard.writeText(props.project.assumed_role_arn)
-        }
-      >
+    <Container className="overflow-auto">
+      <div className="flex h-fit w-full flex-col justify-between md:flex-row">
         <EnvironmentItem label={"Cloud Provider"}>AWS</EnvironmentItem>
         <EnvironmentItem label={"Region"}>
           {props.project?.region || "Not set"}
         </EnvironmentItem>
         <EnvironmentItem label={"Deployment Role ARN"}>
-          <div className={"flex cursor-pointer flex-nowrap gap-2"}>
-            <span
-              className={classNames("w-fit break-all text-xs", {
-                "cursor-pointer": !!props.project?.assumed_role_arn,
-              })}
-            >
-              {props.project?.assumed_role_arn || "Not set"}
-            </span>
-            {!!props.project?.assumed_role_arn && hovered && (
-              <FaRegCopy className={"text-gray-500"} />
-            )}
-          </div>
+          <button
+            className="flex flex-col items-start gap-4 lg:flex-row lg:gap-10"
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+            onMouseOver={() => setHovered(true)}
+            onMouseOut={() => setHovered(false)}
+            onClick={() =>
+              props.project?.assumed_role_arn &&
+              navigator.clipboard.writeText(props.project.assumed_role_arn)
+            }
+          >
+            <div className={"flex cursor-pointer flex-nowrap gap-2"}>
+              <span
+                className={classNames("w-fit break-all text-xs", {
+                  "cursor-pointer": !!props.project?.assumed_role_arn,
+                })}
+              >
+                {props.project?.assumed_role_arn || "Not set"}
+              </span>
+              <FaRegCopy
+                className={classNames("text-gray-500", {
+                  "opacity-0": !props.project?.assumed_role_arn || !hovered,
+                })}
+              />
+            </div>
+          </button>
         </EnvironmentItem>
-      </button>
-      <Tooltip content={"Modify Environment"}>
-        <Button
-          color={mode}
-          className={"ml-auto size-fit"}
+        <Tooltip content={"Modify Environment"}>
+          <Button
+            color={mode}
+            className={"ml-auto size-fit"}
+            size={"xs"}
+            pill
+            onClick={() => navigate("./environment")}
+          >
+            <HiMiniCog6Tooth />
+          </Button>
+        </Tooltip>
+      </div>
+      {!!props.project?.policy && (
+        <CollapsibleSection
           size={"xs"}
-          pill
-          onClick={() => navigate("./environment")}
+          color={mode}
+          collapsedText={"Show deployment policy"}
+          expandedText={"Hide deployment policy"}
         >
-          <HiMiniCog6Tooth />
-        </Button>
-      </Tooltip>
-    </div>
+          <div
+            className={
+              "max-h-80 w-full overflow-y-auto whitespace-pre-wrap rounded-lg bg-white p-4 font-mono text-xs text-green-700 dark:bg-gray-800 dark:text-green-200"
+            }
+          >
+            <code>{props.project?.policy}</code>
+          </div>
+        </CollapsibleSection>
+      )}
+    </Container>
   );
 }
 
