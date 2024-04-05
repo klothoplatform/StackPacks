@@ -167,7 +167,7 @@ class AppDeployment(Model):
         # Different services have different restrictions on the characters allowed in tags
         # Use this as the lowest common denominator
         # The engine should realistically do this sanitization, but for now it would just fail on deploy
-        project = re.sub(r"[^\w :-]", self.project_id)
+        project = re.sub(r"[^\w :-]", "_", self.project_id)
         tag = f"{project}/{self.app_id()}"
         if len(tag) > 128:
             tag = f"{project[:128 - len(self.app_id()) - 1]}/{self.app_id()}"
