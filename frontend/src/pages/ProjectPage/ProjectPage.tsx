@@ -118,6 +118,7 @@ function EnvironmentSection(props: { project: Project }) {
           color={mode}
           collapsedText={"Show deployment policy"}
           expandedText={"Hide deployment policy"}
+          collapsed
         >
           <div
             className={
