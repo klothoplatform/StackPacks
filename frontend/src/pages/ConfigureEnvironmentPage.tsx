@@ -1,9 +1,9 @@
 import type { FC } from "react";
 import React, { useState } from "react";
-import { UIError } from "../../shared/errors.ts";
+import { UIError } from "../shared/errors.ts";
 import { ErrorBoundary } from "react-error-boundary";
-import { FallbackRenderer } from "../../components/FallbackRenderer.tsx";
-import { trackError } from "../store/ErrorStore.ts";
+import { FallbackRenderer } from "../components/FallbackRenderer.tsx";
+import { trackError } from "./store/ErrorStore.ts";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -13,12 +13,12 @@ import {
   useThemeMode,
 } from "flowbite-react";
 import { MdChevronLeft } from "react-icons/md";
-import useApplicationStore from "../store/ApplicationStore.ts";
-import type { Project } from "../../shared/models/Project.ts";
-import { isProjectDeployed } from "../../shared/models/Project.ts";
+import useApplicationStore from "./store/ApplicationStore.ts";
+import type { Project } from "../shared/models/Project.ts";
+import { isProjectDeployed } from "../shared/models/Project.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
-import { awsDefaultRegions, awsRegions } from "../../shared/aws-regions.ts";
+import { awsDefaultRegions, awsRegions } from "../shared/aws-regions.ts";
 
 export const ConfigureEnvironmentPage: FC = () => {
   const { project } = useApplicationStore();
@@ -149,7 +149,13 @@ export const ConfigureEnvironmentForm: FC<{
                   <Dropdown.Item
                     key={region}
                     value={region}
-                    onClick={() => methods.setValue("region", region)}
+                    onClick={() =>
+                      methods.setValue("region", region, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      })
+                    }
                   >
                     {name}
                   </Dropdown.Item>

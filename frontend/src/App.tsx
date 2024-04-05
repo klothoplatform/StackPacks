@@ -19,7 +19,7 @@ import { WorkflowRunsPage } from "./pages/Workflows/WorkflowRunsPage.tsx";
 import { RunOverviewPage } from "./pages/Workflows/WorkflowRunPage/RunOverviewPage.tsx";
 import { JobDetailsPage } from "./pages/Workflows/WorkflowRunPage/JobDetailsPage.tsx";
 import WorkflowRunPage from "./pages/Workflows/WorkflowRunPage/WorkflowRunPage.tsx";
-import { ConfigureEnvironmentPage } from "./pages/ConfigureEnvironment/ConfigureEnvironmentPage.tsx";
+import { ConfigureEnvironmentPage } from "./pages/ConfigureEnvironmentPage.tsx";
 import { OnboardingPage } from "./pages/OnboardingPage/OnboardingPage.tsx";
 
 const AuthorizedOutlet: FC = () => {
