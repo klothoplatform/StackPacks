@@ -9,6 +9,8 @@ base:
       Prop1: value
     test:array_index:test2:
       LoadBalancers[0].ContainerPort: 8065
+      LoadBalancers:
+      - ContainerPort: 8080
     test:config_value:test3:
       Cpu: ${CPU}
     test:array_value:test4:

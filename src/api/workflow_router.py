@@ -4,9 +4,9 @@ from typing import Optional
 import jsons
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from sse_starlette import EventSourceResponse
-from starlette.responses import StreamingResponse, Response
+from starlette.responses import Response, StreamingResponse
 
-from src.api.models.workflow_models import WorkflowRunView, WorkflowRunSummary
+from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
 from src.deployer.deploy import (
     execute_deploy_single_workflow,
@@ -116,6 +116,7 @@ async def uninstall_app(
     request: Request,
     background_tasks: BackgroundTasks,
     app_id: str,
+    keep_common: bool = False,
 ):
     user_id = await get_user_id(request)
     users_email = await get_email(request)
@@ -129,13 +130,15 @@ async def uninstall_app(
         notification_email=users_email,
     )
     if (
-        len(project.apps) < 2
-        or len(project.apps) == 2
-        and set(project.apps.keys())
-        == {
-            Project.COMMON_APP_NAME,
-            app_id,
-        }
+        not keep_common
+        and len(
+            set(project.apps.keys())
+            - {
+                Project.COMMON_APP_NAME,
+                app_id,
+            }
+        )
+        == 0
     ):
         project.update(actions=[Project.destroy_in_progress.set(True)])
         destroy_common = True

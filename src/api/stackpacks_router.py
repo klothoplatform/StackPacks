@@ -2,7 +2,7 @@ import os
 
 from fastapi import APIRouter
 
-from src.project import get_stack_packs, StackConfig
+from src.project import StackConfig, get_stack_packs
 
 router = APIRouter()
 

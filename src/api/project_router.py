@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from pynamodb.exceptions import DoesNotExist
 
 from src.auth.token import get_user_id
-from src.dependencies.injection import get_iac_storage, get_binary_storage
-from src.deployer.models.workflow_run import WorkflowType, WorkflowRun
+from src.dependencies.injection import get_binary_storage, get_iac_storage
+from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
 from src.project import ConfigValues, get_stack_packs
 from src.project.common_stack import Feature
@@ -109,14 +109,15 @@ async def update_stack(
         )
     if body.region:
         apps = project.to_view_model().stack_packs
-        # check if any apps are deployed to avoid changing region while stack is running
-        for app in apps.values():
-            if app.status and app.status not in ["UNINSTALLED", "NEW"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Cannot change region while project has deployed "
-                    "applications",
-                )
+        if project.region not in {None, body.region}:
+            # check if any apps are deployed to avoid changing region while stack is running
+            for app in apps.values():
+                if app.status and app.status not in ["UNINSTALLED", "NEW"]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot change region while project has deployed "
+                        "applications",
+                    )
         actions.append(Project.region.set(body.region))
     if len(actions) > 0:
         project.update(actions=actions)

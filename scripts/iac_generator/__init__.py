@@ -45,6 +45,7 @@ async def generate_iac(
     os.makedirs(output_dir, exist_ok=True)
 
     request = RunEngineRequest(
+        tag=project_name,
         constraints=sp.to_constraints({}),
         tmp_dir=output_dir,
     )

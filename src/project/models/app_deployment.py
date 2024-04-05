@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from enum import Enum
 from io import BytesIO
@@ -162,6 +163,16 @@ class AppDeployment(Model):
     def get_project_id(self):
         return self.project_id
 
+    def global_tag(self):
+        # Different services have different restrictions on the characters allowed in tags
+        # Use this as the lowest common denominator
+        # The engine should realistically do this sanitization, but for now it would just fail on deploy
+        project = re.sub(r"[^\w :-]", "_", self.project_id)
+        tag = f"{project}/{self.app_id()}"
+        if len(tag) > 128:
+            tag = f"{project[:128 - len(self.app_id()) - 1]}/{self.app_id()}"
+        return tag
+
     def get_configurations(self) -> ConfigValues:
         return ConfigValues(self.configuration.items())
 
@@ -181,6 +192,7 @@ class AppDeployment(Model):
         binary_storage.ensure_binary(Binary.ENGINE)
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(
+                tag=self.global_tag(),
                 constraints=constraints,
                 tmp_dir=dir,
             )
@@ -198,7 +210,7 @@ class AppDeployment(Model):
             iac_bytes = zip_directory_recurse(BytesIO(), dir)
             logger.info(f"Writing IAC for {self.app_id()} version {self.version()}")
             iac_storage.write_iac(
-                self.get_project_id(), self.app_id(), self.version(), iac_bytes
+                self.project_id, self.app_id(), self.version(), iac_bytes
             )
         return Policy(engine_result.policy)
 

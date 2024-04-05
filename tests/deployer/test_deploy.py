@@ -7,28 +7,28 @@ from src.deployer.deploy import (
     DeploymentResult,
     StackDeploymentRequest,
     build_and_deploy,
-    run_concurrent_deployments,
     build_and_deploy_application,
-    rerun_pack_with_live_state,
-    deploy_applications,
     deploy_app,
+    deploy_applications,
     execute_deploy_single_workflow,
     execute_deployment_workflow,
+    rerun_pack_with_live_state,
+    run_concurrent_deployments,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.workflow_job import (
+    WorkflowJob,
     WorkflowJobStatus,
     WorkflowJobType,
-    WorkflowJob,
 )
 from src.deployer.models.workflow_run import (
     WorkflowRun,
-    WorkflowType,
     WorkflowRunStatus,
+    WorkflowType,
 )
 from src.deployer.pulumi.manager import AppManager
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.project import StackPack, Output
+from src.project import Output, StackPack
 from src.project.common_stack import CommonStack
 from src.project.live_state import LiveState
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
@@ -94,7 +94,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         # Assert calls
-        AppBuilder.assert_called_once_with(Path("/tmp"))
+        AppBuilder.assert_called_once_with(Path("/tmp/app"))
         mock_builder.prepare_stack.assert_called_once()
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", "external_id"
@@ -162,7 +162,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             *PulumiStack.split_composite_key(deployment_job.iac_stack_composite_key)
         )
         self.assertEqual(WorkflowJobStatus.FAILED.value, pulumi_stack.status)
-        AppBuilder.assert_called_once_with(Path("/tmp"))
+        AppBuilder.assert_called_once_with(Path("/tmp/app"))
         mock_builder.prepare_stack.assert_called_once_with(b"iac", pulumi_stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", None

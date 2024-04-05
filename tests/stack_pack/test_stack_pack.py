@@ -61,6 +61,17 @@ class TestStackPack(unittest.TestCase):
                 },
                 {
                     "scope": "resource",
+                    "operator": "add",
+                    "property": "LoadBalancers",
+                    "value": [
+                        {
+                            "ContainerPort": 8080,
+                        }
+                    ],
+                    "target": "test:array_index:test2",
+                },
+                {
+                    "scope": "resource",
                     "operator": "equals",
                     "property": "Cpu",
                     "value": 512,  # The ${CPU} was replaced with the default configuration
@@ -68,7 +79,7 @@ class TestStackPack(unittest.TestCase):
                 },
                 {
                     "scope": "resource",
-                    "operator": "equals",
+                    "operator": "add",
                     "property": "Environment",
                     "value": [
                         {"Name": "KEY1", "Value": "v1"},

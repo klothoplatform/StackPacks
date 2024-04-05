@@ -2,7 +2,7 @@ import asyncio
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Iterable
+from typing import Iterable, List, Optional
 
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
@@ -16,17 +16,17 @@ from pynamodb.exceptions import DoesNotExist
 from pynamodb.models import Model
 
 from src.deployer.models.workflow_run import (
-    WorkflowRunStatus,
     WorkflowRun,
+    WorkflowRunStatus,
     WorkflowType,
 )
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, StackPack
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import (
-    AppLifecycleStatus,
     AppDeployment,
     AppDeploymentView,
+    AppLifecycleStatus,
 )
 from src.project.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
@@ -139,7 +139,7 @@ class Project(Model):
         )
 
         # Run the packs in parallel and only store the iac if we are incrementing the version
-        subdir = Path(tmp_dir) / app.get_app_id()
+        subdir = Path(tmp_dir) / app.app_id()
         subdir.mkdir(exist_ok=True)
         policy = await app.run_app(
             base_stack, str(subdir.absolute()), iac_storage, binary_storage

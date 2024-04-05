@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJob
-from src.deployer.models.workflow_run import WorkflowRunStatus, WorkflowRun
+from src.deployer.models.workflow_job import WorkflowJob, WorkflowJobStatus
+from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.util.logging import logger
 
 

@@ -1,13 +1,14 @@
-from pathlib import Path, PosixPath
-import aiounittest
-from unittest import mock
 import tempfile
+from pathlib import Path, PosixPath
+from unittest import mock
+
+import aiounittest
 
 from src.engine_service.engine_commands.run import (
-    run_engine,
+    EngineException,
     RunEngineRequest,
     RunEngineResult,
-    EngineException,
+    run_engine,
 )
 
 
@@ -43,6 +44,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
     )
     async def test_run_engine(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
+            tag="test",
             constraints=[],
             input_graph="test",
             tmp_dir=self.temp_dir.name,
@@ -62,6 +64,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
             f"{self.temp_dir.name}/constraints.yaml",
             "--provider",
             "aws",
+            "--global-tag",
+            "test",
             "--output-dir",
             self.temp_dir.name,
             cwd=PosixPath(self.temp_dir.name),
@@ -83,6 +87,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
     )
     async def test_run_engine_configerr(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
+            tag="test",
             constraints=[],
             input_graph="test",
             tmp_dir=self.temp_dir.name,
@@ -111,6 +116,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
             f"{self.temp_dir.name}/constraints.yaml",
             "--provider",
             "aws",
+            "--global-tag",
+            "test",
             "--output-dir",
             self.temp_dir.name,
             cwd=PosixPath(self.temp_dir.name),
@@ -132,6 +139,7 @@ class TestRunEngine(aiounittest.AsyncTestCase):
     )
     async def test_run_engine_failure(self, mock_eng_cmd: mock.Mock):
         request = RunEngineRequest(
+            tag="test",
             constraints=[],
             input_graph="test",
             tmp_dir=self.temp_dir.name,
@@ -145,13 +153,13 @@ class TestRunEngine(aiounittest.AsyncTestCase):
         mock_eng_cmd.side_effect = EngineException(
             "Run",
             1,
-            "out_logs",
+            "{}",
             "err_logs",
         )
         with self.assertRaises(EngineException) as fre:
             await run_engine(request)
         self.assertEqual(fre.exception.returncode, 1)
-        self.assertEqual(fre.exception.stdout, "out_logs")
+        self.assertEqual(fre.exception.stdout, "{}")
         self.assertEqual(fre.exception.stderr, "err_logs")
 
         mock_eng_cmd.assert_called_once_with(
@@ -162,6 +170,8 @@ class TestRunEngine(aiounittest.AsyncTestCase):
             f"{self.temp_dir.name}/constraints.yaml",
             "--provider",
             "aws",
+            "--global-tag",
+            "test",
             "--output-dir",
             self.temp_dir.name,
             cwd=PosixPath(self.temp_dir.name),

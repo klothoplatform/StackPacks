@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 from aiomultiprocess import Pool
 from pulumi import automation as auto
@@ -11,19 +11,19 @@ from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.util import abort_workflow_run, complete_workflow_run
 from src.deployer.models.workflow_job import (
+    WorkflowJob,
     WorkflowJobStatus,
     WorkflowJobType,
-    WorkflowJob,
 )
 from src.deployer.models.workflow_run import (
     WorkflowRun,
-    WorkflowType,
     WorkflowRunStatus,
+    WorkflowType,
 )
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.project.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
 from src.project.storage.iac_storage import IaCDoesNotExistError
 from src.util.logging import logger
@@ -58,7 +58,7 @@ async def run_destroy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir)
+        builder = AppBuilder(tmp_dir / destroy_job.modified_app_id)
         stack = builder.prepare_stack(iac, pulumi_stack)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))

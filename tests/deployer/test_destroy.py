@@ -1,30 +1,30 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiounittest
 
 from src.deployer.destroy import (
     DeploymentResult,
     StackDeploymentRequest,
+    destroy_app,
+    destroy_applications,
+    execute_destroy_all_workflow,
+    execute_destroy_single_workflow,
+    run_concurrent_destroys,
     run_destroy,
     run_destroy_application,
-    run_concurrent_destroys,
-    destroy_applications,
-    destroy_app,
-    execute_destroy_single_workflow,
-    execute_destroy_all_workflow,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.workflow_job import (
+    WorkflowJob,
     WorkflowJobStatus,
     WorkflowJobType,
-    WorkflowJob,
 )
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.pulumi.manager import AppManager
-from src.project.models.app_deployment import AppLifecycleStatus, AppDeployment
+from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
-from src.project.storage.iac_storage import IacStorage, IaCDoesNotExistError
+from src.project.storage.iac_storage import IaCDoesNotExistError, IacStorage
 from tests.test_utils.pynamo_test import PynamoTest
 
 
@@ -113,7 +113,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         # Assert calls
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
-        mock_app_builder.assert_called_once_with(Path("/tmp"))
+        mock_app_builder.assert_called_once_with(Path("/tmp/app1"))
         mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value,
@@ -172,7 +172,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         # Assert calls
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
-        mock_app_builder.assert_called_once_with(Path("/tmp"))
+        mock_app_builder.assert_called_once_with(Path("/tmp/app1"))
         mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value,

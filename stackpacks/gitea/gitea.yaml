@@ -23,6 +23,24 @@ base:
     aws:ecs_task_definition:gitea-task:
       Cpu: ${CPU}
       Memory: ${Memory}
+      Volumes[0]:
+        Name: gitea-data
+        EfsVolumeConfiguration:
+          Filesystem: aws:efs_file_system:gitea-efs
+          AuthorizationConfig:
+            AccessPoint: aws:efs_access_point:gitea-efs:gitea-data
+            Iam: ENABLED
+          TransitEncryption: ENABLED
+          RootDirectory: /mnt/data
+      Volumes[1]:
+        Name: gitea-ssh
+        EfsVolumeConfiguration:
+          Filesystem: aws:efs_file_system:gitea-efs
+          AuthorizationConfig:
+            AccessPoint: aws:efs_access_point:gitea-efs:gitea-ssh
+            Iam: ENABLED
+          TransitEncryption: ENABLED
+          RootDirectory: /mnt/ssh
       ContainerDefinitions[0]:
         Image: aws:ecr_image:gitea
         PortMappings[0]:
@@ -35,9 +53,11 @@ base:
         MountPoints[0]:
           ContainerPath: /data
           SourceVolume: gitea-data
+          ReadOnly: false
         MountPoints[1]:
           ContainerPath: /data/ssh
           SourceVolume: gitea-ssh
+          ReadOnly: false
         Cpu: ${CPU}
         Memory: ${Memory}
         Environment:

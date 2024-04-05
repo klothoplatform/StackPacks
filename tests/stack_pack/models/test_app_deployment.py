@@ -6,7 +6,7 @@ import aiounittest
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
-from src.project import StackPack, ConfigValues
+from src.project import StackPack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.storage.iac_storage import IacStorage
 from tests.test_utils.pynamo_test import PynamoTest
@@ -155,7 +155,11 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
         mock_run_engine.assert_called_once_with(
-            RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
+            RunEngineRequest(
+                constraints=["constraint1", "constraint2"],
+                tmp_dir="dir",
+                tag="project_id/app",
+            )
         )
         mock_export_iac.assert_called_once_with(
             ExportIacRequest(

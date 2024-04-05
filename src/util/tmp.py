@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+
 from src.util.logging import logger
 
 KEEP_TMP = os.environ.get("KEEP_TMP", False)
@@ -13,6 +14,10 @@ class TempDir:
             tmp_root = Path(KEEP_TMP)
             tmp_root.mkdir(parents=True, exist_ok=True)
             self.dir = tempfile.mkdtemp(dir=tmp_root)
+
+            latest = tmp_root / "latest"
+            latest.unlink(missing_ok=True)
+            latest.symlink_to(Path(self.dir).name)
         else:
             self.dir = tempfile.mkdtemp()
 
