@@ -6,9 +6,9 @@ import { useForm } from "react-hook-form";
 import { useStepper } from "../../hooks/useStepper.ts";
 import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
 import { MdContentCopy } from "react-icons/md";
-import { RiExternalLinkLine } from "react-icons/ri";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
+import { ExternalLinkWrapper } from "../../components/ExternalLinkWrapper.tsx";
 
 export interface ConnectAccountFormState {
   assumedRoleArn: string;
@@ -102,16 +102,15 @@ export const UpdateRoleStep: FC<StepperNavigatorProps> = (props) => {
                 <code>{project?.policy}</code>
               </div>
             </CollapsibleSection>
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href={"https://console.aws.amazon.com/iam/home#/policies"}
-              className={"text-blue-600 hover:underline dark:text-blue-400"}
-            >
-              <span className={"flex items-center gap-1"}>
-                Go to IAM policy management console <RiExternalLinkLine />
-              </span>
-            </a>
+            <ExternalLinkWrapper>
+              <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href={"https://console.aws.amazon.com/iam/home#/policies"}
+              >
+                Go to IAM policy management console
+              </a>
+            </ExternalLinkWrapper>
           </div>
           <div className="ml-auto mt-4 flex size-fit gap-4">
             <StepperNavigator

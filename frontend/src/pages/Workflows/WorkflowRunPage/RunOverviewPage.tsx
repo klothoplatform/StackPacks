@@ -26,7 +26,7 @@ import { useInterval } from "usehooks-ts";
 import { StatusReasonCard } from "../../../components/StatusReasonCard.tsx";
 import { Container, ContainerHeader } from "../../../components/Container.tsx";
 import { ReactFlowProvider } from "@xyflow/react";
-import { RiExternalLinkLine } from "react-icons/ri";
+import { ExternalLinkWrapper } from "../../../components/ExternalLinkWrapper.tsx";
 
 export const RunOverviewPage = () => {
   const { runNumber, workflowType, appId } = useParams();
@@ -217,7 +217,6 @@ const WorkflowRunOutputs: FC<{
                               target: "_blank",
                               rel: "noopener noreferrer",
                             },
-                            className: "text-blue-600",
                           }}
                         >
                           {value}
@@ -231,13 +230,5 @@ const WorkflowRunOutputs: FC<{
         </Table.Body>
       </Table>
     </Container>
-  );
-};
-
-const ExternalLinkWrapper: FC<PropsWithChildren> = ({ children }) => {
-  return (
-    <span className="flex items-center gap-1 text-blue-500 hover:underline">
-      {children} <RiExternalLinkLine />
-    </span>
   );
 };
