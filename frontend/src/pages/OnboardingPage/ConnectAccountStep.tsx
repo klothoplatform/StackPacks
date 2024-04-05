@@ -187,7 +187,7 @@ export const ConnectAccountStep: FC<StepperNavigatorProps> = (props) => {
                         : "Please enter a valid IAM Role ARN",
                   })}
                   helperText={
-                    <span className={"text-red-600 dark:text-red-500"}>
+                    <span className={"text-red-600 dark:text-red-400"}>
                       {errors?.assumedRoleArn?.message}
                     </span>
                   }

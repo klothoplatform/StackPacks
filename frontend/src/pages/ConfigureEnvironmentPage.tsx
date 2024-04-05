@@ -79,7 +79,7 @@ export const ConfigureEnvironmentForm: FC<{
     },
   });
 
-  const { isDirty } = methods.formState;
+  const { isDirty, errors } = methods.formState;
 
   const { updateProject, addError } = useApplicationStore();
 
@@ -118,6 +118,11 @@ export const ConfigureEnvironmentForm: FC<{
           <div className={"flex flex-col gap-2"}>
             <Label>Deployment Role ARN</Label>
             <TextInput
+              helperText={
+                <span className={"text-xs text-red-600 dark:text-red-400"}>
+                  {errors.assumedRoleArn?.message}
+                </span>
+              }
               name="assumedRoleArn"
               placeholder="arn:aws:iam::<account-id>:role/StackSnapRole"
               {...methods.register("assumedRoleArn", {
@@ -176,7 +181,7 @@ export const ConfigureEnvironmentForm: FC<{
         }
         disabled={isSubmitting || !isDirty}
       >
-        Save
+        {isSubmitting ? "Saving" : "Save"}
       </Button>
     </form>
   );
