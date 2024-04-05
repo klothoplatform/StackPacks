@@ -194,11 +194,29 @@ const flowbiteTheme: CustomFlowbiteTheme = {
     target: "",
   },
   table: {
+    root: {
+      base: "w-full text-left text-sm text-gray-500 dark:text-gray-400 border-separate border-spacing-0",
+      shadow:
+        "absolute left-0 top-0 -z-10 h-full w-full rounded-lg bg-white drop-shadow-md dark:bg-black",
+      wrapper: "relative",
+    },
+    body: {
+      base: "group/body",
+      cell: {
+        base: "px-6 py-4 group-first/body:group-first/row:first:rounded-tl-lg group-first/body:group-first/row:last:rounded-tr-lg group-last/body:group-last/row:first:rounded-bl-lg group-last/body:group-last/row:last:rounded-br-lg group-last/body:group-last/row:border-b",
+      },
+    },
+    head: {
+      base: "group/head text-xs text-gray-700 dark:text-gray-400 border-b",
+      cell: {
+        base: "bg-gray-100 px-6 py-3 group-first/head:first:rounded-tl-lg group-first/head:last:rounded-tr-lg dark:bg-gray-800 border-t group-first/head:first:border-l group-first/head:last:border-r group-first/head:first:border-tl-rounded-lg border-gray-200 dark:border-gray-700",
+      },
+    },
     row: {
-      hovered:
-        "group/row hover:bg-primary-100 dark:hover:bg-primary-700 dark:hover:text-white bg-white border-gray-300 dark:border-gray-500 dark:bg-gray-700",
+      base: "group/row odd:dark:bg-gray-900 even:dark:bg-gray-900 [&>*:first-child]:border-l [&>*:last-child]:border-r [&>*]:border-gray-200 [&>*]:dark:border-gray-700 [&>*]:border-t",
+      hovered: "hover:bg-gray-50 dark:hover:bg-gray-600",
       striped:
-        "group/row odd:bg-white even:bg-gray-50 odd:dark:bg-gray-700 even:dark:bg-gray-800 bg-white border-gray-300 dark:border-gray-500 dark:bg-gray-600",
+        "odd:bg-gray-50 even:bg-gray-50 odd:dark:bg-gray-800 even:dark:bg-gray-700",
     },
   },
 };

@@ -11,7 +11,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
 import { getEnumKeyByEnumValue } from "../../shared/object-util.ts";
-import { altTable, outlineBadge } from "../../shared/custom-themes.ts";
+import { outlineBadge } from "../../shared/custom-themes.ts";
 import { titleCase } from "title-case";
 import { GoCalendar, GoStopwatch } from "react-icons/go";
 import { useInterval } from "usehooks-ts";
@@ -123,7 +123,7 @@ const WorkflowRunsTable: FC<{
 
   return (
     <div className={"flex flex-col gap-4"}>
-      <Table theme={altTable}>
+      <Table>
         <Table.Head>
           <Table.HeadCell>
             <span className={"text-base font-medium"}>
@@ -197,7 +197,7 @@ const WorkflowRunsTable: FC<{
             </div>
           </Table.HeadCell>
         </Table.Head>
-        <Table.Body className="divide-y">
+        <Table.Body>
           {filteredWorkflowRuns[currentPage - 1]?.map((workflowRun, i) => {
             const appName =
               project.stack_packs[workflowRun.app_id]?.display_name ||
