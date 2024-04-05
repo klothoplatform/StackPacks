@@ -3,8 +3,8 @@ from typing import Optional
 
 import jsons
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import Response, StreamingResponse
 from sse_starlette import EventSourceResponse
+from starlette.responses import Response, StreamingResponse
 
 from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
@@ -214,7 +214,7 @@ async def stream_deployment_logs(
                 project_id=user_id, workflow_type=workflow_type
             )
         else:
-            user_app = AppDeployment.get_latest_deployed_version(
+            user_app = AppDeployment.get_latest_version(
                 project_id=user_id, app_id=owning_app_id
             )
             if user_app is None:

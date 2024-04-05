@@ -147,7 +147,12 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.return_value = common_stack
         expected_policy = Policy('{"Version": "2012-10-17","Statement": []}')
         mock_run_app.return_value = expected_policy
-        self.assertRaises(DoesNotExist, lambda: AppDeployment.get("id", AppDeployment.compose_range_key("common", 1)))
+        self.assertRaises(
+            DoesNotExist,
+            lambda: AppDeployment.get(
+                "id", AppDeployment.compose_range_key("common", 1)
+            ),
+        )
 
         # Act
         policy = await self.project.run_base(
@@ -162,7 +167,9 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         self.assertEqual({"common": 1, "app1": 1, "app2": 2}, self.project.apps)
         self.assertEqual(str(expected_policy), str(policy))
-        self.assertIsNotNone(AppDeployment.get("id", AppDeployment.compose_range_key("common", 1)))
+        self.assertIsNotNone(
+            AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
+        )
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack", autospec=True)
@@ -212,7 +219,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
-            self.project.apps, {"app1": 2, "app2": 3, Project.COMMON_APP_NAME: 1},
+            self.project.apps,
+            {"app1": 2, "app2": 3, Project.COMMON_APP_NAME: 1},
         )
         self.assertEqual(policy1, policy)
         self.assertEqual({"id"}, app1.deployments)
@@ -311,7 +319,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
-            {"app1": 1, "app2": 3, Project.COMMON_APP_NAME: 1}, self.project.apps,
+            {"app1": 1, "app2": 3, Project.COMMON_APP_NAME: 1},
+            self.project.apps,
         )
         self.assertEqual(policy1, policy)
 

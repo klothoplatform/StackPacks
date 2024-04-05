@@ -6,7 +6,7 @@ import aiounittest
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
-from src.project import StackPack, ConfigValues
+from src.project import StackPack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.storage.iac_storage import IacStorage
 from tests.test_utils.pynamo_test import PynamoTest
@@ -32,7 +32,10 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         app_deployment_view = app.to_view_model()
 
         # Assert
-        self.assertEqual("app", app_deployment_view.app_id, )
+        self.assertEqual(
+            "app",
+            app_deployment_view.app_id,
+        )
         self.assertEqual(1, app_deployment_view.version)
         self.assertEqual("created_by", app_deployment_view.created_by)
         self.assertEqual({"config": "value"}, app_deployment_view.configuration)
@@ -152,10 +155,16 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
         mock_run_engine.assert_called_once_with(
-            RunEngineRequest(constraints=["constraint1", "constraint2"], tmp_dir="dir")
+            RunEngineRequest(
+                constraints=["constraint1", "constraint2"],
+                tmp_dir="dir",
+                tag="project_id/app",
+            )
         )
         mock_export_iac.assert_called_once_with(
-            ExportIacRequest(input_graph="resources_yaml", name="project_id", tmp_dir="dir")
+            ExportIacRequest(
+                input_graph="resources_yaml", name="project_id", tmp_dir="dir"
+            )
         )
         mock_stack_pack.copy_files.assert_called_once_with(
             {"config": "value"}, Path("dir")
@@ -196,7 +205,9 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             status_reason="status_reason",
         )
         appv2.save()
-        appv2 = AppDeployment.get("project_id", AppDeployment.compose_range_key("app", 2))
+        appv2 = AppDeployment.get(
+            "project_id", AppDeployment.compose_range_key("app", 2)
+        )
 
         # Act
         latest_version = AppDeployment.get_latest_version("project_id", "app")
@@ -227,12 +238,12 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             status_reason="status_reason",
         )
         appv2.save()
-        appv1 = AppDeployment.get("project_id", AppDeployment.compose_range_key("app", 1))
 
         # Act
         latest_version = AppDeployment.get_latest_deployed_version("project_id", "app")
 
         # Assert
+        appv1.refresh()
         self.assertEqual(appv1, latest_version)
 
     def test_compose_range_key(self):

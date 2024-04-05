@@ -29,6 +29,7 @@ pre-commit = "*"
 coverage = "*"
 moto = "*"
 asyncclick = "*"
+aiohttp = "*"
 
 [requires]
 python_version = "3.11"

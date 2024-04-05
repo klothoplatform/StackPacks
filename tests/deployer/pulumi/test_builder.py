@@ -15,11 +15,11 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
     @patch("src.deployer.pulumi.builder.zipfile.ZipFile")
     @patch("src.deployer.pulumi.builder.io.BytesIO")
     def test_prepare_stack(
-            self,
-            mock_bytes_io,
-            mock_zip_file,
-            mock_run,
-            mock_create_or_select_stack,
+        self,
+        mock_bytes_io,
+        mock_zip_file,
+        mock_run,
+        mock_create_or_select_stack,
     ):
         # Setup mock objects
         builder = AppBuilder("tmp_dir")
@@ -48,7 +48,9 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
 
         # Call the method
         builder = AppBuilder(MagicMock())
-        builder.configure_aws(mock_stack, role_arn="arn", region="region", external_id="external_id")
+        builder.configure_aws(
+            mock_stack, role_arn="arn", region="region", external_id="external_id"
+        )
 
         # Assert calls
         self.assertEqual(len(mock_stack.mock_calls), 3)
