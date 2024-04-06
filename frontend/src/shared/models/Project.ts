@@ -1,17 +1,3 @@
-/*
- * stackPacks: {name -> user_confg_map} dict[str <name of stack pack>, dict[str <config keys from the stackpack.configuration>, Any]]
- * eg: {"mattermost": {"Cpu": 1024, "DBPassword": "hunter2"}}
- * note: versioning TBD, solve later [maybe {"mattermost": {"__version": 2}} ?]
- * region
- * aws iam role
- * arn
- * external id
- * deploymentStatus
- * deploymentStatusReason
- * owner
- * creationTime
- */
-
 import type { Property } from "../configuration-properties.ts";
 import {
   CollectionTypes,
@@ -64,6 +50,13 @@ export interface Project {
   owner: string;
   stack_packs: Record<string, ApplicationDeployment>;
   region: string;
+}
+
+export interface CostItem {
+  app_id?: string;
+  category: string;
+  monthly_cost: number;
+  resource?: string;
 }
 
 export interface ApplicationDeployment {
@@ -332,4 +325,8 @@ export function isAppDeployed(app: ApplicationDeployment) {
     AppLifecycleStatus.UninstallFailed,
     AppLifecycleStatus.Uninstalled,
   ].includes(app.status);
+}
+
+export function sumCosts(costs: CostItem[]): number {
+  return costs.reduce((acc, cost) => acc + cost.monthly_cost, 0);
 }

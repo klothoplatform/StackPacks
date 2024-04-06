@@ -13,6 +13,7 @@ import { awsDefaultRegions, awsRegions } from "../../shared/aws-regions.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { InlineDropdown } from "../../components/InlineDropdown.tsx";
 import { InstructionalStep } from "../../components/InstructionalStep.tsx";
+import { CostChange } from "../../components/CostChange.tsx";
 
 export interface DeploymentFormState {
   region: string;
@@ -47,6 +48,7 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
       methods.unregister("region", {});
     };
   });
+
   const onSelectRegion = async (region: string) => {
     setUpdatingRegion(true);
     methods.setValue("region", region);
@@ -151,21 +153,27 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                   Deploy your project to the cloud. This will take a few
                   minutes.
                 </p>
-                <Button
-                  className={"size-fit whitespace-nowrap"}
-                  color={"purple"}
-                  size={"xl"}
-                  processingSpinner={
-                    <AiOutlineLoading className={"animate-spin"} />
-                  }
-                  disabled={installationState !== "initial" || updatingRegion}
-                  isProcessing={installationState === "installing"}
-                  onClick={methods.handleSubmit(onDeploy)}
-                >
-                  <span className={"flex items-center gap-2 "}>
-                    <GrDeploy /> <span>Deploy</span>
-                  </span>
-                </Button>
+                <div className={"flex flex-col gap-8"}>
+                  <Button
+                    className={"size-fit whitespace-nowrap"}
+                    color={"purple"}
+                    size={"xl"}
+                    processingSpinner={
+                      <AiOutlineLoading className={"animate-spin"} />
+                    }
+                    disabled={installationState !== "initial" || updatingRegion}
+                    isProcessing={installationState === "installing"}
+                    onClick={methods.handleSubmit(onDeploy)}
+                  >
+                    <span className={"flex items-center gap-2 "}>
+                      <GrDeploy /> <span>Deploy</span>
+                    </span>
+                  </Button>
+                  <CostChange
+                    operation={"install"}
+                    appIds={Object.keys(project.stack_packs)}
+                  />
+                </div>
               </div>
             </InstructionalStep>
             <div className="ml-auto flex gap-4 justify-self-end">

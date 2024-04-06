@@ -8,6 +8,7 @@ import useApplicationStore from "../store/ApplicationStore.ts";
 import { AiOutlineLoading } from "react-icons/ai";
 import { UIError } from "../../shared/errors.ts";
 import { useNavigate } from "react-router-dom";
+import { CostChange } from "../../components/CostChange.tsx";
 
 export interface DeployAppStepProps extends StepperNavigatorProps {
   selectedApp: string;
@@ -67,21 +68,24 @@ export const DeployAppStep: FC<DeployAppStepProps> = ({
               <p className={"text-sm"}>
                 Deploy {appName} to the cloud. This will take a few minutes.
               </p>
-              <Button
-                className={"size-fit whitespace-nowrap"}
-                color={"purple"}
-                size={"xl"}
-                processingSpinner={
-                  <AiOutlineLoading className={"animate-spin"} />
-                }
-                disabled={installationState !== "initial"}
-                isProcessing={installationState === "installing"}
-                onClick={onDeploy}
-              >
-                <span className={"flex items-center gap-2 "}>
-                  <GrDeploy /> <span>Deploy</span>
-                </span>
-              </Button>
+              <div className={"flex flex-col gap-8"}>
+                <Button
+                  className={"size-fit whitespace-nowrap"}
+                  color={"purple"}
+                  size={"xl"}
+                  processingSpinner={
+                    <AiOutlineLoading className={"animate-spin"} />
+                  }
+                  disabled={installationState !== "initial"}
+                  isProcessing={installationState === "installing"}
+                  onClick={onDeploy}
+                >
+                  <span className={"flex items-center gap-2 "}>
+                    <GrDeploy /> <span>Deploy</span>
+                  </span>
+                </Button>
+                <CostChange operation={"install"} appIds={[selectedApp]} />
+              </div>
             </div>
             <div className="ml-auto flex gap-4 justify-self-end">
               {installationState === "initial" && (
