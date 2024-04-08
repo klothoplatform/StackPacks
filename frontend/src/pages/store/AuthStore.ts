@@ -90,7 +90,10 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
         "getIdToken:refreshed",
       );
     } catch (e) {
-      throw new Error("User session has expired. Please log in again.");
+      console.error("User session has expired. Please log in again.");
+      await auth0.loginWithRedirect({
+        appState: { targetUrl: window.location.pathname },
+      });
     }
     return idToken;
   },

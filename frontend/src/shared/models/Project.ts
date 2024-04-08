@@ -70,6 +70,7 @@ export interface ApplicationDeployment {
   status: AppLifecycleStatus;
   status_reason?: string;
   version: string;
+  outputs?: Record<string, any>;
 }
 
 export interface ProjectModification {

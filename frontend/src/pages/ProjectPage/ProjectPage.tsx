@@ -25,7 +25,11 @@ import {
   toAppStatusString,
 } from "../../shared/models/Project.ts";
 import { outlineBadge } from "../../shared/custom-themes.ts";
-import { RiInstallFill, RiUninstallFill } from "react-icons/ri";
+import {
+  RiExternalLinkLine,
+  RiInstallFill,
+  RiUninstallFill,
+} from "react-icons/ri";
 import UninstallAppModal from "./UninstallAppModal.tsx";
 import { ConfirmationModal } from "../../components/ConfirmationModal.tsx";
 import UninstallAllModal from "./UninstallAllModal.tsx";
@@ -36,6 +40,7 @@ import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
+import { hasMapping } from "../../shared/LogoMappings.tsx";
 
 export const ProjectPage: FC = () => {
   const { project, getProject, stackPacks } = useApplicationStore();
@@ -235,9 +240,40 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
   return (
     <Card className="flex h-fit w-full flex-col p-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center">
-          <AppLogo className={"h-fit w-6"} appId={appTemplateId} mode={mode} />
-          <h4 className={"font-md ml-2 mr-4"}>{app.name}</h4>
+        <div className="flex items-center gap-4">
+          <span className={"size-4"}>
+            {hasMapping(appTemplateId) ? (
+              <AppLogo
+                className={"max-h-4 max-w-4"}
+                appId={appTemplateId}
+                mode={mode}
+              />
+            ) : (
+              " "
+            )}
+          </span>
+          <Tooltip content={`Open ${app.name}`} disabled={!app.outputs?.URL}>
+            <h4
+              className={classNames("text-lg font-medium", {
+                "hover:text-blue-600 hover:underline dark:hover:text-blue-400":
+                  app.outputs?.URL,
+              })}
+            >
+              {app.outputs?.URL ? (
+                <a
+                  className={"flex cursor-pointer items-center gap-2"}
+                  href={`${app.outputs.URL.match(/^https?:\/\//) ? "" : "http://"}${app.outputs.URL}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {app.name}
+                  <RiExternalLinkLine />
+                </a>
+              ) : (
+                app.name
+              )}
+            </h4>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-8">
           <AppStatusBadge status={app.status} rtl />
