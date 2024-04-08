@@ -1,0 +1,6 @@
+{
+  "Alias": "dev.stacksnap.io",
+  "CertificateArn": "arn:aws:acm:us-east-1:338991950301:certificate/de37adbe-563d-4b81-b878-8be0e8175ce4",
+  "AuthDomain": "klotho-dev.us.auth0.com",
+  "AuthAudience": "hZwtQWajZBlAM7lKOp6jr98py5v13jCk"
+}

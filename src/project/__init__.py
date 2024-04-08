@@ -241,10 +241,13 @@ class StackPack(BaseModel):
                 constraints.extend(cfg.values[v].to_constraints(config))
         return constraints
 
-    def copy_files(self, user_config: ConfigValues, out_dir: Path):
+    def copy_files(
+        self, user_config: ConfigValues, out_dir: Path, root: Path | None = None
+    ):
         config = self.final_config(user_config)
 
-        root = Path("stackpacks") / self.id
+        if root is None:
+            root = Path("stackpacks") / self.id
         for f, data in self.base.files.items():
             # TODO execute template if `data` has template: true
             logger.info("writing file: " + str(out_dir / f))

@@ -73,7 +73,7 @@ configuration:
 
 To generate infrastructure output from a stackpack file run from the root of the project
 ```sh
-PYTHONPATH=. python3.11 scripts/cli.py iac generate-iac --file ./path/to/file.yaml --engine-path /path/to/engine --iac-binary-path path/to/iac --project-name sample-project --output-dir output
+PYTHONPATH=. python3.11 scripts/cli.py iac generate-iac --file ./path/to/file.yaml --config ./path/to/config.json --project-name sample-project --output-dir output
 ```
 
 
