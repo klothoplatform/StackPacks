@@ -148,6 +148,16 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                     )
                 )
 
+            case "ecr_image":
+                costs.append(
+                    CostElement(
+                        app_id=app_id,
+                        category="compute",
+                        resource=constraint["node"],
+                        monthly_cost=0.6,
+                    )
+                )
+
     return costs
 
 
