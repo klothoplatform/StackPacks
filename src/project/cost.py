@@ -64,6 +64,9 @@ async def calculate_costs(
 
 
 async def calculate_costs_single(app_id: str, constraints: List[dict]):
+    """Calculate the costs from a snapshot of the cost estimates
+    https://calculator.aws/#/estimate?id=be13a20b606e11a56f03984428088586bba8ab01
+    """
     costs: List[CostElement] = []
     for constraint in constraints:
         # only calculate costs for added resources - edges & configuration don't currently have costs
