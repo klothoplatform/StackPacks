@@ -1,7 +1,7 @@
 import { MdExpandMore } from "react-icons/md";
 import classNames from "classnames";
 import type { FC, PropsWithChildren, ReactNode } from "react";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import type { IconType } from "react-icons";
 import type { FlowbiteColors, FlowbiteSizes } from "flowbite-react";
 import { Button } from "flowbite-react";
@@ -25,6 +25,8 @@ interface CollapsibleSectionProps {
   onExpand?: () => Promise<void>;
   onCollapse?: () => void;
   collapsed?: boolean;
+  renderCollapsed?: boolean;
+  className?: string;
 }
 
 export const CollapsibleSection: FC<
@@ -43,35 +45,35 @@ export const CollapsibleSection: FC<
   onExpand,
   size,
   collapsed,
+  renderCollapsed,
+  className,
 }) => {
   const [isOpen, setIsOpen] = useState(!collapsed);
 
-  const Trigger = trigger;
+  const CustomTrigger = trigger;
   const isTop = !placement?.startsWith("bottom");
   const isLeft = placement?.endsWith("left");
   const isRight = placement?.endsWith("right");
 
-  const onClick = async (isOpen: boolean) => {
-    setIsOpen(!isOpen);
-    if (isOpen) {
-      onCollapse?.();
-    } else {
-      await onExpand?.();
-    }
-  };
-
-  return (
-    <>
-      {!isTop && isOpen && children}
+  const ResolvedTrigger = useCallback(() => {
+    const onClick = async (isOpen: boolean) => {
+      setIsOpen(!isOpen);
+      if (isOpen) {
+        onCollapse?.();
+      } else {
+        await onExpand?.();
+      }
+    };
+    return (
       <div
         className={classNames("size-fit", {
           "ml-auto": isRight,
           "mr-auto": isLeft,
         })}
       >
-        {Trigger ? (
+        {CustomTrigger ? (
           <button onClick={() => onClick(isOpen)}>
-            <Trigger isOpen={isOpen} />
+            <CustomTrigger isOpen={isOpen} />
           </button>
         ) : (
           <DefaultTrigger
@@ -87,7 +89,32 @@ export const CollapsibleSection: FC<
           />
         )}
       </div>
-      {isTop && isOpen && children}
+    );
+  }, [
+    CustomTrigger,
+    collapsedText,
+    color,
+    expandedText,
+    icon,
+    isLeft,
+    isOpen,
+    isRight,
+    onCollapse,
+    onExpand,
+    outline,
+    pill,
+    size,
+  ]);
+
+  return (
+    <>
+      {isTop && <ResolvedTrigger />}
+      {(isOpen || renderCollapsed) && (
+        <div className={className} hidden={!isOpen && renderCollapsed}>
+          {children}
+        </div>
+      )}
+      {!isTop && <ResolvedTrigger />}
     </>
   );
 };

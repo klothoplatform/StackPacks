@@ -50,6 +50,7 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
               Object.values(stackPack.configuration),
               stackPackId,
             ),
+            collapseOptionalFields: true,
           };
         })
         .filter((section) => section !== undefined) as ConfigFormSection[];

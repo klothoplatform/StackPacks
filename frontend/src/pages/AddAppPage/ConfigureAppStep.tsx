@@ -60,6 +60,7 @@ export const ConfigureAppStep: FC<ConfigureAppStepProps> = ({
             Object.values(stackPack.configuration),
             appDeployment.app_id,
           ),
+          collapseOptionalFields: true,
         });
       }
       setSections(sections);

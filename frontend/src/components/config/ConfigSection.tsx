@@ -3,7 +3,6 @@ import React, { Fragment, useCallback } from "react";
 import { Accordion, Button } from "flowbite-react";
 import { HiMinusCircle } from "react-icons/hi";
 import { useFormContext } from "react-hook-form";
-import { BiChevronRight } from "react-icons/bi";
 
 type ConfigSectionProps = {
   id: string;
@@ -47,21 +46,7 @@ export const ConfigSection: FC<PropsWithChildren<ConfigSectionProps>> = ({
                 "flex w-full flex-wrap items-center [&>span:first-child]:hidden"
               }
             >
-              {(title ?? id).split(".").map((part, index) => {
-                return (
-                  <Fragment key={index}>
-                    <span className="px-1">
-                      <BiChevronRight />
-                    </span>
-                    <span
-                      className={"w-fit overflow-hidden text-ellipsis "}
-                      key={index}
-                    >
-                      {part}
-                    </span>
-                  </Fragment>
-                );
-              })}
+              {title || id}
             </div>
           </div>
         </Accordion.Title>
