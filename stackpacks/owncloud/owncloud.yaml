@@ -47,7 +47,7 @@ base:
         - Name: OWNCLOUD_REDIS_ENABLED
           Value: "true"
         - Name: OWNCLOUD_REDIS_HOST
-          Value: aws:memorydb_cluster:owncloud-redis#CacheNodeAddress
+          Value: aws:memorydb_cluster:owncloud-redis#PrimaryAddress
         - Name: OWNCLOUD_DOMAIN
           Value: aws:cloudfront_distribution:owncloud-cf#DomainName
         - Name: OWNCLOUD_TRUSTED_DOMAINS
