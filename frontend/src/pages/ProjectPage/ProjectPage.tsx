@@ -1,4 +1,4 @@
-import type { FC, PropsWithChildren, ReactNode } from "react";
+import type { FC } from "react";
 import React, { useEffect, useState } from "react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
@@ -18,10 +18,7 @@ import { resolveStackpacks } from "../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../hooks/useClickedOutside.ts";
-import type {
-  ApplicationDeployment,
-  Project,
-} from "../../shared/models/Project.ts";
+import type { ApplicationDeployment } from "../../shared/models/Project.ts";
 import {
   AppLifecycleStatus,
   hasDeploymentInProgress,
@@ -38,100 +35,7 @@ import { useInterval } from "usehooks-ts";
 import { IoRefresh } from "react-icons/io5";
 import { SlRefresh } from "react-icons/sl";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
-import { FaRegCopy } from "react-icons/fa6";
-import { Container } from "../../components/Container.tsx";
-import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
-
-const EnvironmentItem: FC<
-  PropsWithChildren<{
-    label: string | ReactNode;
-  }>
-> = (props) => {
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <span className={"text-xs font-medium text-gray-700 dark:text-gray-400"}>
-        {props.label}
-      </span>
-      <div className={"w-fit text-sm text-gray-800 dark:text-gray-200"}>
-        {props.children}
-      </div>
-    </div>
-  );
-};
-
-function EnvironmentSection(props: { project: Project }) {
-  const { mode } = useThemeMode();
-  const navigate = useNavigate();
-
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <Container className="overflow-auto">
-      <div className="flex h-fit w-full flex-col justify-between gap-4 md:flex-row">
-        <EnvironmentItem label={"Cloud Provider"}>AWS</EnvironmentItem>
-        <EnvironmentItem label={"Region"}>
-          {props.project?.region || "Not set"}
-        </EnvironmentItem>
-        <EnvironmentItem label={"Deployment Role ARN"}>
-          <button
-            className="flex flex-col items-start gap-4 lg:flex-row lg:gap-10"
-            onFocus={() => setHovered(true)}
-            onBlur={() => setHovered(false)}
-            onMouseOver={() => setHovered(true)}
-            onMouseOut={() => setHovered(false)}
-            onClick={() =>
-              props.project?.assumed_role_arn &&
-              navigator.clipboard.writeText(props.project.assumed_role_arn)
-            }
-          >
-            <div className={"flex cursor-pointer flex-nowrap gap-2"}>
-              <span
-                className={classNames("w-fit break-all text-xs", {
-                  "cursor-pointer": !!props.project?.assumed_role_arn,
-                })}
-              >
-                {props.project?.assumed_role_arn || "Not set"}
-              </span>
-              <FaRegCopy
-                className={classNames("text-gray-500", {
-                  "opacity-0": !props.project?.assumed_role_arn || !hovered,
-                })}
-              />
-            </div>
-          </button>
-        </EnvironmentItem>
-        <Tooltip content={"Modify Environment"}>
-          <Button
-            color={mode}
-            className={"ml-auto size-fit"}
-            size={"xs"}
-            pill
-            onClick={() => navigate("./environment")}
-          >
-            <HiMiniCog6Tooth />
-          </Button>
-        </Tooltip>
-      </div>
-      {!!props.project?.policy && (
-        <CollapsibleSection
-          size={"xs"}
-          color={mode}
-          collapsedText={"Show deployment policy"}
-          expandedText={"Hide deployment policy"}
-          collapsed
-        >
-          <div
-            className={
-              "max-h-80 w-full overflow-y-auto whitespace-pre-wrap rounded-lg bg-white p-4 font-mono text-xs text-green-700 dark:bg-gray-800 dark:text-green-200"
-            }
-          >
-            <code>{props.project?.policy}</code>
-          </div>
-        </CollapsibleSection>
-      )}
-    </Container>
-  );
-}
+import { EnvironmentSection } from "./EnvironmentSection.tsx";
 
 export const ProjectPage: FC = () => {
   const { project, getProject, stackPacks } = useApplicationStore();

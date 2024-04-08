@@ -120,7 +120,7 @@ export const flatTable: CustomFlowbiteTheme["table"] = {
     },
   },
   row: {
-    base: "group/row odd:dark:bg-gray-900 even:dark:bg-gray-800",
+    base: "group/row dark:bg-gray-900",
     hovered: "hover:bg-gray-50 dark:hover:bg-gray-600",
     striped:
       "odd:bg-white even:bg-gray-100 odd:dark:bg-gray-800 even:dark:bg-gray-700",

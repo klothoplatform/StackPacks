@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { ErrorStore } from "./ErrorStore";
 import type {
+  CostItem,
   Project,
   ProjectModification,
 } from "../../shared/models/Project.ts";
@@ -17,11 +18,19 @@ import type { UpdateAppResponse } from "../../api/UpdateApp.ts";
 import { updateApp } from "../../api/UpdateApp.ts";
 import { removeApp } from "../../api/RemoveApp.ts";
 import { getProject } from "../../api/GetProject.ts";
+import {
+  projectCost,
+  type ProjectCostRequest,
+  type ProjectCostResponse,
+} from "../../api/ProjectCost.ts";
 
 export interface ProjectStoreState {
   project?: Project;
   stackPacks: Map<string, Stackpack>;
+  currentCost?: CostItem[];
 }
+
+type ProjectCostInput = Omit<ProjectCostRequest, "idToken">;
 
 export interface ProjectStoreBase extends ProjectStoreState {
   createProject: (stack: ProjectModification) => Promise<CreateStackResponse>;
@@ -30,6 +39,7 @@ export interface ProjectStoreBase extends ProjectStoreState {
   ) => Promise<CreateStackResponse | UpdateProjectResponse>;
   getProject: (refresh?: boolean) => Promise<Project>;
   getStackPacks: (forceRefresh?: boolean) => Promise<Map<string, Stackpack>>;
+  projectCost: (request?: ProjectCostInput) => Promise<ProjectCostResponse>;
   removeApp: (appId: string) => Promise<void>;
   resetProjectState: () => void;
   updateApp: (
@@ -163,5 +173,53 @@ export const projectStore: StateCreator<
       false,
       "removeApp",
     );
+  },
+  projectCost: async (request?: ProjectCostInput) => {
+    const idToken = await get().getIdToken();
+    const response = await projectCost({ ...request, idToken });
+    // const response = {
+    //   current: [
+    //     {
+    //       category: "compute",
+    //       monthly_cost: 30,
+    //     },
+    //     {
+    //       category: "network",
+    //       monthly_cost: 30,
+    //     },
+    //     {
+    //       category: "storage",
+    //       monthly_cost: 50,
+    //       resource: "aws:rds_instance:my-db",
+    //       app_id: "mattermost",
+    //     },
+    //   ],
+    //   pending: [
+    //     {
+    //       category: "compute",
+    //       monthly_cost: 50,
+    //     },
+    //     {
+    //       category: "storage",
+    //       monthly_cost: 50,
+    //       resource: "aws:rds_instance:my-db",
+    //       app_id: "mattermost",
+    //     },
+    //     {
+    //       category: "storage",
+    //       monthly_cost: 50,
+    //       resource: "aws:rds_instance:my-db",
+    //       app_id: "gitea",
+    //     },
+    //   ],
+    // };
+    set(
+      {
+        currentCost: response.current,
+      },
+      false,
+      "projectCost",
+    );
+    return response;
   },
 });

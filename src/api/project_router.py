@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pynamodb.exceptions import DoesNotExist
 
 from src.auth.token import get_user_id
@@ -10,6 +10,7 @@ from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
 from src.project import ConfigValues, get_stack_packs
 from src.project.common_stack import Feature
+from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
 from src.util.logging import logger
@@ -326,3 +327,44 @@ async def remove_app(
         project.policy = policy
         project.save()
         return StackResponse(stack=project.to_view_model(), policy=policy)
+
+
+class CostRequest(BaseModel):
+    operation: Optional[str] = Field(default=None)
+    app_ids: Optional[list[str]] = Field(default=None)
+
+
+class CostResponse(BaseModel):
+    current: list[CostElement]
+    pending: Optional[list[CostElement]] = Field(default=None)
+
+
+@router.post("/api/cost")
+async def get_costs(
+    request: Request,
+    body: CostRequest,
+):
+    user_id = await get_user_id(request)
+    project = Project.get(user_id)
+
+    current_apps = [
+        a
+        for a in project.apps
+        if AppDeployment.get_latest_deployed_version(project.id, a) is not None
+    ]
+    current_cost = calculate_costs(project, "install", current_apps)
+    if body.operation is not None:
+        if body.app_ids is None:
+            raise HTTPException(
+                status_code=400,
+                detail="App IDs must be provided when operation is specified",
+            )
+
+        pending_cost = calculate_costs(project, body.operation, body.app_ids)
+
+        return CostResponse(
+            current=await current_cost,
+            pending=await pending_cost,
+        )
+
+    return CostResponse(current=await current_cost, pending=None)

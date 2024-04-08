@@ -47,7 +47,7 @@ base:
         - Name: OWNCLOUD_REDIS_ENABLED
           Value: "true"
         - Name: OWNCLOUD_REDIS_HOST
-          Value: aws:elasticache_cluster:owncloud-redis#CacheNodeAddress
+          Value: aws:memorydb_cluster:owncloud-redis#PrimaryAddress
         - Name: OWNCLOUD_DOMAIN
           Value: aws:cloudfront_distribution:owncloud-cf#DomainName
         - Name: OWNCLOUD_TRUSTED_DOMAINS
@@ -82,7 +82,7 @@ base:
               Permissions: "777"
           Path: /mnt/data
     aws:rds_instance:owncloud-db:
-    aws:elasticache_cluster:owncloud-redis:
+    aws:memorydb_cluster:owncloud-redis:
     aws:cloudfront_distribution:owncloud-cf:
   edges:
     aws:load_balancer:owncloud-lb -> aws:load_balancer_listener:owncloud-lb:owncloud-web:
@@ -96,7 +96,7 @@ base:
     aws:ecs_service:owncloud-service -> aws:efs_file_system:owncloud-efs:
 
     aws:ecs_service:owncloud-service -> aws:rds_instance:owncloud-db:
-    aws:ecs_service:owncloud-service -> aws:elasticache_cluster:owncloud-redis:
+    aws:ecs_service:owncloud-service -> aws:memorydb_cluster:owncloud-redis:
   files:
     Dockerfile:
 

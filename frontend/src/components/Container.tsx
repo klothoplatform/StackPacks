@@ -12,7 +12,7 @@ export const Container: FC<ContainerProps> = ({
   return (
     <div
       className={twMerge(
-        "h-fit w-full flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900",
+        "h-fit w-full flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900",
         className,
       )}
       {...rest}
