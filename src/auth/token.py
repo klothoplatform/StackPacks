@@ -32,7 +32,7 @@ async def get_user_id(request: Request) -> str:
         logger.info("Skipping authentication for local dev user")
         return LOCAL_USER
 
-    logger.info(
+    logger.debug(
         "Checking auth header (len %d)", len(request.headers.get("Authorization", ""))
     )
     if is_public_user(request):

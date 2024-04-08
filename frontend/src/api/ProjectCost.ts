@@ -23,15 +23,18 @@ export async function projectCost({
 }: ProjectCostRequest): Promise<ProjectCostResponse> {
   let response: AxiosResponse;
   try {
-    response = await axios.post("/api/cost", undefined, {
-      params: {
+    response = await axios.post(
+      "/api/cost",
+      {
         operation,
-        apps: appIds,
+        app_ids: appIds,
       },
-      headers: {
-        ...(idToken && { Authorization: `Bearer ${idToken}` }),
+      {
+        headers: {
+          ...(idToken && { Authorization: `Bearer ${idToken}` }),
+        },
       },
-    });
+    );
 
     return response.data as ProjectCostResponse;
   } catch (e: any) {
