@@ -90,6 +90,9 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                     ]
                 )
                 if is_public:
+                    # cost for the nat_gateway, but since it's not explicitly added
+                    # and we don't want to run the engine, use this as a proxy
+                    # since the engine creates 1 nat_gateway per public subnet
                     costs.append(
                         CostElement(
                             app_id=app_id,
