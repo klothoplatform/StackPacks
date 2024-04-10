@@ -103,7 +103,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             self.mock_binary_storage,
         )
 
-        self.assertEqual({"common": 2, "app1": 1, "app2": 2}, self.project.apps)
+        self.assertEqual({"common": 1, "app1": 1, "app2": 2}, self.project.apps)
         self.assertEqual(str(expected_policy), str(policy))
         self.assertEqual({"id"}, common_app.deployments)
 
@@ -219,8 +219,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
+            {"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1},
             self.project.apps,
-            {"app1": 2, "app2": 3, Project.COMMON_APP_NAME: 1},
         )
         self.assertEqual(policy1, policy)
         self.assertEqual({"id"}, app1.deployments)
@@ -319,7 +319,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
-            {"app1": 1, "app2": 3, Project.COMMON_APP_NAME: 1},
+            {"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1},
             self.project.apps,
         )
         self.assertEqual(policy1, policy)

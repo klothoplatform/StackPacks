@@ -245,8 +245,11 @@ class AppDeployment(Model):
         if result:
             return (
                 result
-                if result.status is not AppLifecycleStatus.UNINSTALLED.value
-                or result.status is not AppLifecycleStatus.NEW.value
+                if result.status
+                not in [
+                    AppLifecycleStatus.UNINSTALLED.value,
+                    AppLifecycleStatus.NEW.value,
+                ]
                 else None
             )
 
