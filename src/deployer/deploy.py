@@ -10,6 +10,7 @@ from pulumi import automation as auto
 from src.dependencies.injection import (
     get_binary_storage,
     get_iac_storage,
+    get_pulumi_state_bucket_name,
     get_ses_client,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
@@ -85,7 +86,7 @@ async def build_and_deploy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir / app_id)
+        builder = AppBuilder(tmp_dir / app_id, get_pulumi_state_bucket_name())
         stack = builder.prepare_stack(iac, pulumi_stack)
         builder.configure_aws(stack, region, assume_role_arn, external_id)
         for k, v in pulumi_config.items():

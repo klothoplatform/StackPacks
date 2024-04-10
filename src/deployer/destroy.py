@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from aiomultiprocess import Pool
 from pulumi import automation as auto
 
-from src.dependencies.injection import get_iac_storage
+from src.dependencies.injection import get_iac_storage, get_pulumi_state_bucket_name
 from src.deployer.deploy import DeploymentResult, StackDeploymentRequest
 from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.util import abort_workflow_run, complete_workflow_run
@@ -58,7 +58,9 @@ async def run_destroy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir / destroy_job.modified_app_id)
+        builder = AppBuilder(
+            tmp_dir / destroy_job.modified_app_id, get_pulumi_state_bucket_name()
+        )
         stack = builder.prepare_stack(iac, pulumi_stack)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))

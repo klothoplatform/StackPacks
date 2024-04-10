@@ -35,6 +35,7 @@ network:
     aws:subnet:stackpacks-public-subnet-2 -> aws:region:region:
     aws:subnet:stackpacks-private-subnet-1 -> aws:region:region:
     aws:subnet:stackpacks-private-subnet-2 -> aws:region:region:
+
 ecs:
   depends_on:
     - network

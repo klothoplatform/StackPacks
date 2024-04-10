@@ -2,8 +2,8 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import aiounittest
-from pulumi.automation import ConfigValue
 
+from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.pulumi.builder import AppBuilder
 from src.util.tmp import TempDir
 
@@ -22,7 +22,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack,
     ):
         # Setup mock objects
-        builder = AppBuilder("tmp_dir")
+        builder = AppBuilder("tmp_dir", "test_bucket")
         builder.create_output_dir = MagicMock()
 
         builder.install_npm_deps = MagicMock()
@@ -47,7 +47,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_stack = MagicMock()
 
         # Call the method
-        builder = AppBuilder(MagicMock())
+        builder = AppBuilder(MagicMock(), "test_bucket")
         builder.configure_aws(
             mock_stack, role_arn="arn", region="region", external_id="external_id"
         )
@@ -69,14 +69,38 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Setup mock objects
         mock_stack = MagicMock()
         mock_create_or_select_stack.return_value = mock_stack
-
+        mock_pulumi_stack = MagicMock(spec=PulumiStack)
         # Call the method
         with TempDir() as tmp_dir:
-            builder = AppBuilder(tmp_dir)
-            stack = builder.create_pulumi_stack(MagicMock())
+            builder = AppBuilder(tmp_dir, "test_bucket")
+            stack = builder.create_pulumi_stack(mock_pulumi_stack)
 
         # Assert call
         mock_create_or_select_stack.assert_called_once()
+        self.assertEqual(
+            mock_create_or_select_stack.call_args.kwargs[
+                "opts"
+            ].project_settings.backend.url,
+            f"s3://{builder.state_bucket_name}",
+        )
+
+        # Assert return value
+        self.assertEqual(stack, mock_stack)
+
+    @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")
+    def test_create_pulumi_stack_no_bucket_name(self, mock_create_or_select_stack):
+        # Setup mock objects
+        mock_stack = MagicMock()
+        mock_create_or_select_stack.return_value = mock_stack
+        mock_pulumi_stack = MagicMock(spec=PulumiStack)
+        # Call the method
+        with TempDir() as tmp_dir:
+            builder = AppBuilder(tmp_dir, None)
+            stack = builder.create_pulumi_stack(mock_pulumi_stack)
+
+        # Assert call
+        mock_create_or_select_stack.assert_called_once()
+        self.assertIsNone(mock_create_or_select_stack.call_args.kwargs["opts"])
 
         # Assert return value
         self.assertEqual(stack, mock_stack)
@@ -87,7 +111,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_run.return_value = mock_result
         # Call the method
         with TempDir() as tmp_dir:
-            builder = AppBuilder(tmp_dir)
+            builder = AppBuilder(tmp_dir, None)
             builder.install_npm_deps()
 
         # Assert call

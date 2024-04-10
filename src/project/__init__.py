@@ -211,6 +211,7 @@ class StackConfig(BaseModel):
     validation: Any = Field(default=None)
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
+    script: Optional[str] = Field(default=None)
 
 
 class StackPack(BaseModel):
@@ -262,6 +263,14 @@ class StackPack(BaseModel):
             if v.pulumi_key:
                 result[v.pulumi_key] = config[k]
 
+        return result
+
+    def get_scripts(self, config: ConfigValues) -> list[str]:
+        result = []
+        config = self.final_config(config)
+        for k, v in self.configuration.items():
+            if v.script:
+                result.append(v.script.format(**config))
         return result
 
 
