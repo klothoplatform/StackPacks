@@ -163,11 +163,19 @@ const flowbiteTheme: CustomFlowbiteTheme = {
     },
     item: {
       base: "flex items-center justify-center rounded-lg p-2 text-base font-medium text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700 cursor-pointer",
+      collapsed: {
+        insideCollapse: "group w-full pl-8 transition duration-75",
+        noIcon: "font-bold",
+      },
       content: {
         base: "flex-1 px-3 whitespace-nowrap",
       },
+      icon: {
+        base: "h-6 w-6 flex-shrink-0 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white",
+        active: "text-gray-700 dark:text-gray-100",
+      },
       active:
-        "bg-gray-100 dark:bg-gray-700 pr-2 pl-0 before:relative before:-left-2 before:mr-1 before:h-6 before:content-[' '] before:inline-block before:bg-primary-600 dark:before:bg-primary-500 before:w-1 before:rounded-lg",
+        "bg-gray-100 dark:bg-gray-700 pr-2 pl-0 before:relative before:-left-2 before:mr-1 before:h-6 before:content-[' '] before:inline-block before:bg-primary-600 dark:before:bg-primary-500 before:w-1 before:rounded-lg before:ps-0.5 before:pe-0.5",
     },
     collapse: {
       button:

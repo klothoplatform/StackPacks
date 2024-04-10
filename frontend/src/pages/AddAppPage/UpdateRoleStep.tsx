@@ -9,6 +9,8 @@ import { MdContentCopy } from "react-icons/md";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
 import { ExternalLinkWrapper } from "../../components/ExternalLinkWrapper.tsx";
+import { PolicyViewer } from "../../components/PolicyViewer.tsx";
+import { useThemeMode } from "flowbite-react";
 
 export interface ConnectAccountFormState {
   assumedRoleArn: string;
@@ -22,6 +24,7 @@ export const UpdateRoleStep: FC<StepperNavigatorProps> = (props) => {
     addError,
   } = useApplicationStore();
   const { goForwards } = useStepper();
+  const { mode } = useThemeMode();
   const methods = useForm<ConnectAccountFormState>({
     mode: "all",
   });
@@ -87,19 +90,15 @@ export const UpdateRoleStep: FC<StepperNavigatorProps> = (props) => {
               }
               expandedText={
                 <div className={"flex items-center gap-2"}>
-                  <MdContentCopy /> Copy permissions
+                  <MdContentCopy /> Hide permissions
                 </div>
               }
               onExpand={async () => {
                 await navigator.clipboard.writeText(project.policy);
               }}
             >
-              <div
-                className={
-                  "gray-200 mx-4 max-h-80 w-fit max-w-full overflow-y-auto whitespace-pre-wrap rounded-lg p-4 font-mono text-xs text-green-700 dark:bg-gray-700 dark:text-green-200"
-                }
-              >
-                <code>{project?.policy}</code>
+              <div className={"w-fit"}>
+                <PolicyViewer text={project?.policy} color={mode} />
               </div>
             </CollapsibleSection>
             <ExternalLinkWrapper>

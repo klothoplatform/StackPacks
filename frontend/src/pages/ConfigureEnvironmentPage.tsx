@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { UIError } from "../shared/errors.ts";
 import { ErrorBoundary } from "react-error-boundary";
 import { FallbackRenderer } from "../components/FallbackRenderer.tsx";
@@ -19,6 +19,11 @@ import { isProjectDeployed } from "../shared/models/Project.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { awsDefaultRegions, awsRegions } from "../shared/aws-regions.ts";
+import { CollapsibleSection } from "../components/CollapsibleSection.tsx";
+import { CreateRoleStep } from "../components/CreateRoleStep.tsx";
+import { Container } from "../components/Container.tsx";
+import { InstructionalStep } from "../components/InstructionalStep.tsx";
+import { PolicyViewer } from "../components/PolicyViewer.tsx";
 
 export const ConfigureEnvironmentPage: FC = () => {
   const { project } = useApplicationStore();
@@ -42,7 +47,7 @@ export const ConfigureEnvironmentPage: FC = () => {
         );
       }}
     >
-      <div className="flex max-w-xl flex-col justify-center gap-4 p-4">
+      <div className="flex max-h-full w-full flex-col gap-4 overflow-y-auto py-4 pl-4 [&>*]:max-w-xl">
         <div className="flex gap-4 px-1">
           <Button
             color={mode}
@@ -55,7 +60,9 @@ export const ConfigureEnvironmentPage: FC = () => {
           </Button>
           <h2 className="text-2xl font-medium">Configure Environment</h2>
         </div>
-        <ConfigureEnvironmentForm project={project} />
+        <div className="max-h-full">
+          <ConfigureEnvironmentForm project={project} />
+        </div>
       </div>
     </ErrorBoundary>
   );
@@ -64,6 +71,7 @@ export const ConfigureEnvironmentPage: FC = () => {
 interface ConfigureEnvironmentFormState {
   region: string;
   assumedRoleArn: string;
+  assumedRoleExternalId: string;
 }
 
 export const ConfigureEnvironmentForm: FC<{
@@ -71,17 +79,25 @@ export const ConfigureEnvironmentForm: FC<{
 }> = ({ project }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { updateProject, addError } = useApplicationStore();
+  const [externalId, setExternalId] = useState<string>(
+    project.assumed_role_external_id || crypto.randomUUID(),
+  );
+  const { mode } = useThemeMode();
+
+  useEffect(() => {
+    setExternalId(project.assumed_role_external_id || crypto.randomUUID());
+  }, [project.assumed_role_external_id]);
 
   const methods = useForm<ConfigureEnvironmentFormState>({
     defaultValues: {
       region: project.region,
       assumedRoleArn: project.assumed_role_arn || "",
+      assumedRoleExternalId: externalId,
     },
   });
 
   const { isDirty, errors } = methods.formState;
-
-  const { updateProject, addError } = useApplicationStore();
 
   const onSubmit = methods.handleSubmit(async (data) => {
     setIsSubmitting(true);
@@ -134,6 +150,41 @@ export const ConfigureEnvironmentForm: FC<{
               })}
               sizing={"sm"}
             />
+            <CollapsibleSection
+              collapsed
+              placement={"bottom-right"}
+              trigger={({ isOpen }) => (
+                <span className={"text-sm text-blue-600 dark:text-blue-400"}>
+                  {isOpen ? "Hide instructions" : "Create a new IAM Role"}
+                </span>
+              )}
+              className={"mt-0"}
+            >
+              <Container className={"text-sm"}>
+                <InstructionalStep title={"Step 1"}>
+                  <CreateRoleStep externalId={externalId} />
+                </InstructionalStep>
+                <InstructionalStep title={"Step 2"}>
+                  Assign your project's custom policy or an existing valid
+                  policy to the IAM role you created in Step 1. If you have not
+                  yet created a custom policy, create one using the permissions
+                  below.
+                  <CollapsibleSection
+                    collapsed
+                    collapsedText={"Show custom policy permissions"}
+                    expandedText={"Hide custom policy permissions"}
+                    color={mode}
+                    size={"xs"}
+                  >
+                    <PolicyViewer text={project?.policy} color={mode} />
+                  </CollapsibleSection>
+                </InstructionalStep>
+                <InstructionalStep title={"Step 3"}>
+                  Copy the ARN of the role you created in Step 1 and paste it
+                  into the field above.
+                </InstructionalStep>
+              </Container>
+            </CollapsibleSection>
           </div>
           <div className={"flex flex-col gap-2"}>
             <Label>Region</Label>

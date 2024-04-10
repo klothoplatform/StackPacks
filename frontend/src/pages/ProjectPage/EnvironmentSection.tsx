@@ -19,7 +19,7 @@ import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { AiOutlineLoading } from "react-icons/ai";
 import { CostBreakdown } from "./CostBreakdown.tsx";
-import { CopyToClipboardButton } from "../../components/CopyToClipboardButton.tsx";
+import { PolicyViewer } from "../../components/PolicyViewer.tsx";
 
 export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
   const { mode } = useThemeMode();
@@ -126,20 +126,7 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
             expandedText={"Hide deployment policy"}
             collapsed
           >
-            <Container className={"relative p-0"}>
-              <CopyToClipboardButton
-                text={project?.policy}
-                color={mode}
-                className={"absolute right-0 top-0 mr-4 mt-2 p-0"}
-              />
-              <div
-                className={
-                  "max-h-80 w-full overflow-y-auto whitespace-pre-wrap rounded-lg bg-white p-4 font-mono text-xs text-green-700 dark:bg-gray-800 dark:text-green-200"
-                }
-              >
-                <code>{project?.policy}</code>
-              </div>
-            </Container>
+            <PolicyViewer text={project?.policy} color={mode} />
           </CollapsibleSection>
         )}
       </Container>
