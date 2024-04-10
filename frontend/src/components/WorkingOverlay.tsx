@@ -22,7 +22,7 @@ export const WorkingOverlay: FC<WorkingOverlayProps> = ({
         {
           "z-[1000]": !noOverlay,
           "fixed inset-0": inset,
-          "size-full": !inset,
+          "h-screen w-screen": !inset,
           hidden: !show,
         },
       )}

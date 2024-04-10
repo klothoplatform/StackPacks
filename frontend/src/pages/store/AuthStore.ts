@@ -59,7 +59,7 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
         console.log("no auth0");
         return { idToken: "", expiresAt: 0 };
       }
-      const refreshId = crypto.randomUUID().toString();
+      const refreshId = crypto.randomUUID();
 
       set({ _refresh_id: refreshId }, false, "getIdToken/refresh");
       await auth0.getAccessTokenSilently({
@@ -90,10 +90,12 @@ export const authStore: StateCreator<AuthStore, [], [], AuthStoreBase> = (
         "getIdToken:refreshed",
       );
     } catch (e) {
-      console.error("User session has expired. Please log in again.");
-      await auth0.loginWithRedirect({
-        appState: { targetUrl: window.location.pathname },
-      });
+      console.error("User session has expidred. Please log in again.");
+      let latestAuth0 = get().auth0;
+      get().resetAuthState();
+      if (latestAuth0?.isAuthenticated) {
+        await latestAuth0?.logout({ openUrl: false });
+      }
     }
     return idToken;
   },
