@@ -23,7 +23,7 @@ base:
         Image: aws:ecr_image:tooljet
         PortMappings[0]:
           ContainerPort: 3000
-          HostPort: 3005
+          HostPort: 3000
         Cpu: ${CPU}
         Memory: ${Memory}
         Command:
@@ -40,7 +40,7 @@ base:
         - Name: PG_PASS
           Value: aws:rds_instance:tooljet-db#Password
         - Name: PG_DB
-          Value: ${DatabaseName}
+          Value: aws:rds_instance:tooljet-db#DatabaseName
         - Name: DEPLOYMENT_PLATFORM
           Value: "aws:ecs"
         - Name: REDIS_HOST
