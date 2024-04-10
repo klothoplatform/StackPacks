@@ -160,9 +160,9 @@ const DefaultTrigger: FC<{
       </h3>
       <Icon
         size={24}
-        className={classNames({
-          "transform rotate-180": isOpen,
-        })}
+        // className={classNames({
+        //   "transform rotate-180": isOpen,
+        // })}
       />
     </Button>
   );

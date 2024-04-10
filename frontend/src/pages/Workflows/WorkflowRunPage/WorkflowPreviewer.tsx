@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 
 export const WorkflowPreviewer: FC<{
   jobGraph: JobGraph;
-}> = ({ jobGraph: { nodes, edges, maxOutgoingEdges } }) => {
+}> = ({ jobGraph: { nodes, edges, maxOutgoingEdges, maxIncomingEdges } }) => {
   const { mode } = useThemeMode();
 
   const nodeTypes = useMemo(() => ({ workflowStep: WorkflowStepNode }), []);
@@ -36,9 +36,11 @@ export const WorkflowPreviewer: FC<{
     2: "h-[16rem]",
     3: "h-[24rem]",
     4: "h-[32rem]",
+    5: "h-[40rem]",
+    6: "h-[48rem]",
   };
   const { fitView } = useReactFlow();
-  const height = Math.min(4, maxOutgoingEdges);
+  const height = Math.min(6, Math.max(maxOutgoingEdges, maxIncomingEdges));
   fitView({ nodes });
   return (
     <div

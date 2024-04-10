@@ -43,7 +43,7 @@ export const CostChange: FC<{
   });
 
   return (
-    <Container className={"size-fit"}>
+    <Container className={"size-fit dark:text-white"}>
       <span
         className={"text-sm font-semibold text-gray-900 dark:text-gray-300"}
       >
@@ -75,7 +75,7 @@ export const CostChange: FC<{
             ) : (
               ""
             )}
-            ${cost.change?.toFixed(2)}
+            ${Math.abs(cost.change ?? 0).toFixed(2)}
           </span>
           <div
             className={

@@ -2,7 +2,7 @@ import type { FC } from "react";
 import React, { useEffect, useState } from "react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
-import { Badge, Button, Card, Dropdown, useThemeMode } from "flowbite-react";
+import { Badge, Button, Dropdown, useThemeMode } from "flowbite-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useNavigate } from "react-router-dom";
 import {
@@ -41,6 +41,7 @@ import { SlRefresh } from "react-icons/sl";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
 import { hasMapping } from "../../shared/LogoMappings.tsx";
+import { Container } from "../../components/Container.tsx";
 
 export const ProjectPage: FC = () => {
   const { project, getProject, stackPacks } = useApplicationStore();
@@ -112,14 +113,15 @@ export const ProjectPage: FC = () => {
         <EnvironmentSection project={project} />
       </div>
       <div className="flex flex-col gap-1">
-        <div className={"flex w-full items-center justify-between"}>
+        <div className={"flex w-full items-baseline justify-between gap-4"}>
           <h3 className={"font-md text-lg"}>Apps</h3>
           <Button
+            pill
             size={"xs"}
             color={"purple"}
             onClick={() => navigate("./add-apps")}
           >
-            <span>+</span>
+            <span>+ Add new</span>
           </Button>
         </div>
         {project && (
@@ -238,7 +240,7 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
   const { mode } = useThemeMode();
   const appTemplateId = app.app_id;
   return (
-    <Card className="flex h-fit w-full flex-col p-4">
+    <Container className="flex h-fit w-full flex-col p-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <span className={"size-4"}>
@@ -280,7 +282,7 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
           <AppButtonGroup {...app} />
         </div>
       </div>
-    </Card>
+    </Container>
   );
 };
 

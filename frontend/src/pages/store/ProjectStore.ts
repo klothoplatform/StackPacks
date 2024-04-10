@@ -177,42 +177,6 @@ export const projectStore: StateCreator<
   projectCost: async (request?: ProjectCostInput) => {
     const idToken = await get().getIdToken();
     const response = await projectCost({ ...request, idToken });
-    // const response = {
-    //   current: [
-    //     {
-    //       category: "compute",
-    //       monthly_cost: 30,
-    //     },
-    //     {
-    //       category: "network",
-    //       monthly_cost: 30,
-    //     },
-    //     {
-    //       category: "storage",
-    //       monthly_cost: 50,
-    //       resource: "aws:rds_instance:my-db",
-    //       app_id: "mattermost",
-    //     },
-    //   ],
-    //   pending: [
-    //     {
-    //       category: "compute",
-    //       monthly_cost: 50,
-    //     },
-    //     {
-    //       category: "storage",
-    //       monthly_cost: 50,
-    //       resource: "aws:rds_instance:my-db",
-    //       app_id: "mattermost",
-    //     },
-    //     {
-    //       category: "storage",
-    //       monthly_cost: 50,
-    //       resource: "aws:rds_instance:my-db",
-    //       app_id: "gitea",
-    //     },
-    //   ],
-    // };
     set(
       {
         currentCost: response.current,

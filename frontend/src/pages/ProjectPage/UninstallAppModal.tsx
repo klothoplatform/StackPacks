@@ -1,12 +1,13 @@
 import { Button, Label, Modal, TextInput } from "flowbite-react";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AiOutlineLoading } from "react-icons/ai";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
 import { FormFooter } from "../../components/FormFooter.tsx";
 import { useNavigate } from "react-router-dom";
 import type { WorkflowRunSummary } from "../../shared/models/Workflow.ts";
+import { CostChange } from "../../components/CostChange.tsx";
 
 interface UninstallAppModalProps {
   onClose: () => void;
@@ -34,7 +35,7 @@ export default function UninstallAppModal({
     formState: { errors },
   } = useForm<UninstallAppFormState>();
 
-  const { addError, uninstallApp } = useApplicationStore();
+  const { addError, uninstallApp, project } = useApplicationStore();
   const watchConfirmation = watch("confirmation");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -137,16 +138,11 @@ export default function UninstallAppModal({
                 helperText={errors.confirmation?.message}
               />
             </div>
-            {/*<div className="flex items-center gap-2">*/}
-            {/*  <Checkbox {...register("removeFromStack")} id="removeFromStack" />*/}
-            {/*  <Label htmlFor="removeFromStack">Remove from stack</Label>*/}
-            {/*  <span className="text-xs text-gray-400 dark:text-gray-500">*/}
-            {/*    <i>*/}
-            {/*      (This will remove the app and its configuration from your*/}
-            {/*      stack.)*/}
-            {/*    </i>*/}
-            {/*  </span>*/}
-            {/*</div>*/}
+
+            <CostChange
+              operation={"uninstall"}
+              appIds={Object.keys(project.stack_packs)}
+            />
           </div>
         </Modal.Body>
         <Modal.Footer>

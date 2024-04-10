@@ -35,6 +35,7 @@ export const RunOverviewPage = () => {
   const [jobGraph, setJobGraph] = useState<JobGraph>({
     nodes: [],
     edges: [],
+    maxIncomingEdges: 0,
     maxOutgoingEdges: 0,
   });
 

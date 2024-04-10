@@ -8,6 +8,7 @@ export interface JobGraph {
   nodes: Node[];
   edges: Edge[];
   maxOutgoingEdges: number;
+  maxIncomingEdges: number;
 }
 
 export function buildJobGraph(jobs: WorkflowJob[]): JobGraph {
@@ -43,19 +44,27 @@ export function buildJobGraph(jobs: WorkflowJob[]): JobGraph {
       })
       .flat() ?? [];
   const outgoingEdgeCounts: Record<string, number> = {};
+  const incomingEdgeCounts: Record<string, number> = {};
   edges.forEach((edge) => {
     if (outgoingEdgeCounts[edge.source]) {
       outgoingEdgeCounts[edge.source] += 1;
     } else {
       outgoingEdgeCounts[edge.source] = 1;
     }
+    if (incomingEdgeCounts[edge.target]) {
+      incomingEdgeCounts[edge.target] += 1;
+    } else {
+      incomingEdgeCounts[edge.target] = 1;
+    }
   });
   const maxOutgoingEdges = Math.max(...Object.values(outgoingEdgeCounts));
+  const maxIncomingEdges = Math.max(...Object.values(incomingEdgeCounts));
 
   const initialGraph = { nodes, edges };
 
   return {
     maxOutgoingEdges,
+    maxIncomingEdges,
     ...getLayoutedElements(initialGraph.nodes, initialGraph.edges),
   };
 }

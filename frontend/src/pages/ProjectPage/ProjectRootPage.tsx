@@ -13,14 +13,27 @@ import {
 } from "../../components/HeaderNavBar.tsx";
 import { Sidebar, SidebarItem, SidebarItemGroup } from "flowbite-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { HiSquare3Stack3D } from "react-icons/hi2";
+import { useScreenSize } from "../../hooks/useScreenSize.ts";
+import { FaPlus } from "react-icons/fa6";
+import { PiTreeStructureFill } from "react-icons/pi";
 
 const sidebarConfig = [
   {
+    icon: HiSquare3Stack3D,
     id: "your-project",
     url: "/project",
     title: "Your Project",
+    exact: true,
   },
   {
+    icon: FaPlus,
+    id: "add-apps",
+    url: "/project/add-apps",
+    title: "Add New App",
+  },
+  {
+    icon: PiTreeStructureFill,
     id: "workflows",
     url: "/project/workflows",
     title: "Workflows",
@@ -33,9 +46,12 @@ function ProjectRootPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const activeItem = sidebarConfig.find(
-    (item) => item.url === location.pathname,
+  const activeItem = sidebarConfig.find((item) =>
+    item.exact
+      ? location.pathname === item.url
+      : location.pathname.startsWith(item.url),
   )?.id;
+  const { isXSmallScreen } = useScreenSize();
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
@@ -94,13 +110,14 @@ function ProjectRootPage() {
           </div>
         </HeaderNavBar>
         <div className={"flex size-full overflow-hidden"}>
-          <Sidebar className={"z-5"}>
+          <Sidebar className={"z-5"} collapsed={isXSmallScreen}>
             <SidebarItemGroup>
               {sidebarConfig.map((item) => (
                 <SidebarItem
                   key={item.id}
                   active={item.id === activeItem}
                   onClick={() => navigate(item.url)}
+                  icon={item.icon}
                 >
                   {item.title}
                 </SidebarItem>

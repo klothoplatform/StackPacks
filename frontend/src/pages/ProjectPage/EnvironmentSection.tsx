@@ -1,6 +1,6 @@
-import type { CostItem, Project } from "../../shared/models/Project.ts";
+import type { Project } from "../../shared/models/Project.ts";
 import { sumCosts } from "../../shared/models/Project.ts";
-import { Button, Table, useThemeMode } from "flowbite-react";
+import { Button, useThemeMode } from "flowbite-react";
 import { useNavigate } from "react-router-dom";
 import React, {
   type FC,
@@ -17,8 +17,9 @@ import { Tooltip } from "../../components/Tooltip.tsx";
 import { HiMiniCog6Tooth } from "react-icons/hi2";
 import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
 import useApplicationStore from "../store/ApplicationStore.ts";
-import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { AiOutlineLoading } from "react-icons/ai";
+import { CostTable } from "./CostTable.tsx";
+import { CopyToClipboardButton } from "../../components/CopyToClipboardButton.tsx";
 
 export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
   const { mode } = useThemeMode();
@@ -39,21 +40,19 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
     }
   }, [currentCost]);
 
-  useEffectOnMount(() => {
+  useEffect(() => {
     (async () => {
-      if (!currentCost) {
-        setIsRefreshingCost(true);
-        try {
-          await projectCost();
-        } catch (e) {
-          console.error(e);
-          setEstimatedCost(undefined);
-        } finally {
-          setIsRefreshingCost(false);
-        }
+      setIsRefreshingCost(true);
+      try {
+        await projectCost();
+      } catch (e) {
+        console.error(e);
+        setEstimatedCost(undefined);
+      } finally {
+        setIsRefreshingCost(false);
       }
     })();
-  });
+  }, [project, projectCost]);
 
   return (
     <>
@@ -84,7 +83,7 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
             </button>
           </EnvironmentItem>
           <EnvironmentItem label={"Estimated Monthly Cost"}>
-            {isRefreshingCost ? (
+            {isRefreshingCost && currentCost === undefined ? (
               <span className={"text-gray-500"}>
                 <AiOutlineLoading
                   className={"animate-spin dark:text-gray-400"}
@@ -127,7 +126,12 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
             expandedText={"Hide deployment policy"}
             collapsed
           >
-            <Container className={"p-0"}>
+            <Container className={"relative p-0"}>
+              <CopyToClipboardButton
+                text={project?.policy}
+                color={mode}
+                className={"absolute right-0 top-0 mr-4 mt-2 p-0"}
+              />
               <div
                 className={
                   "max-h-80 w-full overflow-y-auto whitespace-pre-wrap rounded-lg bg-white p-4 font-mono text-xs text-green-700 dark:bg-gray-800 dark:text-green-200"
@@ -140,23 +144,25 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
         )}
       </Container>
       <div className={"pl-4"}>
-        <CollapsibleSection
-          collapsed
-          collapsedText={"Show cost breakdown"}
-          expandedText={"Hide cost breakdown"}
-          color={mode}
-          trigger={({ isOpen }) => (
-            <div
-              className={
-                "py-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
-              }
-            >
-              {isOpen ? "Hide" : "Show"} cost breakdown
-            </div>
-          )}
-        >
-          <CostTable costs={currentCost || []} />
-        </CollapsibleSection>
+        {!!currentCost?.reduce((acc, cost) => acc + cost.monthly_cost, 0) && (
+          <CollapsibleSection
+            collapsed
+            collapsedText={"Show cost breakdown"}
+            expandedText={"Hide cost breakdown"}
+            color={mode}
+            trigger={({ isOpen }) => (
+              <div
+                className={
+                  "py-2 text-sm text-blue-600 hover:underline dark:text-blue-400"
+                }
+              >
+                {isOpen ? "Hide" : "Show"} cost breakdown
+              </div>
+            )}
+          >
+            <CostTable project={project} costs={currentCost || []} />
+          </CollapsibleSection>
+        )}
       </div>
     </>
   );
@@ -168,7 +174,7 @@ const EnvironmentItem: FC<
   }>
 > = (props) => {
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex max-w-fit flex-col items-start gap-2 lg:max-w-60 xl:max-w-96">
       <span className={"text-xs font-medium text-gray-700 dark:text-gray-400"}>
         {props.label}
       </span>
@@ -180,97 +186,5 @@ const EnvironmentItem: FC<
         {props.children}
       </div>
     </div>
-  );
-};
-
-const CostTable: FC<{ costs: CostItem[] }> = ({ costs }) => {
-  const computeCosts = [];
-  const networkCosts = [];
-  const remainingCosts = [];
-  costs.forEach((cost) => {
-    switch (cost.category) {
-      case "compute":
-        computeCosts.push(cost);
-        break;
-      case "network":
-        networkCosts.push(cost);
-        break;
-      default:
-        remainingCosts.push(cost);
-    }
-  });
-
-  const renderTable = (costs: CostItem[], title: string) => {
-    const hasAppId = costs.some((cost) => cost.app_id);
-    return (
-      <Table className={"w-fit"}>
-        <Table.Head>
-          <Table.HeadCell className={"text-lg"}>{title}</Table.HeadCell>
-          {hasAppId && <Table.HeadCell></Table.HeadCell>}
-          <Table.HeadCell className={"flex justify-end"}>
-            <div className={"flex flex-col text-xs"}>
-              <span>Total</span>
-              <div className={"flex"}>
-                <span className={"font-bold"}>
-                  $
-                  {costs
-                    .reduce((acc, cost) => acc + cost.monthly_cost, 0)
-                    .toFixed(2)}
-                </span>
-                <span className={"font-normal text-gray-500"}>/month</span>
-              </div>
-            </div>
-          </Table.HeadCell>
-        </Table.Head>
-        <Table.Body>
-          <Table.Row>
-            {hasAppId && (
-              <Table.Cell
-                className={
-                  "bg-gray-50 pb-1 pt-2 font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                }
-              >
-                Application
-              </Table.Cell>
-            )}
-            <Table.Cell
-              className={
-                "bg-gray-50 pb-1 pt-2 font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-              }
-            >
-              Category
-            </Table.Cell>
-            <Table.Cell
-              className={
-                "bg-gray-50 pb-1 pt-2 font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-              }
-            >
-              Monthly Cost
-            </Table.Cell>
-          </Table.Row>
-          {costs.map((cost, index) => (
-            <Fragment key={index}>
-              <Table.Row>
-                {hasAppId && <Table.Cell>{cost.app_id}</Table.Cell>}
-                <Table.Cell>
-                  {cost.category || cost.resource.split(":")[1]}
-                </Table.Cell>
-                <Table.Cell>${cost.monthly_cost.toFixed(2)}</Table.Cell>
-              </Table.Row>
-            </Fragment>
-          ))}
-        </Table.Body>
-      </Table>
-    );
-  };
-
-  return (
-    <Container className={"w-fit gap-4"}>
-      {renderTable(
-        [...computeCosts, ...networkCosts],
-        "Shared Infrastructure Costs",
-      )}
-      {renderTable(remainingCosts, "Application Infrastructure Costs")}
-    </Container>
   );
 };
