@@ -42,7 +42,7 @@ async def calculate_costs(
             spec = sps[app_id]
         else:
             spec = CommonStack(
-                stack_packs=[sps[a] for a in app_ids],
+                stack_packs=[sps[a] for a in app_ids if a in sps],
                 features=project.features,
             )
 
@@ -84,7 +84,8 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                     [
                         c
                         for c in constraints
-                        if c["target"] == constraint["node"]
+                        if c.get("scope", None) == "resource"
+                        and c.get("target", None) == constraint["node"]
                         and c.get("property", None) == "Type"
                         and c.get("value", None) == "public"
                     ]
@@ -98,6 +99,7 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                             app_id=app_id,
                             category="network",
                             monthly_cost=33.08,
+                            resource="aws:nat_gateway",
                         )
                     )
 
@@ -181,4 +183,5 @@ def calculate_ecs_cost(ecs_tasks: List[dict]):
     return CostElement(
         category="compute",
         monthly_cost=instances * 30.36,
+        resource="aws:ec2_instance",
     )
