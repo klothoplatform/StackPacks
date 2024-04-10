@@ -37,7 +37,6 @@ export async function getStackPacks(
 }
 
 function parseStackPacks(data: any): Map<string, Stackpack> {
-  console.log(data);
   const packs = new Map<string, Stackpack>();
   Object.entries(data).forEach(([name, pack]: [string, Stackpack]) => {
     pack.configuration = Object.fromEntries(

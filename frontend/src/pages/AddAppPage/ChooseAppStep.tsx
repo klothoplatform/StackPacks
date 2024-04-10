@@ -160,7 +160,7 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
                 </div>
 
                 <div className="mx-auto flex gap-4 py-1">
-                  {selectedApps.length > 0 && (
+                  {(selectedApps.length > 0 || isSubmitting) && (
                     <Button
                       className={"size-fit"}
                       size={"xl"}

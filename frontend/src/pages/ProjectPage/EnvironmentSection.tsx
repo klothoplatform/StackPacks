@@ -18,7 +18,7 @@ import { HiMiniCog6Tooth } from "react-icons/hi2";
 import { CollapsibleSection } from "../../components/CollapsibleSection.tsx";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { AiOutlineLoading } from "react-icons/ai";
-import { CostTable } from "./CostTable.tsx";
+import { CostBreakdown } from "./CostBreakdown.tsx";
 import { CopyToClipboardButton } from "../../components/CopyToClipboardButton.tsx";
 
 export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
@@ -160,7 +160,7 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
               </div>
             )}
           >
-            <CostTable project={project} costs={currentCost || []} />
+            <CostBreakdown project={project} costs={currentCost || []} />
           </CollapsibleSection>
         )}
       </div>
