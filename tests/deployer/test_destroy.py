@@ -172,11 +172,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         # Assert calls
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
-<<<<<<< HEAD
-        mock_app_builder.assert_called_once_with(Path("/tmp/app1"))
-=======
         mock_app_builder.assert_called_once_with(Path("/tmp/app1"), None)
->>>>>>> fb448f1 (update tests)
         mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value,

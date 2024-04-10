@@ -58,7 +58,9 @@ async def run_destroy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir / destroy_job.modified_app_id, get_pulumi_state_bucket_name())
+        builder = AppBuilder(
+            tmp_dir / destroy_job.modified_app_id, get_pulumi_state_bucket_name()
+        )
         stack = builder.prepare_stack(iac, pulumi_stack)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))

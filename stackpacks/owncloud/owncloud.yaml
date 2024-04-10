@@ -23,6 +23,7 @@ base:
         Image: aws:ecr_image:owncloud
         PortMappings[0]:
           ContainerPort: 8080
+          HostPort: 8080
         MountPoints[0]:
           ContainerPath: /mnt/data
           SourceVolume: owncloud-data

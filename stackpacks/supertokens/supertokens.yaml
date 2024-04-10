@@ -22,6 +22,7 @@ base:
         Image: aws:ecr_image:supertokens
         PortMappings[0]:
           ContainerPort: 3567
+          HostPort: 3567
         Cpu: ${CPU}
         Memory: ${Memory}
         Environment:
