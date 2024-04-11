@@ -107,7 +107,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             external_id="external_id",
             iac=b"iac",
             pulumi_config=self.pulumi_config,
-            tmp_dir=self.tmp_dir,
+            app_dir=self.tmp_dir,
         )
 
         # Assert calls
@@ -166,7 +166,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             external_id="external_id",
             iac=b"iac",
             pulumi_config=self.pulumi_config,
-            tmp_dir=self.tmp_dir,
+            app_dir=self.tmp_dir,
         )
 
         # Assert calls

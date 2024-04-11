@@ -27,8 +27,8 @@ from src.project.models.app_deployment import (
     AppDeployment,
     AppDeploymentView,
     AppLifecycleStatus,
+    get_resources,
 )
-from src.project.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
 from src.util.logging import logger
 
@@ -54,7 +54,6 @@ class Project(Model):
         default=lambda: datetime.now(timezone.utc)
     )
     destroy_in_progress: bool = BooleanAttribute(default=False)
-    policy: str = UnicodeAttribute(null=True)
 
     def get_workflow_runs(
         self,
@@ -79,29 +78,39 @@ class Project(Model):
         if workflow_type is None and app_id:
             return filter(lambda x: x.app_id() == app_id, results)
 
+    def get_policy(self) -> Policy:
+        p = Policy()
+        for app_id, version in self.apps.items():
+            app = AppDeployment.get(
+                self.id,
+                AppDeployment.compose_range_key(app_id=app_id, version=version),
+            )
+            p.combine(Policy(app.policy))
+        return p
+
     async def run_base(
         self,
         stack_packs: List[StackPack],
         config: ConfigValues,
-        iac_storage: IacStorage,
         binary_storage: BinaryStorage,
-        tmp_dir: str,
+        tmp_dir: Path,
         dry_run: bool = False,
-    ) -> Policy:
+    ):
         base_stack = CommonStack(stack_packs, self.features)
         base_version = self.apps.get(Project.COMMON_APP_NAME, None)
         app: AppDeployment | None = None
+        old_config: ConfigValues | None = None
         if base_version is not None:
             try:
-                app = None
-                for result in AppDeployment.query(
+                app = AppDeployment.get(
                     self.id,
-                    range_key_condition=AppDeployment.range_key
-                    == f"{Project.COMMON_APP_NAME}#{base_version:08}",
-                    limit=1,
-                ):
-                    app = result
-                    break
+                    AppDeployment.compose_range_key(
+                        app_id=Project.COMMON_APP_NAME, version=base_version
+                    ),
+                )
+                old_config = app.get_configurations()
+                app.configuration = config
+
                 # Only increment version if there has been an attempted deploy on the current version
                 latest_version = AppDeployment.get_latest_deployed_version(
                     project_id=self.id, app_id=Project.COMMON_APP_NAME
@@ -138,47 +147,50 @@ class Project(Model):
             {"PackId": self.id, "HealthEndpointUrl": health_endpoint_url}
         )
 
-        # Run the packs in parallel and only store the iac if we are incrementing the version
-        subdir = Path(tmp_dir) / app.app_id()
-        subdir.mkdir(exist_ok=True)
-        policy = await app.run_app(
-            base_stack, str(subdir.absolute()), iac_storage, binary_storage
-        )
+        resources_changed = False
+        if old_config is not None:
+            old_resources = get_resources(base_stack.to_constraints(old_config))
+            new_resources = get_resources(base_stack.to_constraints(config))
+            diff = new_resources ^ old_resources
+            logger.debug(
+                f"common:: old: {old_resources}; new: {new_resources}; diff: {diff}"
+            )
+            resources_changed = len(diff) > 0
+
+        if resources_changed:
+            # Run the packs in parallel and only store the iac if we are incrementing the version
+            subdir = tmp_dir / app.app_id()
+            subdir.mkdir(exist_ok=True)
+            await app.run_app(base_stack, str(subdir.absolute()), binary_storage)
 
         if not dry_run:
             app.save()
             self.apps[Project.COMMON_APP_NAME] = app.version()
-        return policy
 
     async def run_pack(
         self,
         stack_packs: dict[str, StackPack],
         config: dict[str, ConfigValues],
-        tmp_dir: str,
-        iac_storage: IacStorage = None,
+        tmp_dir: Path,
         binary_storage: BinaryStorage = None,
         increment_versions: bool = True,
-        imports: list[any] = [],
-    ) -> Policy:
+        imports: list = [],
+    ):
         """Run the stack packs with the given configuration and return the combined policy
 
         Args:
             stack_packs (dict[str, StackPack]): a dictionary of stack packs where the key is the name of the stack pack
             config (dict[str, ConfigValues]): a dictionary of configurations where the key is the name of the stack pack
             tmp_dir (str): the temporary directory to store the files related to the engine execution of the stack pack
-            iac_storage (IacStorage): the class to interact with to store the iac. If None the iac will not be stored.
             increment_versions (bool, optional): A flag to enable incrementing the version of the application. If set to false the stored data will not change. Defaults to True.
             imports (list[any], optional): A List of import constraints to apply to all stack packs. Defaults to [].
 
         Raises:
             ValueError: If the stack pack name is not in the stack_packs
-
-        Returns:
-            Policy: The combined policy of all the stack packs
         """
         apps: List[AppDeployment] = []
         invalid_stacks = []
-        for app_id, config in config.items():
+        for app_id, app_config in config.items():
             if app_id == Project.COMMON_APP_NAME:
                 continue
             if app_id not in stack_packs:
@@ -192,7 +204,7 @@ class Project(Model):
                         self.id,
                         AppDeployment.compose_range_key(app_id=app_id, version=version),
                     )
-                    app.configuration = config
+                    app.configuration = app_config
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
                         latest_version = AppDeployment.get_latest_deployed_version(
@@ -207,6 +219,7 @@ class Project(Model):
                                 version=latest_version.version() + 1,
                             )
                             app.deployments = {}
+                    logger.debug(f"updated app {app}")
                 except DoesNotExist as e:
                     logger.info(
                         f"App {app_id} does not exist for pack id {self.id}. Creating a new one."
@@ -218,7 +231,7 @@ class Project(Model):
                     range_key=AppDeployment.compose_range_key(app_id=app_id, version=1),
                     created_by=self.created_by,
                     created_at=datetime.now(timezone.utc),
-                    configuration=config,
+                    configuration=app_config,
                     status=AppLifecycleStatus.NEW.value,
                     display_name=(
                         stack_packs[app_id].name
@@ -226,39 +239,61 @@ class Project(Model):
                         else app_id
                     ),
                 )
+                logger.debug(f"added app {app}")
             apps.append(app)
 
         if len(invalid_stacks) > 0:
             raise ValueError(f"Invalid stack names: {', '.join(invalid_stacks)}")
 
-        # Run the packs in parallel and only store the iac if we are incrementing the version
-        tasks = []
+        old_resources = set()
+        for app_id, version in self.apps.items():
+            if app_id in stack_packs:
+                app = AppDeployment.get(
+                    self.id,
+                    AppDeployment.compose_range_key(app_id=app_id, version=version),
+                )
+                old_resources.update(
+                    get_resources(
+                        stack_packs[app_id].to_constraints(app.get_configurations())
+                    )
+                )
+
+        new_resources = set()
         for app in apps:
-            subdir = Path(tmp_dir) / app.get_app_id()
-            subdir.mkdir(exist_ok=True)
-            sp = stack_packs[app.get_app_id()]
-            tasks.append(
-                app.run_app(
-                    sp,
-                    str(subdir.absolute()),
-                    iac_storage,
-                    binary_storage,
-                    imports,
+            new_resources.update(
+                get_resources(
+                    stack_packs[app.app_id()].to_constraints(app.get_configurations())
                 )
             )
-        policies = await asyncio.gather(*tasks)
+        diff = new_resources ^ old_resources
+        logger.debug(f"pack:: old: {old_resources}; new: {new_resources}; diff: {diff}")
+
+        if len(diff) > 0:
+            # Run the packs in parallel
+            tasks = []
+            for app in apps:
+                app_id = app.app_id()
+                subdir = tmp_dir / app.app_id()
+                subdir.mkdir(exist_ok=True)
+                sp = stack_packs[app.app_id()]
+                tasks.append(
+                    app.run_app(
+                        sp,
+                        str(subdir.absolute()),
+                        binary_storage,
+                        imports,
+                        dry_run=not increment_versions,
+                    )
+                )
+            await asyncio.gather(*tasks)
+
+        for app in apps:
+            if increment_versions:
+                app.save()
+            self.apps[app.app_id()] = app.version()
 
         if increment_versions:
-            for app in apps:
-                app.save()
-                self.apps[app.get_app_id()] = app.version()
-
-        # Combine the policies
-        combined_policy = policies[0]
-        for policy in policies[1:]:
-            combined_policy.combine(policy)
-
-        return combined_policy
+            self.save()
 
     def to_view_model(self):
         apps = {}
@@ -269,7 +304,7 @@ class Project(Model):
                 )
                 apps[k] = app.to_view_model()
             except DoesNotExist as e:
-                logger.error(f"App {k} does not exist for pack id {self.id}.")
+                logger.error(f"App {k}v{v} does not exist for pack id {self.id}.")
                 raise e
         return ProjectView(
             id=self.id,
@@ -281,7 +316,7 @@ class Project(Model):
             features=self.features,
             created_by=self.created_by,
             created_at=self.created_at,
-            policy=self.policy,
+            policy=str(self.get_policy()),
         )
 
 

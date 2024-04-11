@@ -84,10 +84,10 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                     [
                         c
                         for c in constraints
-                        if c.get("scope", None) == "resource"
-                        and c.get("target", None) == constraint["node"]
+                        if c["scope"] == "resource"
                         and c.get("property", None) == "Type"
                         and c.get("value", None) == "public"
+                        and c["target"] == constraint["node"]
                     ]
                 )
                 if is_public:

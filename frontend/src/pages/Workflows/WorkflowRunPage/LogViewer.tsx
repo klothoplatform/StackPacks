@@ -133,6 +133,7 @@ export const LogViewer: FC<{
 
   useEffect(() => {
     setLog([]);
+    setDone(false);
     if (!workflowType || !jobNumber || !runNumber) {
       return;
     }

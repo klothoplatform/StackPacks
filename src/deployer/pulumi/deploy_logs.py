@@ -3,7 +3,7 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 
-from watchdog.events import FileSystemEventHandler, PatternMatchingEventHandler
+from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from src.util.logging import logger
@@ -94,23 +94,26 @@ class DeployLogHandler(PatternMatchingEventHandler):
     using a Queue to pass messages between the two.
     """
 
+    OBSERVER = Observer()
+
     def __init__(self, log: DeployLog):
         super().__init__(patterns=[str(log.path)])
         self.interrupted = None
-        self.observer = None
         self.log = log
         self.messages = asyncio.Queue()
         self.complete = False
         self.file = None
         self.sent = 0
+        self.watch = None
 
-    def close(self):
-        if self.observer:
-            self.observer.stop()
-            self.observer.join()
-        if self.file:
+    def close(self, interrupted=True):
+        if self.watch is not None:
+            DeployLogHandler.OBSERVER.unschedule(self.watch)
+            self.watch = None
+        if self.file is not None:
             self.file.close()
-        self.interrupted = True
+            self.file = None
+        self.interrupted = interrupted
 
     def on_modified(self, event):
         line_count = 0
@@ -118,7 +121,7 @@ class DeployLogHandler(PatternMatchingEventHandler):
             line_count += 1
             if line.strip() == "END":
                 self.complete = True
-                self.observer.stop()
+                self.close(interrupted=False)
                 break
             else:
                 self.messages.put_nowait(line)
@@ -141,9 +144,11 @@ class DeployLogHandler(PatternMatchingEventHandler):
                 self.messages.put_nowait(line)
 
         if not self.complete:
-            self.observer = Observer()
-            self.observer.schedule(self, str(self.log.path.parent), recursive=False)
-            self.observer.start()
+            self.watch = DeployLogHandler.OBSERVER.schedule(
+                self, str(self.log.path.parent), recursive=False
+            )
+            if not DeployLogHandler.OBSERVER.is_alive():
+                DeployLogHandler.OBSERVER.start()
 
     async def __anext__(self):
         if self.interrupted:

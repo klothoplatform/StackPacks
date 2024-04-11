@@ -129,19 +129,17 @@ async def uninstall_app(
         initiated_by=user_id,
         notification_email=users_email,
     )
-    if (
-        not keep_common
-        and len(
-            set(project.apps.keys())
-            - {
-                Project.COMMON_APP_NAME,
-                app_id,
-            }
-        )
-        == 0
-    ):
-        project.update(actions=[Project.destroy_in_progress.set(True)])
-        destroy_common = True
+    if not keep_common:
+        installed_apps = set()
+        for app_id in project.apps:
+            if app_id not in [Project.COMMON_APP_NAME, app_id]:
+                app = AppDeployment.get_latest_deployed_version(project.id, app_id)
+                if app is not None:
+                    installed_apps.add(app_id)
+        logger.info(f"Installed apps: {installed_apps}")
+        if len(installed_apps) == 0:
+            project.update(actions=[Project.destroy_in_progress.set(True)])
+            destroy_common = True
 
     background_tasks.add_task(execute_destroy_single_workflow, run, destroy_common)
 

@@ -1,13 +1,14 @@
-import io
 import os
 import subprocess
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 from pulumi import automation as auto
 
 from src.deployer.models.pulumi_stack import PulumiStack
+from src.util.compress import zip_directory_recurse
 from src.util.logging import logger as log
 
 
@@ -16,19 +17,16 @@ class AppBuilder:
         self.state_bucket_name = state_bucket_name
         self.output_dir = output_dir
 
-    def prepare_stack(self, iac: bytes, pulumi_stack: PulumiStack) -> auto.Stack:
-        self.create_output_dir(iac)
+    def prepare_stack(self, pulumi_stack: PulumiStack) -> auto.Stack:
         self.install_npm_deps()
         return self.create_pulumi_stack(pulumi_stack)
 
-    def create_output_dir(self, iac: bytes):
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+    def read_iac_from_disk(self):
+        return zip_directory_recurse(BytesIO(), self.output_dir)
 
-        # Create a BytesIO object from the bytes
-        zip_io = io.BytesIO(iac)
-        # Open the BytesIO object with zipfile.ZipFile
+    def write_iac_to_disk(self, iac: bytes):
+        zip_io = BytesIO(iac)
         with zipfile.ZipFile(zip_io, "r") as zip_file:
-            # Extract all files and directories from the zip file
             zip_file.extractall(self.output_dir)
 
     def create_pulumi_stack(self, pulumi_stack: PulumiStack) -> auto.Stack:
