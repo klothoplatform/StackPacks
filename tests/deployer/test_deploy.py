@@ -12,7 +12,6 @@ from src.deployer.deploy import (
     deploy_applications,
     execute_deploy_single_workflow,
     execute_deployment_workflow,
-    rerun_pack_with_live_state,
     run_concurrent_deployments,
 )
 from src.deployer.models.pulumi_stack import PulumiStack
@@ -27,7 +26,6 @@ from src.deployer.models.workflow_run import (
     WorkflowType,
 )
 from src.deployer.pulumi.manager import AppManager
-from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import Output, StackPack
 from src.project.common_stack import CommonStack
 from src.project.live_state import LiveState
@@ -336,85 +334,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_pool.assert_called_once()
         self.assertEqual(["app1", "app2"], app_order)
         self.assertEqual([expected_result, expected_result], results)
-
-    @patch("src.project.models.project.Project.run_pack")
-    async def test_rerun_pack_with_live_state(self, mock_run_pack):
-        # Arrange
-        app1 = AppDeployment(
-            project_id="id",
-            range_key=AppDeployment.compose_range_key("app1", 1),
-            created_by="user",
-            status=WorkflowJobStatus.PENDING.value,
-            status_reason="Deployment in progress",
-            configuration={"key1": "value1"},
-        )
-        app1.save()
-
-        app2 = AppDeployment(
-            project_id="id",
-            range_key=AppDeployment.compose_range_key("app2", 1),
-            created_by="user",
-            status=WorkflowJobStatus.PENDING.value,
-            status_reason="Deployment in progress",
-            configuration={"key2": "value2"},
-        )
-        app2.save()
-
-        project = Project(
-            id="id",
-            region="region",
-            assumed_role_arn="arn",
-            apps={"app1": 1, "app2": 1},
-            created_by="user",
-            owner="owner",
-        )
-
-        common_app = AppDeployment(
-            project_id="id",
-            range_key=AppDeployment.compose_range_key("common", 1),
-            created_by="user",
-            status=WorkflowJobStatus.PENDING.value,
-            status_reason="Deployment in progress",
-            configuration={},
-        )
-
-        mock_common_stack = MagicMock(spec=CommonStack)
-        mock_iac_storage = MagicMock(spec=IacStorage)
-        mock_binary_storage = MagicMock(spec=BinaryStorage)
-        mock_live_state = MagicMock(
-            spec=LiveState,
-            to_constraints=MagicMock(return_value=["constraint1", "constraint2"]),
-        )
-        mock_sps = {
-            "app1": MagicMock(spec=StackPack),
-            "app2": MagicMock(spec=StackPack),
-        }
-        policy = Policy('{"Version": "2012-10-17","Statement": []}')
-
-        mock_run_pack.return_value = policy
-
-        # Act
-        await rerun_pack_with_live_state(
-            project,
-            common_app,
-            mock_common_stack,
-            mock_iac_storage,
-            mock_binary_storage,
-            mock_live_state,
-            mock_sps,
-            "/tmp",
-        )
-
-        # Assert
-        mock_run_pack.assert_called_once_with(
-            stack_packs=mock_sps,
-            config={"app1": {"key1": "value1"}, "app2": {"key2": "value2"}},
-            tmp_dir="/tmp",
-            iac_storage=mock_iac_storage,
-            binary_storage=mock_binary_storage,
-            increment_versions=False,
-            imports=["constraint1", "constraint2"],
-        )
 
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.run_concurrent_deployments")

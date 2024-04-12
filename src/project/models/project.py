@@ -147,7 +147,7 @@ class Project(Model):
             {"PackId": self.id, "HealthEndpointUrl": health_endpoint_url}
         )
 
-        resources_changed = False
+        resources_changed = True
         if old_config is not None:
             old_resources = get_resources(base_stack.to_constraints(old_config))
             new_resources = get_resources(base_stack.to_constraints(config))

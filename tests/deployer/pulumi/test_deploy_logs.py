@@ -66,11 +66,15 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
 
     @patch("src.deployer.pulumi.deploy_logs.open")
     @patch("src.deployer.pulumi.deploy_logs.asyncio.sleep")
-    @patch("src.deployer.pulumi.deploy_logs.Observer")
+    @patch("src.deployer.pulumi.deploy_logs.DeployLogHandler.OBSERVER")
     @patch("src.deployer.pulumi.deploy_logs.asyncio.wait_for")
-    async def test_log_tail(self, mock_wait_for, mock_observer, mock_sleep, mock_open):
-        observer = MagicMock()
-        mock_observer.return_value = observer
+    async def test_log_tail(self, mock_wait_for, observer, _mock_sleep, mock_open):
+        observer.is_alive.return_value = False
+
+        def start():
+            observer.is_alive.return_value = True
+
+        observer.start.side_effect = start
 
         log = MagicMock()
         handler = DeployLogHandler(log)
@@ -111,7 +115,6 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
             self.assertEqual("line1\n", await handler.__anext__())
             self.assertEqual("line2\n", await handler.__anext__())
             self.assertEqual(False, handler.complete)
-            mock_observer.assert_called_once()
             observer.schedule.assert_called_once()
             observer.start.assert_called_once()
 

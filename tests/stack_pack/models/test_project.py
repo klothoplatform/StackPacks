@@ -1,4 +1,5 @@
-from unittest.mock import ANY, AsyncMock, MagicMock, call, patch, PropertyMock
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import aiounittest
 from pynamodb.exceptions import DoesNotExist
@@ -6,15 +7,8 @@ from pynamodb.exceptions import DoesNotExist
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, Resources, StackPack, StackParts
 from src.project.common_stack import CommonStack
-from src.project.models.app_deployment import (
-    AppLifecycleStatus,
-    AppDeploymentView,
-    AppDeployment,
-)
+from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
-from src.project.storage.iac_storage import IacStorage
-from src.util.aws.iam import Policy
-from src.util.tmp import TempDir
 from tests.test_utils.pynamo_test import PynamoTest
 
 
@@ -28,7 +22,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             owner="owner",
             created_by="created_by",
-            apps={"common": 1, "app1": 1, "app2": 2},
+            apps={},
             region="region",
             assumed_role_arn="arn",
             features=["feature1"],
@@ -37,14 +31,22 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         self.mock_stack_packs = {
             "app1": MagicMock(
-                spec=StackPack.__fields__.keys(),
+                spec=StackPack.model_fields.keys(),
                 base=MagicMock(spec=StackParts, resources=MagicMock(spec=Resources)),
+                to_constraints=MagicMock(),
             ),
             "app2": MagicMock(
-                spec=StackPack.__fields__.keys(),
+                spec=StackPack.model_fields.keys(),
                 base=MagicMock(spec=StackParts, resources=MagicMock(spec=Resources)),
+                to_constraints=MagicMock(),
             ),
         }
+        self.mock_stack_packs["app1"].to_constraints.return_value = [
+            {"scope": "application", "operator": "add", "node": "aws:A:app1"}
+        ]
+        self.mock_stack_packs["app2"].to_constraints.return_value = [
+            {"scope": "application", "operator": "add", "node": "aws:B:app2"}
+        ]
         for key, mock in self.mock_stack_packs.items():
             mock.return_value.name = PropertyMock(return_value=key)
         self.config: dict[str, ConfigValues] = {
@@ -52,9 +54,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             "app2": ConfigValues(),
             "common": ConfigValues(),
         }
-        self.mock_iac_storage = MagicMock(spec=IacStorage)
         self.mock_binary_storage = MagicMock(spec=BinaryStorage)
-        self.temp_dir = TempDir()
+        self.temp_dir = Path("/tmp")
         return super().setUp()
 
     def tearDown(self) -> None:
@@ -62,9 +63,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             mock.reset_mock()
         for key in self.config.keys():
             self.config[key] = ConfigValues()
-        self.mock_iac_storage.reset_mock()
         self.mock_binary_storage.reset_mock()
-        self.temp_dir.cleanup()
         return super().tearDown()
 
     @patch.object(AppDeployment, "run_app")
@@ -73,8 +72,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Arrange
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
-        expected_policy = Policy('{"Version": "2012-10-17","Statement": []}')
-        mock_run_app.return_value = expected_policy
         common_app = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
@@ -84,27 +81,21 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             deployments={"id"},
         )
         common_app.save()
+        self.project.apps[Project.COMMON_APP_NAME] = 1  # project already has the app
 
         # Act
-        policy = await self.project.run_base(
+        await self.project.run_base(
             self.mock_stack_packs,
             dict(self.config.get("common")),
-            self.mock_iac_storage,
             self.mock_binary_storage,
-            f"{self.temp_dir.dir}",
+            self.temp_dir,
         )
 
         # Assert
         mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
-        common_app.run_app.assert_called_once_with(
-            common_stack,
-            f"{self.temp_dir.dir}/common",
-            self.mock_iac_storage,
-            self.mock_binary_storage,
-        )
+        common_app.run_app.assert_not_called()
 
-        self.assertEqual({"common": 1, "app1": 1, "app2": 2}, self.project.apps)
-        self.assertEqual(str(expected_policy), str(policy))
+        self.assertEqual({"common": 1}, self.project.apps)
         self.assertEqual({"id"}, common_app.deployments)
 
     @patch.object(AppDeployment, "run_app")
@@ -113,8 +104,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Arrange
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
-        expected_policy = Policy('{"Version": "2012-10-17","Statement": []}')
-        mock_run_app.return_value = expected_policy
         common_app = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
@@ -126,18 +115,19 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         common_app.save()
 
         # Act
-        policy = await self.project.run_base(
+        await self.project.run_base(
             self.mock_stack_packs,
             dict(self.config.get("common")),
-            self.mock_iac_storage,
             self.mock_binary_storage,
-            f"{self.temp_dir.dir}",
+            self.temp_dir,
         )
 
         # Assert
         mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
-        self.assertEqual({"common": 1, "app1": 1, "app2": 2}, self.project.apps)
-        self.assertEqual(str(expected_policy), str(policy))
+        mock_run_app.assert_called_once_with(
+            common_stack, "/tmp/common", self.mock_binary_storage
+        )
+        self.assertEqual({"common": 1}, self.project.apps)
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack")
@@ -145,41 +135,31 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Arrange
         common_stack = MagicMock(spec=CommonStack)
         mock_common_stack.return_value = common_stack
-        expected_policy = Policy('{"Version": "2012-10-17","Statement": []}')
-        mock_run_app.return_value = expected_policy
-        self.assertRaises(
-            DoesNotExist,
-            lambda: AppDeployment.get(
-                "id", AppDeployment.compose_range_key("common", 1)
-            ),
-        )
+        with self.assertRaises(DoesNotExist):
+            AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
 
         # Act
-        policy = await self.project.run_base(
+        await self.project.run_base(
             self.mock_stack_packs,
             dict(self.config.get("common")),
-            self.mock_iac_storage,
             self.mock_binary_storage,
-            f"{self.temp_dir.dir}",
+            self.temp_dir,
         )
 
         # Assert
         mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
-        self.assertEqual({"common": 1, "app1": 1, "app2": 2}, self.project.apps)
-        self.assertEqual(str(expected_policy), str(policy))
+        self.assertEqual({"common": 1}, self.project.apps)
         self.assertIsNotNone(
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
+        )
+        mock_run_app.assert_called_once_with(
+            common_stack, "/tmp/common", self.mock_binary_storage
         )
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack", autospec=True)
     async def test_run_pack(self, mock_common_stack, run_app):
         # Arrange
-        policy1 = MagicMock(spec=Policy)
-        policy2 = MagicMock(spec=Policy)
-
-        run_app.side_effect = [policy1, policy2]
-
         app1 = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key("app1", 1),
@@ -199,6 +179,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             deployments={"id"},
         )
         app2.save()
+
+        self.project.apps = {"app1": app1.version(), "app2": app2.version()}
 
         common_stack = MagicMock(
             spec=CommonStack,
@@ -207,32 +189,27 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.return_value = common_stack
 
         # Act
-        policy = await self.project.run_pack(
+        await self.project.run_pack(
             self.mock_stack_packs,
             self.config,
-            f"{self.temp_dir.dir}",
-            self.mock_iac_storage,
+            self.temp_dir,
             self.mock_binary_storage,
         )
 
         # Assert
 
-        policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
-            {"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1},
+            {"app1": 1, "app2": 2},
             self.project.apps,
         )
-        self.assertEqual(policy1, policy)
         self.assertEqual({"id"}, app1.deployments)
         self.assertEqual({"id"}, app2.deployments)
+        run_app.assert_not_called()
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack")
     async def test_run_pack_favors_imports(self, mock_common_stack, mock_run_app):
         # Arrange
-        policy1 = MagicMock(spec=Policy)
-        policy2 = MagicMock(spec=Policy)
-
         app1 = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key("app1", 1),
@@ -251,12 +228,13 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         )
         app2.save()
 
+        self.project.apps = {"app1": app1.version(), "app2": app2.version()}
+
         common_stack = MagicMock(
             spec=CommonStack,
             base=StackParts(resources=Resources({"test": {}})),
         )
         mock_common_stack.return_value = common_stack
-        mock_run_app.side_effect = [policy1, policy2]
 
         imports = [
             {
@@ -266,31 +244,22 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             }
         ]
         # Act
-        policy = await self.project.run_pack(
+        await self.project.run_pack(
             self.mock_stack_packs,
             self.config,
-            f"{self.temp_dir.dir}",
-            self.mock_iac_storage,
+            self.temp_dir,
             self.mock_binary_storage,
             imports=imports,
         )
 
         # Assert
-        policy1.combine.assert_called_once_with(policy2)
-        self.assertEqual(
-            {"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1}, self.project.apps
-        )
-        self.assertEqual(policy1, policy)
+        self.assertEqual({"app1": 1, "app2": 2}, self.project.apps)
+        mock_run_app.assert_not_called()
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack")
     async def test_run_pack_app_doesnt_exist(self, mock_common_stack, mock_run_app):
         # Arrange
-        policy1 = MagicMock(spec=Policy)
-        policy2 = MagicMock(spec=Policy)
-
-        mock_run_app.side_effect = [policy1, policy2]
-
         app2 = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key("app2", 2),
@@ -300,6 +269,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             deployments={"id"},
         )
         app2.save()
+        self.project.apps = {"app2": app2.version()}
 
         common_stack = MagicMock(
             spec=CommonStack,
@@ -308,21 +278,36 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.return_value = common_stack
 
         # Act
-        policy = await self.project.run_pack(
+        await self.project.run_pack(
             self.mock_stack_packs,
             self.config,
-            f"{self.temp_dir.dir}",
-            self.mock_iac_storage,
+            self.temp_dir,
             self.mock_binary_storage,
         )
 
         # Assert
-        policy1.combine.assert_called_once_with(policy2)
         self.assertEqual(
-            {"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1},
+            {"app1": 1, "app2": 2},
             self.project.apps,
         )
-        self.assertEqual(policy1, policy)
+        mock_run_app.assert_has_calls(
+            [
+                call(
+                    self.mock_stack_packs["app1"],
+                    "/tmp/app1",
+                    self.mock_binary_storage,
+                    [],
+                    dry_run=False,
+                ),
+                call(
+                    self.mock_stack_packs["app2"],
+                    "/tmp/app2",
+                    self.mock_binary_storage,
+                    [],
+                    dry_run=False,
+                ),
+            ]
+        )
 
     async def test_run_pack_invalid_stack_name(self):
         # Arrange
@@ -341,15 +326,13 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             "app1": ConfigValues(),
             "app2": ConfigValues(),
         }
-        mock_iac_storage = MagicMock(spec=IacStorage)
         mock_binary_storage = MagicMock(spec=BinaryStorage)
         # Act & Assert
         with self.assertRaises(ValueError):
             await project.run_pack(
                 mock_stack_packs,
                 config,
-                f"{self.temp_dir.dir}",
-                mock_iac_storage,
+                self.temp_dir,
                 mock_binary_storage,
             )
 

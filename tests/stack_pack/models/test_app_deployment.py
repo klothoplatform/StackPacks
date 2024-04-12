@@ -1,14 +1,11 @@
-from pathlib import Path
-from unittest.mock import ANY, MagicMock, call, patch
+from unittest.mock import MagicMock, call, patch
 
 import aiounittest
 
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
-from src.engine_service.engine_commands.export_iac import ExportIacRequest
 from src.engine_service.engine_commands.run import RunEngineRequest
 from src.project import StackPack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
-from src.project.storage.iac_storage import IacStorage
 from tests.test_utils.pynamo_test import PynamoTest
 
 
@@ -123,9 +120,7 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
     # Continue with other tests for run_app, get_latest_version, get_latest_deployed_version, composite_key
 
     @patch("src.project.models.app_deployment.run_engine")
-    @patch("src.project.models.app_deployment.export_iac")
-    @patch("src.project.models.app_deployment.zip_directory_recurse")
-    async def test_run_app(self, mock_zip, mock_export_iac, mock_run_engine):
+    async def test_run_app(self, mock_run_engine):
         # Arrange
         app = AppDeployment(
             project_id="project_id",
@@ -139,18 +134,14 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         mock_stack_pack = MagicMock(
             spec=StackPack, to_constraints=MagicMock(return_value=["constraint1"])
         )
-        mock_iac_storage = MagicMock(spec=IacStorage)
         mock_binary_storage = MagicMock(spec=BinaryStorage)
         mock_run_engine.return_value = MagicMock(
             resources_yaml="resources_yaml",
             policy='{"Version": "2012-10-17","Statement": []}',
         )
         imports = ["constraint2"]
-        mock_zip.return_value = b"zip_content"
         # Act
-        policy = await app.run_app(
-            mock_stack_pack, "dir", mock_iac_storage, mock_binary_storage, imports
-        )
+        result = await app.run_app(mock_stack_pack, "dir", mock_binary_storage, imports)
 
         # Assert
         mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
@@ -161,27 +152,12 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
                 tag="project_id/app",
             )
         )
-        mock_export_iac.assert_called_once_with(
-            ExportIacRequest(
-                input_graph="resources_yaml", name="project_id", tmp_dir="dir"
-            )
-        )
-        mock_stack_pack.copy_files.assert_called_once_with(
-            {"config": "value"}, Path("dir")
-        )
-        mock_zip.assert_called_once_with(ANY, "dir")
-        mock_iac_storage.write_iac.assert_called_once_with(
-            "project_id", "app", 1, b"zip_content"
-        )
         mock_binary_storage.ensure_binary.assert_has_calls(
             [
                 call(Binary.ENGINE),
-                call(Binary.IAC),
             ]
         )
-        self.assertEqual(
-            policy.__str__(), '{\n    "Version": "2012-10-17",\n    "Statement": []\n}'
-        )
+        self.assertEqual(result.policy, '{"Version": "2012-10-17","Statement": []}')
 
     def test_get_latest_version(self):
         # Arrange

@@ -12,7 +12,7 @@ base:
         ContainerName: stacksnap-backend
         TargetGroup: aws:target_group:stacksnap-tg
     aws:ecs_task_definition:stacksnap-task:
-      Cpu: 512
+      Cpu: 2048
       Memory: 3200
       ExecutionRole: aws:iam_role:stacksnap-ecs-task-role
       TaskRole: aws:iam_role:stacksnap-ecs-task-role
@@ -23,7 +23,7 @@ base:
       ContainerDefinitions[0]:
         Image: aws:ecr_image:stacksnap-task-image
         Name: stacksnap-backend
-        Cpu: 512
+        Cpu: 2048
         Memory: 3200
         Essential: true
         MountPoints[0]:

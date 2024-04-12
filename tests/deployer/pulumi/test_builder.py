@@ -13,27 +13,23 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
     @patch("src.deployer.pulumi.builder.auto.create_or_select_stack")
     @patch("src.deployer.pulumi.builder.subprocess.run")
     @patch("src.deployer.pulumi.builder.zipfile.ZipFile")
-    @patch("src.deployer.pulumi.builder.io.BytesIO")
     def test_prepare_stack(
         self,
-        mock_bytes_io,
         mock_zip_file,
         mock_run,
         mock_create_or_select_stack,
     ):
         # Setup mock objects
         builder = AppBuilder("tmp_dir", "test_bucket")
-        builder.create_output_dir = MagicMock()
 
         builder.install_npm_deps = MagicMock()
         mock_return_stack = MagicMock()
         builder.create_pulumi_stack = MagicMock(return_value=mock_return_stack)
 
         # Call the method
-        stack = builder.prepare_stack(b"iac", MagicMock())
+        stack = builder.prepare_stack(MagicMock())
 
         # Assert calls
-        builder.create_output_dir.assert_called_once_with(b"iac")
         builder.install_npm_deps.assert_called_once()
         builder.create_pulumi_stack.assert_called_once()
 
