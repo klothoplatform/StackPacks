@@ -109,6 +109,7 @@ configuration:
     type: string
     pulumi_key: klo:tooljet-service-tooljet-memcluster-password
     secret: true
+    generate_default: true
     validation:
       minLength: 16
       maxLength: 128

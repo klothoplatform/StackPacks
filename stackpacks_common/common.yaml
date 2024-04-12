@@ -138,6 +138,7 @@ postgres:
       default: masterdbpassword
       pulumi_key: klo:stacksnap-postgres-password
       secret: true
+      generate_default: true
       validation:
         minLength: 8
         maxLength: 128

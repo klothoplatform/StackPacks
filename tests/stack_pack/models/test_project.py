@@ -329,7 +329,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             assumed_role_arn="arn",
         )
         mock_stack_packs = {
-            "app1": MagicMock(spec=StackPack.__fields__.keys()),
+            "app1": MagicMock(spec=StackPack.model_fields.keys()),
         }
         config: dict[str, ConfigValues] = {
             "app1": ConfigValues(),

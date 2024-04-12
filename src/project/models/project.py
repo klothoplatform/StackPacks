@@ -242,9 +242,7 @@ class Project(Model):
                     configuration=app_config,
                     status=AppLifecycleStatus.NEW.value,
                     display_name=(
-                        stack_packs[app_id].name
-                        if stack_packs.get(app_id, None)
-                        else app_id
+                        stack_packs[app_id].name if stack_packs[app_id] else app_id
                     ),
                 )
                 logger.debug(f"added app {app}")

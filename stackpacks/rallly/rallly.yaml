@@ -101,6 +101,7 @@ configuration:
     description: A random 32-character secret key used to encrypt user sessions
     type: string
     secret: true
+    generate_default: true
     validation:
       minLength: 32
       maxLength: 32
