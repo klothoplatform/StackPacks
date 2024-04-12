@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from pynamodb.exceptions import DoesNotExist
 
 from src.auth.token import get_user_id
-from src.dependencies.injection import get_binary_storage, get_iac_storage
+from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
 from src.project import ConfigValues, get_stack_packs
@@ -54,35 +54,30 @@ async def create_stack(
         id=user_id,
         owner=user_id,
         created_by=user_id,
-        apps={k: 0 for k in body.configuration.keys()},
+        apps={},
         region=body.region,
         assumed_role_arn=body.assumed_role_arn,
         assumed_role_external_id=body.assumed_role_external_id,
         features=[Feature.HEALTH_MONITOR.value] if body.health_monitor_enabled else [],
     )
-    iac_storage = get_iac_storage()
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
-        common_policy = await project.run_base(
+        await project.run_base(
             stack_packs=[sp for k, sp in stack_packs.items()],
             config=body.configuration.get("base", {}),
-            iac_storage=iac_storage,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        policy = await project.run_pack(
+        await project.run_pack(
             stack_packs=stack_packs,
             config=body.configuration,
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
 
-    policy.combine(common_policy)
-    project.policy = str(policy)
-    project.save()
-
-    return StackResponse(stack=project.to_view_model(), policy=policy.__str__())
+    return StackResponse(
+        stack=project.to_view_model(), policy=str(project.get_policy())
+    )
 
 
 class UpdateStackRequest(BaseModel):
@@ -142,31 +137,22 @@ async def update_stack(
                 logger.info(f"Configuration for {app} is {configuration[app]}")
         stack_packs = get_stack_packs()
         with TempDir() as tmp_dir:
-            common_policy = await project.run_base(
+            await project.run_base(
                 stack_packs=list(stack_packs.values()),
                 config=configuration.get("base", {}),
-                iac_storage=get_iac_storage(),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
-            policy = await project.run_pack(
+            await project.run_pack(
                 stack_packs=stack_packs,
                 config=configuration,
-                iac_storage=get_iac_storage(),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
-        policy.combine(common_policy)
-        policy = str(policy)
-        project.update(
-            actions=[
-                Project.apps.set(project.apps),
-                Project.features.set(project.features),
-                Project.policy.set(policy),
-            ]
-        )
 
-    return StackResponse(stack=project.to_view_model(), policy=project.policy)
+    return StackResponse(
+        stack=project.to_view_model(), policy=str(project.get_policy())
+    )
 
 
 @router.get("/api/project")
@@ -233,14 +219,12 @@ async def add_app(
         policy = await project.run_pack(
             stack_packs=get_stack_packs(),
             config=configuration,
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
         common_policy = await project.run_base(
             stack_packs=list(get_stack_packs().values()),
             config=ConfigValues(),
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -272,14 +256,12 @@ async def update_app(
         policy = await project.run_pack(
             stack_packs=get_stack_packs(),
             config=configuration,
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
         common_policy = await project.run_base(
             stack_packs=list(get_stack_packs().values()),
             config=ConfigValues(),
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -319,7 +301,6 @@ async def remove_app(
         policy = await project.run_pack(
             stack_packs=get_stack_packs(),
             config=configuration,
-            iac_storage=get_iac_storage(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -355,6 +336,7 @@ async def get_costs(
     current_cost = calculate_costs(project, "install", current_apps)
     if body.operation is not None:
         if body.app_ids is None:
+            current_cost.close()
             raise HTTPException(
                 status_code=400,
                 detail="App IDs must be provided when operation is specified",

@@ -2,8 +2,6 @@ import os
 import re
 from datetime import datetime
 from enum import Enum
-from io import BytesIO
-from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -18,17 +16,13 @@ from typing_extensions import deprecated
 
 from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJobType
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
-from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
     RunEngineResult,
     run_engine,
 )
 from src.project import ConfigValues, StackPack
-from src.project.storage.iac_storage import IacStorage
 from src.util.aws.iam import Policy
-from src.util.compress import zip_directory_recurse
-from src.util.logging import logger
 
 
 class AppLifecycleStatus(Enum):
@@ -64,6 +58,7 @@ class AppDeployment(Model):
     status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
     display_name: str = UnicodeAttribute(null=True)
+    policy: str = UnicodeAttribute(null=True)
 
     def app_id(self):
         return self.range_key.split("#")[0]
@@ -179,14 +174,17 @@ class AppDeployment(Model):
     def update_configurations(self, configuration: ConfigValues):
         self.update(actions=[AppDeployment.configuration.set(configuration)])
 
+    def get_policy(self) -> Policy:
+        return Policy(self.policy)
+
     async def run_app(
         self,
         stack_pack: StackPack,
-        dir: str,
-        iac_storage: IacStorage | None,
-        binary_storage: BinaryStorage | None,
+        app_dir: str,
+        binary_storage: BinaryStorage,
         imports: list[any] = [],
-    ) -> Policy:
+        dry_run: bool = False,
+    ):
         constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
         binary_storage.ensure_binary(Binary.ENGINE)
@@ -194,25 +192,13 @@ class AppDeployment(Model):
             RunEngineRequest(
                 tag=self.global_tag(),
                 constraints=constraints,
-                tmp_dir=dir,
+                tmp_dir=app_dir,
             )
         )
-        if iac_storage:
-            binary_storage.ensure_binary(Binary.IAC)
-            await export_iac(
-                ExportIacRequest(
-                    input_graph=engine_result.resources_yaml,
-                    name=self.project_id,
-                    tmp_dir=dir,
-                )
-            )
-            stack_pack.copy_files(self.get_configurations(), Path(dir))
-            iac_bytes = zip_directory_recurse(BytesIO(), dir)
-            logger.info(f"Writing IAC for {self.app_id()} version {self.version()}")
-            iac_storage.write_iac(
-                self.project_id, self.app_id(), self.version(), iac_bytes
-            )
-        return Policy(engine_result.policy)
+        self.policy = engine_result.policy
+        if not dry_run:
+            self.save()
+        return engine_result
 
     @classmethod
     def get_latest_version(
@@ -270,3 +256,13 @@ class AppDeploymentView(BaseModel):
     last_deployed_version: Optional[int] = None
     status: Optional[str] = None
     status_reason: Optional[str] = None
+
+
+def get_resources(
+    constraints: list,
+) -> set[str]:
+    return set(
+        ":".join(c["node"].split(":")[:2])
+        for c in constraints
+        if c["scope"] == "application" and c["operator"] in ["add", "must_exist"]
+    )

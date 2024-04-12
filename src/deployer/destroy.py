@@ -35,7 +35,7 @@ async def run_destroy(
     region: str,
     assume_role_arn: str,
     iac: bytes,
-    tmp_dir: Path,
+    app_dir: Path,
     pulumi_config: Optional[dict[str, str]] = None,
     external_id: Optional[str] = None,
 ) -> DeploymentResult:
@@ -58,10 +58,9 @@ async def run_destroy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(
-            tmp_dir / destroy_job.modified_app_id, get_pulumi_state_bucket_name()
-        )
-        stack = builder.prepare_stack(iac, pulumi_stack)
+        builder = AppBuilder(app_dir, get_pulumi_state_bucket_name())
+        builder.write_iac_to_disk(iac)
+        stack = builder.prepare_stack(pulumi_stack)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))
         builder.configure_aws(stack, region, assume_role_arn, external_id=external_id)
@@ -184,7 +183,7 @@ async def run_destroy_application(
         assume_role_arn=project.assumed_role_arn,
         iac=iac,
         external_id=project.assumed_role_external_id,
-        tmp_dir=tmp_dir / app.get_app_id(),
+        app_dir=tmp_dir / app.app_id(),
     )
     iac_composite_key = (
         result.stack.composite_key()
@@ -202,7 +201,7 @@ async def run_destroy_application(
         ]
     )
     app.transition_status(result.status, WorkflowJobType.DESTROY, result.reason)
-    logger.info(f"DESTROY of {app.get_app_id()} complete. Status: {result.status}")
+    logger.info(f"DESTROY of {app.app_id()} complete. Status: {result.status}")
     return result
 
 
@@ -276,8 +275,7 @@ async def destroy_app(
 
 async def execute_destroy_single_workflow(run: WorkflowRun, destroy_common: bool):
     try:
-        with TempDir() as tmp_dir_str:
-            tmp_dir = Path(tmp_dir_str)
+        with TempDir() as tmp_dir:
             project = Project.get(run.project_id)
             destroy_app_job = WorkflowJob.create_job(
                 partition_key=WorkflowJob.compose_partition_key(
@@ -328,7 +326,7 @@ async def execute_destroy_single_workflow(run: WorkflowRun, destroy_common: bool
             complete_workflow_run(run)
 
     except Exception as e:
-        logger.error(f"Error destroying {run.composite_key()}: {e}")
+        logger.error(f"Error destroying {run.composite_key()}: {e}", exc_info=True)
         abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
     finally:
         project.update(actions=[Project.destroy_in_progress.set(False)])
@@ -347,9 +345,7 @@ async def execute_destroy_all_workflow(
 
         logger.info(f"Destroying app stacks")
 
-        with TempDir() as tmp_dir_str:
-            tmp_dir = Path(tmp_dir_str)
-
+        with TempDir() as tmp_dir:
             common_version = project.apps.get(Project.COMMON_APP_NAME, 0)
             if common_version == 0:
                 raise ValueError("Common stack not found")

@@ -7,13 +7,13 @@ from src.api.models.workflow_models import WorkflowRunSummary
 from src.api.workflow_router import (
     install,
     install_app,
+    stream_deployment_logs,
     uninstall_all_apps,
     uninstall_app,
-    stream_deployment_logs,
 )
 from src.deployer.deploy import (
-    execute_deployment_workflow,
     execute_deploy_single_workflow,
+    execute_deployment_workflow,
 )
 from src.deployer.destroy import (
     execute_destroy_all_workflow,
@@ -295,7 +295,6 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_workflow_run,
         mock_wf_run_summary,
     ):
-        # Setup mock objects
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
         project = MagicMock(
@@ -303,7 +302,15 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         )
         mock_get_project.return_value = project
         app = MagicMock(spec=AppDeployment)
-        mock_get_latest_app.return_value = app
+
+        def get_latest(_project_id, app_id):
+            if app_id in [Project.COMMON_APP_NAME, "app2"]:
+                return MagicMock()
+            elif app_id == "app1":
+                return app
+            return None
+
+        mock_get_latest_app.side_effect = get_latest
 
         mock_wf_run_instance = MagicMock(
             spec=WorkflowRun,

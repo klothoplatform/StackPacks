@@ -107,14 +107,14 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             external_id="external_id",
             iac=b"iac",
             pulumi_config=self.pulumi_config,
-            tmp_dir=self.tmp_dir,
+            app_dir=self.tmp_dir / "app1",
         )
 
         # Assert calls
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
         mock_app_builder.assert_called_once_with(Path("/tmp/app1"), None)
-        mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
+        mock_builder.prepare_stack.assert_called_once_with(stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value,
             "region",
@@ -166,14 +166,14 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             external_id="external_id",
             iac=b"iac",
             pulumi_config=self.pulumi_config,
-            tmp_dir=self.tmp_dir,
+            app_dir=self.tmp_dir / "app1",
         )
 
         # Assert calls
         destroy_job.refresh()
         stack = PulumiStack.get(*destroy_job.iac_stack_composite_key.split("#"))
         mock_app_builder.assert_called_once_with(Path("/tmp/app1"), None)
-        mock_builder.prepare_stack.assert_called_once_with(b"iac", stack)
+        mock_builder.prepare_stack.assert_called_once_with(stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value,
             "region",
@@ -631,7 +631,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_tmp_dir,
         mock_destroy_app,
     ):
-        mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
+        mock_tmp_dir.return_value.__enter__.return_value = Path("/tmp")
 
         workflow_run = WorkflowRun.create(
             project_id="project",
@@ -693,7 +693,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_tmp_dir,
         mock_destroy_app,
     ):
-        mock_tmp_dir.return_value.__enter__.return_value = "/tmp"
+        mock_tmp_dir.return_value.__enter__.return_value = Path("/tmp")
 
         workflow_run = WorkflowRun.create(
             project_id="project",
@@ -794,7 +794,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     ):
         # Arrange
         mock_temp_dir.return_value = MagicMock()
-        mock_temp_dir.return_value.__enter__.return_value = "/tmp"
+        mock_temp_dir.return_value.__enter__.return_value = Path("/tmp")
 
         workflow_run = WorkflowRun.create(
             project_id=self.project.id,

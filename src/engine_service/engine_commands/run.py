@@ -32,6 +32,8 @@ async def run_engine(request: RunEngineRequest) -> RunEngineResult:
     print(request.constraints)
 
     dir = Path(request.tmp_dir).absolute()
+    dir.mkdir(parents=True, exist_ok=True)
+
     args = []
 
     if request.input_graph is not None:

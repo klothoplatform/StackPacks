@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import List, NamedTuple, Optional, Tuple
 
@@ -28,14 +29,15 @@ from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.deployer.pulumi.manager import AppManager, LiveState
-from src.engine_service.binaries.fetcher import Binary, BinaryStorage
-from src.project import ConfigValues, StackPack, get_app_name, get_stack_packs
+from src.deployer.pulumi.manager import AppManager
+from src.engine_service.binaries.fetcher import Binary
+from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
+from src.project import StackPack, get_app_name, get_stack_packs
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
-from src.project.storage.iac_storage import IacStorage
 from src.util.aws.ses import AppData, send_deployment_success_email
+from src.util.compress import zip_directory_recurse
 from src.util.logging import logger
 from src.util.tmp import TempDir
 
@@ -61,9 +63,8 @@ async def build_and_deploy(
     deployment_job: WorkflowJob,
     region: str,
     assume_role_arn: str,
-    iac: bytes,
     pulumi_config: dict[str, str],
-    tmp_dir: Path,
+    app_dir: Path,
     external_id: Optional[str] = None,
 ) -> DeploymentResult:
     project_id = deployment_job.project_id()
@@ -78,6 +79,9 @@ async def build_and_deploy(
         status_reason="Deployment in progress",
         created_by=user,
     )
+    logger.info(
+        f"Building {project_id}/{app_id}, deployment id {deployment_job.composite_key()}"
+    )
 
     try:
         pulumi_stack.save()
@@ -86,14 +90,17 @@ async def build_and_deploy(
                 WorkflowJob.iac_stack_composite_key.set(pulumi_stack.composite_key()),
             ]
         )
-        builder = AppBuilder(tmp_dir / app_id, get_pulumi_state_bucket_name())
-        stack = builder.prepare_stack(iac, pulumi_stack)
+        builder = AppBuilder(app_dir, get_pulumi_state_bucket_name())
+        stack = builder.prepare_stack(pulumi_stack)
         builder.configure_aws(stack, region, assume_role_arn, external_id)
         for k, v in pulumi_config.items():
             stack.set_config(k, auto.ConfigValue(v, secret=True))
         deployer = AppDeployer(
             stack,
             DeploymentDir(project_id, run_id),
+        )
+        logger.info(
+            f"Deploying {project_id}/{app_id}, deployment id {deployment_job.composite_key()}"
         )
         result_status, reason = await deployer.deploy()
         pulumi_stack.update(
@@ -141,6 +148,7 @@ async def build_and_deploy(
 
 async def build_and_deploy_application(
     deployment_job: WorkflowJob,
+    imports: list,
     pulumi_config: dict[str, str],
     outputs: dict[str, str],
     tmp_dir: Path,
@@ -148,16 +156,44 @@ async def build_and_deploy_application(
     job_composite_key = deployment_job.composite_key()
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
-    logger.info(
-        f"Building and deploying {app_id} for project {project_id} with deployment id {job_composite_key}"
-    )
+    app_dir = tmp_dir / app_id
     iac_storage = get_iac_storage()
+    binary_storage = get_binary_storage()
     project = Project.get(project_id)
     app = AppDeployment.get(
         project_id,
         AppDeployment.compose_range_key(app_id=app_id, version=project.apps[app_id]),
     )
-    iac = iac_storage.get_iac(project.id, app.app_id(), project.apps[app.app_id()])
+    stack_packs = get_stack_packs()
+    if app_id in stack_packs:
+        stack_pack = stack_packs[app_id]
+    else:
+        stack_pack = CommonStack(
+            stack_packs=[stack_packs[a] for a in project.apps if a in stack_packs],
+            features=project.features,
+        )
+
+    logger.info(f"Running {project_id}/{app_id}, deployment id {job_composite_key}")
+    engine_result = await app.run_app(
+        stack_pack=stack_pack,
+        app_dir=app_dir,
+        binary_storage=binary_storage,
+        imports=imports,
+    )
+
+    binary_storage.ensure_binary(Binary.IAC)
+    await export_iac(
+        ExportIacRequest(
+            input_graph=engine_result.resources_yaml,
+            name=project_id,
+            tmp_dir=app_dir,
+        )
+    )
+    stack_pack.copy_files(app.get_configurations(), app_dir)
+    iac_bytes = zip_directory_recurse(BytesIO(), app_dir)
+    logger.info(f"Writing IAC for {app_id} version {app.version()}")
+    iac_storage.write_iac(project_id, app_id, app.version(), iac_bytes)
+
     deployment_job.update(
         actions=[
             WorkflowJob.status.set(WorkflowJobStatus.IN_PROGRESS.value),
@@ -172,9 +208,8 @@ async def build_and_deploy_application(
         deployment_job=deployment_job,
         region=project.region,
         assume_role_arn=project.assumed_role_arn,
-        iac=iac,
         pulumi_config=pulumi_config,
-        tmp_dir=tmp_dir / app.app_id(),
+        app_dir=app_dir,
         external_id=project.assumed_role_external_id,
     )
     job_composite_key = deployment_job.composite_key()
@@ -211,6 +246,7 @@ async def build_and_deploy_application(
 
 async def run_concurrent_deployments(
     stacks: list[StackDeploymentRequest],
+    imports: list,
     tmp_dir: Path,
 ) -> Tuple[list[str], tuple[DeploymentResult]]:
     # This version of the function creates an empty list tasks, then iterates over the stacks list.
@@ -227,6 +263,7 @@ async def run_concurrent_deployments(
                 build_and_deploy_application,
                 kwds=dict(
                     deployment_job=stack.workflow_job,
+                    imports=imports,
                     pulumi_config=stack.pulumi_config,
                     outputs=stack.outputs,
                     tmp_dir=tmp_dir / stack.workflow_job.owning_app_id(),
@@ -240,40 +277,9 @@ async def run_concurrent_deployments(
         return app_order, gathered
 
 
-async def rerun_pack_with_live_state(
-    project: Project,
-    common_pack: AppDeployment,
-    common_stack: CommonStack,
-    iac_storage: IacStorage,
-    binary_storage: BinaryStorage,
-    live_state: LiveState,
-    sps: dict[str, StackPack],
-    tmp_dir: str,
-):
-    logger.info(f"Rerunning project {project.id} with imports")
-
-    configuration: dict[str, ConfigValues] = {}
-    for name, version in project.apps.items():
-        if name == Project.COMMON_APP_NAME:
-            continue
-        app = AppDeployment.get(
-            project.id, AppDeployment.compose_range_key(app_id=name, version=version)
-        )
-        configuration[name] = app.get_configurations()
-
-    await project.run_pack(
-        stack_packs=sps,
-        config=configuration,
-        tmp_dir=tmp_dir,
-        iac_storage=iac_storage,
-        binary_storage=binary_storage,
-        increment_versions=False,
-        imports=live_state.to_constraints(common_stack, common_pack.configuration),
-    )
-
-
 async def deploy_applications(
     deployment_jobs: List[WorkflowJob],
+    imports: list,
     tmp_dir: Path,
 ) -> bool:
     sps = get_stack_packs()
@@ -300,6 +306,7 @@ async def deploy_applications(
 
     order, results = await run_concurrent_deployments(
         stacks=deployment_stacks,
+        imports=imports,
         tmp_dir=tmp_dir,
     )
     return all(result.status == WorkflowJobStatus.SUCCEEDED for result in results)
@@ -310,6 +317,7 @@ async def deploy_app(
     app: AppDeployment,
     stack_pack: StackPack,
     tmp_dir: Path,
+    imports: list = [],
 ) -> DeploymentResult:
     pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
     outputs = {k: v.value_string() for k, v in stack_pack.outputs.items()}
@@ -321,6 +329,7 @@ async def deploy_app(
                 outputs=outputs,
             )
         ],
+        imports=imports,
         tmp_dir=tmp_dir,
     )
 
@@ -332,11 +341,8 @@ async def execute_deployment_workflow(
 ):
     stack_packs = get_stack_packs()
     project_id = run.project_id
-    with TempDir() as tmp_dir_str:
-        tmp_dir = Path(tmp_dir_str)
-
+    with TempDir() as tmp_dir:
         logger.info(f"Deploying project {run.project_id}")
-        iac_storage = get_iac_storage()
         binary_storage = get_binary_storage()
         project = Project.get(run.project_id)
         if project.destroy_in_progress:
@@ -434,22 +440,13 @@ async def execute_deployment_workflow(
 
             live_state = await result.manager.read_deployed_state(tmp_dir)
 
-            logger.info(f"Rerunning pack with live state")
-            await rerun_pack_with_live_state(
-                project,
-                common_app,
-                common_stack,
-                iac_storage,
-                binary_storage,
-                live_state,
-                stack_packs,
-                tmp_dir_str,
-            )
-
             logger.info(f"Deploying app stacks")
             email = run.notification_email
             success = await deploy_applications(
                 deployment_jobs=deploy_app_jobs,
+                imports=live_state.to_constraints(
+                    common_stack, common_app.configuration
+                ),
                 tmp_dir=tmp_dir,
             )
             complete_workflow_run(run)
@@ -492,9 +489,8 @@ async def execute_deploy_single_workflow(
         AppDeployment.compose_range_key(app_id=app_id, version=project.apps[app_id]),
     )
     stackpacks = get_stack_packs()
-    iac_storage = get_iac_storage()
     binary_storage = get_binary_storage()
-    stack_pack = stackpacks[app.get_app_id()]
+    stack_pack = stackpacks[app.app_id()]
     common_stack = CommonStack(list(stackpacks.values()), project.features)
     common_app = AppDeployment.get(
         project_id,
@@ -547,9 +543,7 @@ async def execute_deploy_single_workflow(
                 WorkflowJob.status_reason.set("Deployment is pending"),
             ]
         )
-        with TempDir() as tmp_dir_str:
-            tmp_dir = Path(tmp_dir_str)
-
+        with TempDir() as tmp_dir:
             result = await deploy_app(
                 deployment_job=deploy_common_job,
                 app=common_app,
@@ -566,19 +560,13 @@ async def execute_deploy_single_workflow(
             constraints = live_state.to_constraints(
                 common_stack, common_app.get_configurations()
             )
-            await app.run_app(
-                stack_pack=stack_pack,
-                dir=str(tmp_dir),
-                iac_storage=iac_storage,
-                binary_storage=binary_storage,
-                imports=constraints,
-            )
 
             await deploy_app(
                 deployment_job=deploy_app_job,
                 app=app,
                 stack_pack=stack_pack,
                 tmp_dir=tmp_dir,
+                imports=constraints,
             )
             complete_workflow_run(run)
             if run.notification_email is not None:
@@ -592,7 +580,7 @@ async def execute_deploy_single_workflow(
                     get_ses_client(), run.notification_email, app_data
                 )
     except Exception as e:
-        logger.error(f"Error deploying {app.get_app_id()}: {e}", exc_info=True)
+        logger.error(f"Error deploying {app.app_id()}: {e}", exc_info=True)
         abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
         if app.status == AppLifecycleStatus.PENDING.value:
             app.transition_status(
