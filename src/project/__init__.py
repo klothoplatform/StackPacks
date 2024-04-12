@@ -1,3 +1,4 @@
+import glob
 from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional
@@ -12,6 +13,7 @@ from src.util.logging import logger
 class BaseRequirements(Enum):
     NETWORK = "network"
     ECS = "ecs"
+    RDS = "rds"
 
 
 class Output(BaseModel):
@@ -211,7 +213,7 @@ class StackConfig(BaseModel):
     validation: Any = Field(default=None)
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
-    script: Optional[str] = Field(default=None)
+    action: Optional[str] = Field(default=None)
 
 
 class StackPack(BaseModel):
@@ -249,10 +251,16 @@ class StackPack(BaseModel):
 
         if root is None:
             root = Path("stackpacks") / self.id
-        for f, data in self.base.files.items():
+        for pattern, data in self.base.files.items():
             # TODO execute template if `data` has template: true
-            logger.info("writing file: " + str(out_dir / f))
-            (out_dir / f).write_bytes((root / f).read_bytes())
+            for f in glob.glob(str(root / pattern), recursive=True):
+                f = Path(f)  # convert string to Path object
+                if f.is_dir():  # check if f is a file
+                    continue
+                relative_path = f.relative_to(root)
+                logger.info("writing file: " + str(out_dir / relative_path))
+                (out_dir / relative_path).parent.mkdir(parents=True, exist_ok=True)
+                (out_dir / relative_path).write_bytes(f.read_bytes())
         # TODO also read files from `configuration.X.values` based on config
 
     def get_pulumi_configs(self, user_config: ConfigValues) -> dict[str, str]:
@@ -265,12 +273,12 @@ class StackPack(BaseModel):
 
         return result
 
-    def get_scripts(self, config: ConfigValues) -> list[str]:
+    def get_actions(self, config: ConfigValues) -> list[tuple[str, str]]:
         result = []
         config = self.final_config(config)
         for k, v in self.configuration.items():
-            if v.script:
-                result.append(v.script.format(**config))
+            if v.action:
+                result.append((v.action, config[k]))
         return result
 
 

@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiounittest
 
@@ -354,8 +354,9 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.run_concurrent_deployments")
+    @patch("src.deployer.deploy.run_actions")
     async def test_deploy_applications(
-        self, mock_run_concurrent_deployments, mock_get_stack_packs
+        self, mock_run_actions, mock_run_concurrent_deployments, mock_get_stack_packs
     ):
         # Arrange
         app1 = AppDeployment(
@@ -391,6 +392,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         sp1 = MagicMock(
             spec=StackPack,
             get_pulumi_configs=MagicMock(return_value={"key": "value"}),
+            get_actions=MagicMock(return_value=[("action", "data")]),
             outputs={
                 "key": Output(value="aws:res:the-cf#Domain", description="The domain")
             },
@@ -398,6 +400,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         sp2 = MagicMock(
             spec=StackPack,
             get_pulumi_configs=MagicMock(return_value={"key2": "value2"}),
+            get_actions=MagicMock(return_value=[("action2", "data2")]),
             outputs={
                 "key": Output(value="aws:res:the-ff#DnsName", description="The domain")
             },
@@ -449,15 +452,39 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             initiated_by="user",
         )
 
+        live_state = MagicMock(
+            spec=LiveState, to_constraints=MagicMock(return_value=["constraint1"])
+        )
+
         # Act
         result = await deploy_applications(
-            deployment_jobs=[job1, job2], imports=[], tmp_dir=Path("/tmp")
+            deployment_jobs=[job1, job2],
+            imports=[],
+            tmp_dir=Path("/tmp"),
+            project=project,
+            live_state=live_state,
         )
 
         # Assert
         self.assertTrue(result)
         sp1.get_pulumi_configs.assert_called_once_with({"key": "value"})
+        sp1.get_actions.assert_called_once_with({"key": "value"})
         sp2.get_pulumi_configs.assert_called_once_with({"key2": "value2"})
+        sp2.get_actions.assert_called_once_with({"key2": "value2"})
+        mock_run_actions.assert_has_calls(
+            [
+                call(
+                    sp1.get_actions.return_value,
+                    project,
+                    live_state,
+                ),
+                call(
+                    sp2.get_actions.return_value,
+                    project,
+                    live_state,
+                ),
+            ]
+        )
         mock_run_concurrent_deployments.assert_called_once_with(
             stacks=[
                 StackDeploymentRequest(
@@ -867,11 +894,9 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
         workflow_run.save()
 
-        def deploy_apps_side_effect(
-            deployment_jobs,
-            imports,
-            tmp_dir,
-        ):
+        def deploy_apps_side_effect(deployment_jobs, imports, tmp_dir, project, live_state):
+            if project is None or live_state is None:
+                return False
             for job in deployment_jobs:
                 job.status = WorkflowJobStatus.SUCCEEDED.value
                 job.save()

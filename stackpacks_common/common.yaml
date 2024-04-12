@@ -91,3 +91,66 @@ health_monitor:
       name: HealthEndpointUrl
       description: The health endpoint url that this health monitor is monitoring
       type: string
+
+rds:
+  always_inject:
+    - aws:rds_instance:stacksnap-db
+  never_inject:
+    - aws:ecr_image:database_manager
+    - aws:lambda_function:database_manager
+  resources:
+    aws:rds_instance:stacksnap-db:
+    aws:ecr_image:database_manager:
+      BaseImage: public.ecr.aws/lambda/python:3.12
+      Dockerfile: database_manager/Dockerfile
+      Context: database_manager
+    aws:lambda_function:database_manager:
+      Image: aws:ecr_image:database_manager
+      Tags:
+        STACKSNAP_FUNCTION: DATABASE_MANAGER
+      EnvironmentVariables:
+        # TODO: Find a way to know how to set constraints smarter or fix the engine
+        constraint_top_level:
+        DB_HOST: aws:rds_instance:stacksnap-db#Host
+        DB_USER: aws:rds_instance:stacksnap-db#Username
+        DB_PASSWORD: aws:rds_instance:stacksnap-db#Password
+  edges:
+    aws:lambda_function:database_manager -> aws:rds_instance:stacksnap-db:
+  files: 
+    database_manager/main.py:
+    database_manager/requirements.txt:
+    database_manager/Dockerfile:
+
+  configuration:
+    DBUsername:
+      name: Database Username
+      description: The username to use for the metabase database
+      type: string
+      default: masterdbuser
+      pulumi_key: klo:stacksnap-db-username
+      validation:
+        minLength: 1
+        maxLength: 63
+
+
+    DBPassword:
+      name: Database Password
+      description: The password to use for the metabase database
+      type: string
+      default: masterdbpassword
+      pulumi_key: klo:stacksnap-db-password
+      secret: true
+      validation:
+        minLength: 8
+        maxLength: 128
+
+  additional_policies:
+    - Version: "2012-10-17"
+      Statement:
+        - Effect: "Allow"
+          Action:
+            - "lambda:invokeFunction"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:ResourceTag/STACKSNAP_FUNCTION": "DATABASE_MANAGER"
