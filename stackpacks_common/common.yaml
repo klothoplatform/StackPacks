@@ -41,19 +41,7 @@ ecs:
     - network
   resources:
     aws:ecs_cluster:stackpacks-ecs-cluster:
-    aws:ec2_launch_template:stackpacks-ecs-launch-template:
-      LaunchTemplateData:
-        InstanceType: t3.medium
-    aws:auto_scaling_group:stackpacks-asg:
-      MinSize: 1
-      MaxSize: 3
-    aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
-    aws:ecs_capacity_provider:stackpacks-capacity-provider:
   edges:
-    aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider -> aws:ecs_cluster:stackpacks-ecs-cluster:
-    aws:ecs_capacity_provider:stackpacks-capacity-provider -> aws:auto_scaling_group:stackpacks-asg:
-    aws:ecs_capacity_provider:stackpacks-capacity-provider -> aws:ecs_cluster_capacity_provider:stackpacks-cluster-capacity-provider:
-    aws:auto_scaling_group:stackpacks-asg -> aws:ec2_launch_template:stackpacks-ecs-launch-template:
 
 health_monitor:
   always_inject:
