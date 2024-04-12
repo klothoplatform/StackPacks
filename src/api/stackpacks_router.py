@@ -1,5 +1,5 @@
 import os
-import random
+import secrets
 import string
 
 from fastapi import APIRouter
@@ -13,7 +13,7 @@ SHOW_TEST_PACKS = os.getenv("SHOW_TEST_PACKS", "false").lower() == "true"
 
 def generate_default(length: int):
     cs = string.ascii_letters + string.digits
-    return "".join(random.choices(cs, k=length))
+    return "".join(secrets.choices(cs, k=length))
 
 
 def config_to_dict(cfg: StackConfig):
