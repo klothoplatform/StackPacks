@@ -100,6 +100,7 @@ rds:
     - aws:lambda_function:database_manager
   resources:
     aws:rds_instance:stacksnap-db:
+      AllocatedStorage: 100
     aws:ecr_image:database_manager:
       BaseImage: public.ecr.aws/lambda/python:3.12
       Dockerfile: database_manager/Dockerfile
@@ -132,7 +133,6 @@ rds:
         minLength: 1
         maxLength: 63
 
-
     DBPassword:
       name: Database Password
       description: The password to use for the metabase database
@@ -144,13 +144,13 @@ rds:
         minLength: 8
         maxLength: 128
 
-  additional_policies:
-    - Version: "2012-10-17"
-      Statement:
-        - Effect: "Allow"
-          Action:
-            - "lambda:invokeFunction"
-          Resource: "*"
-          Condition:
-            StringEquals:
-              aws:ResourceTag/STACKSNAP_FUNCTION": "DATABASE_MANAGER"
+  additional_policy:
+    Version: "2012-10-17"
+    Statement:
+      - Effect: "Allow"
+        Action:
+          - "lambda:invokeFunction"
+        Resource: "*"
+        Condition:
+          StringEquals:
+            aws:ResourceTag/STACKSNAP_FUNCTION: "DATABASE_MANAGER"

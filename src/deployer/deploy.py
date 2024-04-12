@@ -301,7 +301,18 @@ async def deploy_applications(
         try:
             actions = sp.get_actions(app.get_configurations())
             run_actions(actions, project, live_state)
-            pulumi_config = sp.get_pulumi_configs(app.get_configurations())
+            common_app = AppDeployment.get(
+                project.id,
+                AppDeployment.compose_range_key(
+                    app_id=Project.COMMON_APP_NAME,
+                    version=project.apps[Project.COMMON_APP_NAME],
+                ),
+            )
+            pulumi_config = CommonStack([sp], []).get_pulumi_configs(
+                common_app.get_configurations()
+            )
+            pulumi_config.update(sp.get_pulumi_configs(app.get_configurations()))
+
             outputs = {k: v.value_string() for k, v in sp.outputs.items()}
             deployment_stacks.append(
                 StackDeploymentRequest(

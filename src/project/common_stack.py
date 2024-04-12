@@ -29,7 +29,7 @@ class CommonPart(BaseModel):
     edges: Edges = Field(default_factory=Edges)
     files: dict[str, Optional[dict]] = Field(default_factory=dict)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
-    policies: List[dict] = Field(default_factory=list)
+    additional_policy: dict = Field(default_factory=dict)
 
 
 class CommonPack(dict[BaseRequirements | Feature, CommonPart]):
@@ -85,7 +85,8 @@ class CommonStack(StackPack):
         def add_dependencies(base_part: CommonPart):
             always_inject.update(base_part.always_inject)
             never_inject.update(base_part.never_inject)
-            additional_policies.append(base_part.policies)
+            if base_part.additional_policy:
+                additional_policies.append(base_part.additional_policy)
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             files.update(base_part.files)
