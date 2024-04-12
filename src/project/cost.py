@@ -171,13 +171,15 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                 )
             case "ecs_service":
                 # We set some defaults so that we dont fail on cost calculation
-                cpu = .512
+                cpu = 0.512
                 memory = 2.048
                 count = 1
                 tasks = {}
                 task_def = None
                 for c in constraints:
-                    if c["scope"] == "resource" and c["target"].startswith("aws:ecs_task_definition"):
+                    if c["scope"] == "resource" and c["target"].startswith(
+                        "aws:ecs_task_definition"
+                    ):
                         tasks[c["target"]] = {}
                         if c["property"] == "Cpu":
                             tasks[c["target"]]["Cpu"] = c["value"]
@@ -188,24 +190,20 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                             task_def = c["value"]
                         if c["property"] == "DesiredCount":
                             count = c["value"]
-                           
-                task_definition = tasks.get(task_def) 
+
+                task_definition = tasks.get(task_def)
                 if task_definition:
                     cpu = task_definition.get("Cpu", cpu)
                     memory = task_definition.get("Memory", memory)
-                    
-                    
+
                 costs.append(
                     CostElement(
                         app_id=app_id,
                         category="compute",
                         resource=constraint["node"],
                         # the below costs are per hour so average for a month
-                        monthly_cost=count * 730 * (cpu * .04048 + memory * .004445),
+                        monthly_cost=count * 730 * (cpu * 0.04048 + memory * 0.004445),
                     )
                 )
 
-                    
-
     return costs
-
