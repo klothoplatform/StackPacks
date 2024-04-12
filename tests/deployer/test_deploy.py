@@ -84,8 +84,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         await build_and_deploy(
             deployment_job=deployment_job,
             pulumi_config=cfg,
-            tmp_dir=Path("/tmp"),
-            iac=b"iac",
+            app_dir=Path("/tmp/app"),
             assume_role_arn="arn",
             region="region",
             external_id="external_id",
@@ -149,8 +148,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         result = await build_and_deploy(
             deployment_job=deployment_job,
             pulumi_config=cfg,
-            tmp_dir=Path("/tmp"),
-            iac=b"iac",
+            app_dir=Path("/tmp/app"),
             assume_role_arn="arn",
             region="region",
         )
@@ -161,7 +159,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
         self.assertEqual(WorkflowJobStatus.FAILED.value, pulumi_stack.status)
         AppBuilder.assert_called_once_with(Path("/tmp/app"), None)
-        mock_builder.prepare_stack.assert_called_once_with(b"iac", pulumi_stack)
+        mock_builder.prepare_stack.assert_called_once_with(pulumi_stack)
         mock_builder.configure_aws.assert_called_once_with(
             mock_builder.prepare_stack.return_value, "region", "arn", None
         )
@@ -178,12 +176,20 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         assert result.status == WorkflowJobStatus.FAILED
         assert result.reason == "Internal error"
 
+    @patch("src.deployer.deploy.get_binary_storage")
     @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.build_and_deploy")
+    @patch("src.deployer.deploy.export_iac")
+    @patch("src.deployer.deploy.get_stack_packs")
+    @patch.object(AppDeployment, "run_app")
     async def test_build_and_deploy_application(
         self,
+        mock_run_app,
+        mock_get_stack_packs,
+        mock_export_iac,
         mock_build_and_deploy,
         mock_get_iac_storage,
+        mock_get_binary_storage,
     ):
         # Arrange
         project = Project(
@@ -193,6 +199,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             apps={"app1": 1},
             created_by="user",
             owner="owner",
+            features=[],
         )
         project.save()
 
@@ -206,9 +213,11 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
         app.save()
 
-        mock_iac_storage = MagicMock(
-            spec=IacStorage, get_iac=MagicMock(return_value=b"iac")
-        )
+        mock_get_stack_packs.return_value = {
+            app.app_id(): MagicMock(),
+        }
+
+        mock_iac_storage = MagicMock(spec=IacStorage, write_iac=MagicMock())
         mock_get_iac_storage.return_value = mock_iac_storage
         mock_pulumi_stack = MagicMock(
             spec=PulumiStack, composite_key=MagicMock(return_value="key")
@@ -245,6 +254,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         # Act
         result = await build_and_deploy_application(
             deployment_job=deployment_job,
+            imports=[],
             pulumi_config={"key": "value"},
             outputs=outputs,
             tmp_dir=Path("/tmp"),
@@ -253,14 +263,21 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         deployment_job.refresh()
 
         # Assert
+        mock_run_app.assert_called_once_with(
+            stack_pack=mock_get_stack_packs.return_value["app1"],
+            app_dir=Path("/tmp/app1"),
+            binary_storage=mock_get_binary_storage.return_value,
+            imports=[],
+        )
+        mock_get_binary_storage.assert_called_once()
         mock_get_iac_storage.assert_called_once()
+        mock_export_iac.assert_called_once()
         mock_build_and_deploy.assert_called_once_with(
             deployment_job=deployment_job,
             region=project.region,
             assume_role_arn=project.assumed_role_arn,
-            iac=b"iac",
             pulumi_config={"key": "value"},
-            tmp_dir=Path("/tmp/app1"),
+            app_dir=Path("/tmp/app1"),
             external_id=None,
         )
 
@@ -328,7 +345,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         ]
 
         app_order, results = await run_concurrent_deployments(
-            stack_deployment_requests, Path("/tmp")
+            stack_deployment_requests, [], Path("/tmp")
         )
 
         mock_pool.assert_called_once()
@@ -434,7 +451,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         # Act
         result = await deploy_applications(
-            deployment_jobs=[job1, job2], tmp_dir=Path("/tmp")
+            deployment_jobs=[job1, job2], imports=[], tmp_dir=Path("/tmp")
         )
 
         # Assert
@@ -454,6 +471,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
                     outputs={"key": "the_ff_DnsName"},
                 ),
             ],
+            imports=[],
             tmp_dir=Path("/tmp"),
         )
 
@@ -530,12 +548,12 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
                     outputs={"key": "the_cf_Domain"},
                 )
             ],
+            imports=[],
             tmp_dir=tmp_dir,
         )
 
     @patch("src.project.models.app_deployment.AppDeployment.run_app")
     @patch("src.deployer.deploy.deploy_app")
-    @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.get_binary_storage")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
@@ -550,7 +568,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_temp_dir,
         mock_common_stack,
         mock_get_binary_storage,
-        mock_get_iac_storage,
         mock_deploy_app,
         mock_run_app,
     ):
@@ -592,8 +609,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_get_stack_packs.return_value = mock_sps
-        iac_storage = mock_get_iac_storage.return_value
-        binary_storage = mock_get_binary_storage.return_value
         common_stack = mock_common_stack.return_value
         common_stack.get_outputs.return_value = {"key": "value"}
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
@@ -609,6 +624,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             app,
             stack_pack,
             tmp_dir,
+            imports=[],
         ):
             app.status = AppLifecycleStatus.INSTALLED.value
             app.save()
@@ -640,19 +656,11 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         mock_get_stack_packs.assert_called_once()
-        mock_get_iac_storage.assert_called_once()
         mock_common_stack.assert_called_once_with([sp1], project.features)
         mock_temp_dir.return_value.__enter__.assert_called_once()
         self.assertEqual(2, mock_deploy_app.call_count)
 
         manager.read_deployed_state.assert_called_once()
-        app.run_app.assert_called_once_with(
-            stack_pack=mock_sps.get("app1"),
-            dir="/tmp",
-            iac_storage=iac_storage,
-            binary_storage=binary_storage,
-            imports=["constraint1"],
-        )
         mock_get_ses_client.assert_called_once()
         mock_send_email.assert_called_once_with(
             mock_get_ses_client.return_value,
@@ -670,7 +678,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.project.models.app_deployment.AppDeployment.run_app")
     @patch("src.deployer.deploy.deploy_app")
-    @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
     @patch("src.deployer.deploy.get_ses_client")
@@ -685,7 +692,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_ses_client,
         mock_temp_dir,
         mock_common_stack,
-        mock_get_iac_storage,
         mock_deploy_app,
         mock_run_app,
     ):
@@ -749,6 +755,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             app,
             stack_pack,
             tmp_dir,
+            imports=[],
         ):
             app.status = AppLifecycleStatus.UPDATE_FAILED.value
             app.save()
@@ -768,7 +775,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         await execute_deploy_single_workflow(workflow_run)
 
         mock_get_stack_packs.assert_called_once()
-        mock_get_iac_storage.assert_called_once()
         mock_temp_dir.return_value.__enter__.assert_called_once()
         self.assertEqual(1, mock_deploy_app.call_count)
         manager.read_deployed_state.assert_not_called()
@@ -785,10 +791,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.deploy_applications")
-    @patch("src.deployer.deploy.rerun_pack_with_live_state")
     @patch("src.deployer.deploy.deploy_app")
     @patch("src.deployer.deploy.get_binary_storage")
-    @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
     @patch("src.deployer.deploy.get_ses_client")
@@ -799,10 +803,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_ses_client,
         mock_temp_dir,
         mock_common_stack,
-        mock_get_iac_storage,
         mock_get_binary_storage,
         mock_deploy_app,
-        mock_rerun_pack_with_live_state,
         mock_deploy_applications,
         mock_get_stack_packs,
     ):
@@ -810,7 +812,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_get_stack_packs.return_value = mock_sps
-        mock_iac_storage = mock_get_iac_storage.return_value
         mock_binary_storage = mock_get_binary_storage.return_value
 
         project = Project(
@@ -868,6 +869,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         def deploy_apps_side_effect(
             deployment_jobs,
+            imports,
             tmp_dir,
         ):
             for job in deployment_jobs:
@@ -909,10 +911,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
 
-        mock_get_iac_storage.assert_called_once()
         mock_common_stack.assert_called_once_with([sp1], project.features)
         mock_deploy_app.assert_called_once()
-        mock_rerun_pack_with_live_state.assert_called_once()
         mock_deploy_applications.assert_called_once()
         mock_send_email.assert_called_once_with(
             mock_get_ses_client.return_value,
@@ -928,7 +928,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         self.assertEqual(AppLifecycleStatus.INSTALLED.value, common_app.status)
 
     @patch("src.deployer.deploy.deploy_applications")
-    @patch("src.deployer.deploy.rerun_pack_with_live_state")
     @patch("src.deployer.deploy.deploy_app")
     @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.CommonStack")
@@ -939,7 +938,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack,
         mock_get_iac_storage,
         mock_deploy_app,
-        mock_rerun_pack_with_live_state,
         mock_deploy_applications,
     ):
 
@@ -992,15 +990,12 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             # Assert
             mock_get_iac_storage.assert_called_once()
             mock_deploy_app.assert_not_called()
-            mock_rerun_pack_with_live_state.assert_not_called()
             mock_deploy_applications.assert_not_called()
             mock_send_email.assert_not_called()
 
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.deploy_applications")
-    @patch("src.deployer.deploy.rerun_pack_with_live_state")
     @patch("src.deployer.deploy.deploy_app")
-    @patch("src.deployer.deploy.get_iac_storage")
     @patch("src.deployer.deploy.CommonStack")
     @patch("src.deployer.deploy.TempDir")
     @patch("src.deployer.deploy.get_ses_client")
@@ -1013,9 +1008,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_ses_client,
         mock_temp_dir,
         mock_common_stack,
-        mock_get_iac_storage,
         mock_deploy_app,
-        mock_rerun_pack_with_live_state,
         mock_deploy_applications,
         mock_get_stack_packs,
     ):
@@ -1058,7 +1051,6 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         sp1 = MagicMock(spec=StackPack)
         mock_sps = {"app1": sp1}
         mock_get_stack_packs.return_value = mock_sps
-        mock_iac_storage = mock_get_iac_storage.return_value
         user_pack = MagicMock(
             spec=Project,
             id="id",
@@ -1082,6 +1074,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             app,
             stack_pack,
             tmp_dir,
+            imports=[],
         ):
             AppDeployment.transition_status(
                 app, WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, "fail"
@@ -1105,10 +1098,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         await execute_deployment_workflow(workflow_run)
 
         # Assert
-        mock_get_iac_storage.assert_called_once()
         mock_common_stack.assert_called_once_with([sp1], user_pack.features)
         mock_deploy_app.assert_called_once()
-        mock_rerun_pack_with_live_state.assert_not_called()
         mock_deploy_applications.assert_not_called()
         mock_send_email.assert_not_called()
         self.assertEqual(WorkflowRunStatus.FAILED.value, workflow_run.status)
