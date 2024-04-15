@@ -3,6 +3,7 @@ import os
 from typing import Optional
 
 import boto3
+from botocore.exceptions import EndpointConnectionError, HTTPClientError
 from pydantic import BaseModel
 
 from src.util.logging import logger
@@ -108,8 +109,10 @@ def send_deployment_success_email(
             },
         )
     # Display an error if something goes wrong.
-    except Exception as e:
+    except HTTPClientError as e:
         logger.error(e.response["Error"]["Message"])
+    except Exception as e:
+        logger.error("Sending email failed!", exc_info=True)
     else:
         logger.info(f"Email sent! Message ID: {response['MessageId']}"),
 

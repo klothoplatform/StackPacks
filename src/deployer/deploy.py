@@ -582,6 +582,7 @@ async def execute_deploy_single_workflow(
     except Exception as e:
         logger.error(f"Error deploying {app.app_id()}: {e}", exc_info=True)
         abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
+        app.refresh()
         if app.status == AppLifecycleStatus.PENDING.value:
             app.transition_status(
                 WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, str(e)
