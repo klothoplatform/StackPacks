@@ -9,7 +9,9 @@ from src.util.aws.sts import assume_role
 from src.util.logging import logger
 
 
-def create_database(database_name: str, sp: StackPack, project: Project, live_state: LiveState):
+def create_database(
+    database_name: str, sp: StackPack, project: Project, live_state: LiveState
+):
     logger.info(f"Creating database {database_name}")
     db_manager = None
     print(sp.requires)
@@ -19,10 +21,10 @@ def create_database(database_name: str, sp: StackPack, project: Project, live_st
         db_manager = live_state.resources.get("aws:lambda_function:postgres_manager")
     elif BaseRequirements.MYSQL in sp.requires:
         db_manager = live_state.resources.get("aws:lambda_function:mysql_manager")
-    
+
     if db_manager is None:
         raise ValueError("No DB Manager found")
-    
+
     db_manager_arn = db_manager.get("Arn")
     if db_manager_arn is None:
         raise ValueError("No DB Manager Arn found")
@@ -55,7 +57,7 @@ def create_database(database_name: str, sp: StackPack, project: Project, live_st
     if payload is None:
         logger.error(f"Failed to create database: {response}")
         raise ValueError("Failed to create database")
-    
+
     result = json.loads(payload.read())
     if result.get("StatusCode") != 200:
         logger.error(f"Failed to create database: {result}")

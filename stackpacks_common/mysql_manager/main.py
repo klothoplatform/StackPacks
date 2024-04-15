@@ -9,21 +9,19 @@ def lambda_handler(event, context):
         db_user = os.environ.get("DB_USER")
         db_password = os.environ.get("DB_PASSWORD")
         db_name = event["database_name"]
-        
+
         print(f"Connecting to MySQL at {db_host} as {db_user}")
-        conn = pymysql.connect(
-            host=db_host,
-            user=db_user,
-            password=db_password
-        )
+        conn = pymysql.connect(host=db_host, user=db_user, password=db_password)
         conn.autocommit(True)
-        
+
         print(f"Creating database {db_name}")
         cursor = conn.cursor()
         create_database(cursor, db_name)
-        
-        connection_string = create_connection_string(db_host, db_user, db_password, db_name)
-        
+
+        connection_string = create_connection_string(
+            db_host, db_user, db_password, db_name
+        )
+
         return {
             "StatusCode": 200,
             "ConnectionString": connection_string,

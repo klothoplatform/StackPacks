@@ -25,7 +25,7 @@ def lambda_handler(event, context):
         cursor = conn.cursor()
         create_database(event["database_name"], cursor)
         connection_string = create_connection_string("postgres", event["database_name"])
-        
+
         return {
             "StatusCode": 200,
             "ConnectionString": connection_string,
@@ -40,20 +40,16 @@ def lambda_handler(event, context):
         cursor.close()
 
 
-
 def create_database(database_name: str, cursor: psycopg2.extensions.cursor):
 
-    cursor.execute(
-        "SELECT 1 FROM pg_database WHERE datname = %s", (database_name,)
-    )
+    cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (database_name,))
     if cursor.fetchone() is None:
         # The database does not exist, create it
         cursor.execute(
-            sql.SQL("CREATE DATABASE {}").format(
-                sql.Identifier(database_name)
-            )
+            sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name))
         )
-        
+
+
 def create_connection_string(engine: str, database_name: str):
     if engine == "postgres":
         return f"postgresql://{user}:{password}@{rds_host}/{database_name}"

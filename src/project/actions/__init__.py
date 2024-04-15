@@ -20,6 +20,7 @@ class Action(Enum):
 def get_action(action: Action) -> Callable:
     if action == Action.CREATE_DATABASE:
         from src.project.actions.database import create_database
+
         return create_database
     raise ValueError(f"Action {action} not found")
 
@@ -34,4 +35,3 @@ def run_actions(app: AppDeployment, project: Project, live_state: LiveState):
         val = action_function(config_value, sp, project, live_state)
         app.configuration[f"{config_key}:output"] = val
         app.update(actions=[AppDeployment.configuration.set(app.configuration)])
-    

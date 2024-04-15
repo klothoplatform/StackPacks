@@ -288,7 +288,13 @@ async def deploy_applications(
     sps = get_stack_packs()
     deployment_stacks: list[StackDeploymentRequest] = []
     apps: dict[str, AppDeployment] = {}
-
+    common_app = AppDeployment.get(
+        project.id,
+        AppDeployment.compose_range_key(
+            app_id=Project.COMMON_APP_NAME,
+            version=project.apps[Project.COMMON_APP_NAME],
+        ),
+    )
     for job in deployment_jobs:
         app_id = job.modified_app_id
         if app_id == Project.COMMON_APP_NAME:
@@ -300,19 +306,12 @@ async def deploy_applications(
         sp = sps[app.app_id()]
         try:
             run_actions(app, project, live_state)
-            common_app = AppDeployment.get(
-                project.id,
-                AppDeployment.compose_range_key(
-                    app_id=Project.COMMON_APP_NAME,
-                    version=project.apps[Project.COMMON_APP_NAME],
-                ),
-            )
-            pulumi_config = CommonStack([sp], []).get_pulumi_configs(
+
+            common_configs = CommonStack([sp], []).get_pulumi_configs(
                 common_app.get_configurations()
             )
-            print("common config", pulumi_config)
-            pulumi_config.update(sp.get_pulumi_configs(app.get_configurations()))
-            print("updated config", pulumi_config)
+            pulumi_config = sp.get_pulumi_configs(app.get_configurations())
+            pulumi_config.update(common_configs)
 
             outputs = {k: v.value_string() for k, v in sp.outputs.items()}
             deployment_stacks.append(

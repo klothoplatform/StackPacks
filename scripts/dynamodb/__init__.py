@@ -96,7 +96,8 @@ async def list_user_packs(start_key):
         print(f"Last evaluated key: {response['LastEvaluatedKey']}")
     else:
         print("No more items.")
-        
+
+
 @dynamodb.command()
 async def list_user_apps():
     # Create a DynamoDB resource
@@ -192,6 +193,7 @@ async def get_user_app(pack_id, app_name):
     # Print the table
     print(table)
 
+
 @dynamodb.command()
 @click.option("--pack-id", prompt="Pack ID", help="The ID of the pack.")
 @click.option("--range-key", prompt="App range key", help="The range key of the app.")
@@ -202,7 +204,6 @@ async def transition_user_app_status(pack_id, range_key, new_status):
 
     # Get the table
     table = dynamodb.Table("AppDeployments")
-
 
     # Query the table to get the item
     response = table.query(KeyConditionExpression=Key("project_id").eq(pack_id))
@@ -220,4 +221,3 @@ async def transition_user_app_status(pack_id, range_key, new_status):
     table.put_item(Item=item)
 
     print(f"Status of app '{range_key}' updated to '{new_status}'.")
-

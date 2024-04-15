@@ -186,14 +186,10 @@ class AppDeployment(Model):
         imports: list[any] = [],
         dry_run: bool = False,
     ):
-        print(self.get_configurations())
         constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
-        print(stack_pack.id)
-        print(len(imports))
         if len(imports) == 0:
             common_modules = CommonStack([stack_pack], [])
-            print(common_modules.to_constraints({}))
             constraints.extend(common_modules.to_constraints({}))
 
         binary_storage.ensure_binary(Binary.ENGINE)

@@ -308,8 +308,10 @@ def get_stack_packs() -> dict[str, StackPack]:
     _cached_stack_packs = sps
     return sps
 
+
 def get_stack_pack(id: str) -> StackPack:
     return get_stack_packs().get(id)
+
 
 def get_app_name(app_id: str):
     if app_id and "#" in app_id:

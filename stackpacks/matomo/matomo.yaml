@@ -107,4 +107,4 @@ configuration:
 outputs:
   URL:
     description: The URL of the matomo service
-    value: aws:load_balancer:matomo-lb#DomainName
+    value: aws:cloudfront_distribution:matomo-cf#Domain
