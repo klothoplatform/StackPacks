@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:owncloud:
@@ -33,13 +34,13 @@ base:
         - Name: OWNCLOUD_DB_TYPE
           Value: pgsql
         - Name: OWNCLOUD_DB_HOST
-          Value: aws:rds_instance:owncloud-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: OWNCLOUD_DB_NAME
-          Value: aws:rds_instance:owncloud-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: OWNCLOUD_DB_USERNAME
-          Value: aws:rds_instance:owncloud-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: OWNCLOUD_DB_PASSWORD
-          Value: aws:rds_instance:owncloud-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: OWNCLOUD_ADMIN_USERNAME
           Value: ${AdminUsername}
         - Name: OWNCLOUD_ADMIN_PASSWORD
@@ -81,7 +82,6 @@ base:
               OwnerUid: 0
               Permissions: "777"
           Path: /mnt/data
-    aws:rds_instance:owncloud-db:
     aws:memorydb_cluster:owncloud-redis:
     aws:cloudfront_distribution:owncloud-cf:
   edges:
@@ -95,7 +95,7 @@ base:
     aws:efs_access_point:owncloud-efs:owncloud-data -> aws:efs_file_system:owncloud-efs:
     aws:ecs_service:owncloud-service -> aws:efs_file_system:owncloud-efs:
 
-    aws:ecs_service:owncloud-service -> aws:rds_instance:owncloud-db:
+    aws:ecs_service:owncloud-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:owncloud-service -> aws:memorydb_cluster:owncloud-redis:
   files:
     Dockerfile:
@@ -119,26 +119,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the ownCloud database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store owncloud data on the instance
     type: string
-    default: ownclouduser
-    pulumi_key: klo:owncloud-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the ownCloud database
-    type: string
-    pulumi_key: klo:owncloud-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: owncloud
+    action: create_database
 
   AdminUsername:
     name: Admin Username
@@ -169,3 +155,7 @@ configuration:
       maxLength: 128
 
 
+outputs:
+  URL:
+    description: The URL of the owncloud service
+    value: aws:cloudfront_distribution:owncloud-cf#Domain

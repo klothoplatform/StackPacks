@@ -29,10 +29,11 @@ from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
-from src.deployer.pulumi.manager import AppManager
+from src.deployer.pulumi.manager import AppManager, LiveState
 from src.engine_service.binaries.fetcher import Binary
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.project import StackPack, get_app_name, get_stack_packs
+from src.project.actions import run_actions
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
@@ -281,10 +282,19 @@ async def deploy_applications(
     deployment_jobs: List[WorkflowJob],
     imports: list,
     tmp_dir: Path,
+    project: Project,
+    live_state: LiveState,
 ) -> bool:
     sps = get_stack_packs()
     deployment_stacks: list[StackDeploymentRequest] = []
     apps: dict[str, AppDeployment] = {}
+    common_app = AppDeployment.get(
+        project.id,
+        AppDeployment.compose_range_key(
+            app_id=Project.COMMON_APP_NAME,
+            version=project.apps[Project.COMMON_APP_NAME],
+        ),
+    )
     for job in deployment_jobs:
         app_id = job.modified_app_id
         if app_id == Project.COMMON_APP_NAME:
@@ -294,15 +304,29 @@ async def deploy_applications(
         )
         apps[app.app_id()] = app
         sp = sps[app.app_id()]
-        pulumi_config = sp.get_pulumi_configs(app.get_configurations())
-        outputs = {k: v.value_string() for k, v in sp.outputs.items()}
-        deployment_stacks.append(
-            StackDeploymentRequest(
-                workflow_job=job,
-                pulumi_config=pulumi_config,
-                outputs=outputs,
+        try:
+            run_actions(app, project, live_state)
+
+            common_configs = CommonStack([sp], []).get_pulumi_configs(
+                common_app.get_configurations()
             )
-        )
+            pulumi_config = sp.get_pulumi_configs(app.get_configurations())
+            pulumi_config.update(common_configs)
+
+            outputs = {k: v.value_string() for k, v in sp.outputs.items()}
+            deployment_stacks.append(
+                StackDeploymentRequest(
+                    workflow_job=job,
+                    pulumi_config=pulumi_config,
+                    outputs=outputs,
+                )
+            )
+        except Exception as e:
+            app.transition_status(
+                WorkflowJobStatus.FAILED,
+                WorkflowJobType.DEPLOY,
+                "Could not run pre deploy actions",
+            )
 
     order, results = await run_concurrent_deployments(
         stacks=deployment_stacks,
@@ -318,8 +342,9 @@ async def deploy_app(
     stack_pack: StackPack,
     tmp_dir: Path,
     imports: list = [],
+    pulumi_config: dict[str, str] = {},
 ) -> DeploymentResult:
-    pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
+    pulumi_config.update(stack_pack.get_pulumi_configs(app.get_configurations()))
     outputs = {k: v.value_string() for k, v in stack_pack.outputs.items()}
     _, results = await run_concurrent_deployments(
         [
@@ -448,6 +473,8 @@ async def execute_deployment_workflow(
                     common_stack, common_app.configuration
                 ),
                 tmp_dir=tmp_dir,
+                project=project,
+                live_state=live_state,
             )
             complete_workflow_run(run)
 
@@ -560,13 +587,17 @@ async def execute_deploy_single_workflow(
             constraints = live_state.to_constraints(
                 common_stack, common_app.get_configurations()
             )
-
+            run_actions(app, project, live_state)
+            pulumi_config = CommonStack([stack_pack], []).get_pulumi_configs(
+                common_app.get_configurations()
+            )
             await deploy_app(
                 deployment_job=deploy_app_job,
                 app=app,
                 stack_pack=stack_pack,
                 tmp_dir=tmp_dir,
                 imports=constraints,
+                pulumi_config=pulumi_config,
             )
             complete_workflow_run(run)
             if run.notification_email is not None:

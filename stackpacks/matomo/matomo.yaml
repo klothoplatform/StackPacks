@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - mysql
 base:
   resources:
     aws:ecr_image:matomo:
@@ -34,19 +35,19 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: MYSQL_DATABASE
-          Value: aws:rds_instance:matomo-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: MYSQL_USER
-          Value: aws:rds_instance:matomo-db#Username
+          Value: aws:rds_instance:stacksnap-mysql#Username
         - Name: MYSQL_PASSWORD
-          Value: aws:rds_instance:matomo-db#Password
+          Value: aws:rds_instance:stacksnap-mysql#Password
         - Name: MATOMO_DATABASE_HOST
-          Value: aws:rds_instance:matomo-db#Endpoint
+          Value: aws:rds_instance:stacksnap-mysql#Endpoint
         - Name: MATOMO_DATABASE_DBNAME
-          Value: aws:rds_instance:matomo-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: MATOMO_DATABASE_USERNAME
-          Value: aws:rds_instance:matomo-db#Username
+          Value: aws:rds_instance:stacksnap-mysql#Username
         - Name: MATOMO_DATABASE_PASSWORD
-          Value: aws:rds_instance:matomo-db#Password
+          Value: aws:rds_instance:stacksnap-mysql#Password
         - Name: MATOMO_DATABASE_ADAPTER
           Value: mysql
     aws:load_balancer:matomo-lb:
@@ -66,9 +67,6 @@ base:
         Protocol: HTTP
         Path: /
         Matcher: 200-399
-    aws:rds_instance:matomo-db:
-      Engine: mysql
-      EngineVersion: '8.0.36'
     aws:cloudfront_distribution:matomo-cf:
   edges:
     aws:load_balancer:matomo-lb -> aws:load_balancer_listener:matomo-lb:matomo-web:
@@ -77,7 +75,7 @@ base:
     aws:load_balancer:matomo-lb -> aws:ecs_service:matomo-service:
     aws:cloudfront_distribution:matomo-cf -> aws:load_balancer:matomo-lb:
 
-    aws:ecs_service:matomo-service -> aws:rds_instance:matomo-db:
+    aws:ecs_service:matomo-service -> aws:rds_instance:stacksnap-mysql:
   files: {}
 
 configuration:
@@ -99,25 +97,14 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the Matomo database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store matomo data on the instance
     type: string
-    default: matomouser
-    pulumi_key: klo:matomo-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
+    default: matomo
+    action: create_database
 
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the Matomo database
-    type: string
-    pulumi_key: klo:matomo-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
-
-
+outputs:
+  URL:
+    description: The URL of the matomo service
+    value: aws:cloudfront_distribution:matomo-cf#Domain

@@ -16,6 +16,7 @@ class AppManager:
 
     async def read_deployed_state(self, tmp_dir: Path) -> LiveState:
         resources = self.stack.export_stack().deployment["resources"]
+        config = self.stack.get_all_config()
         resources_yaml = await get_live_state(
             GetLiveStateRequest(state=resources, tmp_dir=str(tmp_dir))
         )

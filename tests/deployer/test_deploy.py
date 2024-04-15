@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiounittest
 
@@ -354,8 +354,16 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
     @patch("src.deployer.deploy.get_stack_packs")
     @patch("src.deployer.deploy.run_concurrent_deployments")
+    @patch("src.deployer.deploy.run_actions")
+    @patch.object(AppDeployment, "get")
+    @patch("src.deployer.deploy.CommonStack")
     async def test_deploy_applications(
-        self, mock_run_concurrent_deployments, mock_get_stack_packs
+        self,
+        mock_common_stack,
+        mock_get,
+        mock_run_actions,
+        mock_run_concurrent_deployments,
+        mock_get_stack_packs,
     ):
         # Arrange
         app1 = AppDeployment(
@@ -382,7 +390,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             region="region",
             assumed_role_arn="arn",
-            apps={"app1": 1, "app2": 1},
+            apps={"app1": 1, "app2": 1, "common": 1},
             created_by="user",
             owner="owner",
         )
@@ -424,6 +432,16 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             )
         ]
 
+        common_app = MagicMock(
+            spec=AppDeployment,
+        )
+        mock_get.return_value = common_app
+        common_stack = MagicMock(
+            spec=CommonStack,
+            get_pulumi_configs=MagicMock(return_value={}),
+        )
+        mock_common_stack.return_value = common_stack
+
         job1 = WorkflowJob.create_job(
             partition_key=WorkflowJob.compose_partition_key(
                 project_id="id",
@@ -449,15 +467,24 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             initiated_by="user",
         )
 
+        live_state = MagicMock(
+            spec=LiveState, to_constraints=MagicMock(return_value=["constraint1"])
+        )
+
         # Act
         result = await deploy_applications(
-            deployment_jobs=[job1, job2], imports=[], tmp_dir=Path("/tmp")
+            deployment_jobs=[job1, job2],
+            imports=[],
+            tmp_dir=Path("/tmp"),
+            project=project,
+            live_state=live_state,
         )
 
         # Assert
         self.assertTrue(result)
         sp1.get_pulumi_configs.assert_called_once_with({"key": "value"})
         sp2.get_pulumi_configs.assert_called_once_with({"key2": "value2"})
+        self.assertEqual(2, mock_run_actions.call_count)
         mock_run_concurrent_deployments.assert_called_once_with(
             stacks=[
                 StackDeploymentRequest(
@@ -560,8 +587,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.deploy.get_ses_client")
     @patch("src.deployer.deploy.send_deployment_success_email")
     @patch("src.deployer.deploy.get_stack_packs")
+    @patch("src.deployer.deploy.run_actions")
     async def test_deploy_single(
         self,
+        mock_run_actions,
         mock_get_stack_packs,
         mock_send_email,
         mock_get_ses_client,
@@ -610,6 +639,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_sps = {"app1": sp1}
         mock_get_stack_packs.return_value = mock_sps
         common_stack = mock_common_stack.return_value
+        common_stack.get_pulumi_configs.return_value = {"key": "value"}
         common_stack.get_outputs.return_value = {"key": "value"}
         mock_temp_dir.return_value.__enter__.return_value = "/tmp"
         live_state = MagicMock(
@@ -625,6 +655,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             stack_pack,
             tmp_dir,
             imports=[],
+            pulumi_config={},
         ):
             app.status = AppLifecycleStatus.INSTALLED.value
             app.save()
@@ -656,10 +687,12 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         mock_get_stack_packs.assert_called_once()
-        mock_common_stack.assert_called_once_with([sp1], project.features)
+        mock_common_stack.assert_has_calls(
+            [call([sp1], project.features), call([sp1], [])]
+        )
         mock_temp_dir.return_value.__enter__.assert_called_once()
         self.assertEqual(2, mock_deploy_app.call_count)
-
+        mock_run_actions.assert_called_once()
         manager.read_deployed_state.assert_called_once()
         mock_get_ses_client.assert_called_once()
         mock_send_email.assert_called_once_with(
@@ -868,10 +901,10 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         workflow_run.save()
 
         def deploy_apps_side_effect(
-            deployment_jobs,
-            imports,
-            tmp_dir,
+            deployment_jobs, imports, tmp_dir, project, live_state
         ):
+            if project is None or live_state is None:
+                return False
             for job in deployment_jobs:
                 job.status = WorkflowJobStatus.SUCCEEDED.value
                 job.save()

@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from src.project import ConfigValues, Edges, Resources
+from src.project import ConfigValues, Edges, Properties, Resources
 from src.project.common_stack import CommonStack
 from src.util.logging import logger
 
@@ -22,8 +22,18 @@ class LiveState(BaseModel):
 
         for r, properties in common_stack.base.resources.items():
             if r in common_stack.always_inject:
-                logger.info(f"Adding from common resource {r} due to always inject")
-                self.resources.update({r: properties})
+                current_properties = self.resources.get(r)
+                if properties is not None:
+                    current_properties = (
+                        Properties({})
+                        if current_properties is None
+                        else current_properties
+                    )
+                    current_properties.update(properties)
+                logger.info(
+                    f"Adding from common resource {r} due to always inject, with properties {properties}"
+                )
+                self.resources.update({r: current_properties})
 
         resources_from_state = Resources(
             {
@@ -37,6 +47,7 @@ class LiveState(BaseModel):
             if c["scope"] == "application" and c["operator"] == "must_exist":
                 logger.info(f"Adding import constraint from live state resource {c}")
                 c["operator"] = "import"
+            logger.info(c)
             constraints.append(c)
         if self.edges:
             constraints.extend(self.edges.to_constraints())

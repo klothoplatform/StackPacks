@@ -70,7 +70,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.project.models.project.CommonStack")
     async def test_run_base(self, mock_common_stack, mock_run_app):
         # Arrange
-        common_stack = MagicMock(spec=CommonStack)
+        common_stack = MagicMock(
+            spec=CommonStack,
+            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
+        )
         mock_common_stack.return_value = common_stack
         common_app = AppDeployment(
             project_id="id",
@@ -102,7 +105,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.project.models.project.CommonStack")
     async def test_run_base_latest_not_deployed(self, mock_common_stack, mock_run_app):
         # Arrange
-        common_stack = MagicMock(spec=CommonStack)
+        common_stack = MagicMock(
+            spec=CommonStack,
+            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
+        )
         mock_common_stack.return_value = common_stack
         common_app = AppDeployment(
             project_id="id",
@@ -133,7 +139,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.project.models.project.CommonStack")
     async def test_run_base_does_not_exist(self, mock_common_stack, mock_run_app):
         # Arrange
-        common_stack = MagicMock(spec=CommonStack)
+        common_stack = MagicMock(
+            spec=CommonStack,
+            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
+        )
         mock_common_stack.return_value = common_stack
         with self.assertRaises(DoesNotExist):
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))

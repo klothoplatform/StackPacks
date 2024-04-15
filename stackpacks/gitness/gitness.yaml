@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:gitness:
@@ -27,7 +28,7 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: GITNESS_DATABASE_DATASOURCE
-          Value: aws:rds_instance:gitness-db#ConnectionString
+          Value: ${DatabaseName:output}
         - Name: GITNESS_DATABASE_DRIVER
           Value: postgres
         - Name: GITNESS_URL_BASE
@@ -37,7 +38,6 @@ base:
           SourceVolume: gitness-data
     aws:load_balancer:gitness-lb:
       Scheme: internet-facing
-    aws:rds_instance:gitness-db:
     aws:efs_file_system:gitness-efs:
     aws:efs_access_point:gitness-efs:gitness-data:
       FileSystem: aws:efs_file_system:gitness-efs
@@ -52,7 +52,7 @@ base:
           Path: /mnt/data
   edges:
     aws:load_balancer:gitness-lb -> aws:ecs_service:gitness-service:
-    aws:ecs_service:gitness-service -> aws:rds_instance:gitness-db:
+    aws:ecs_service:gitness-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_task_definition:gitness-task -> aws:efs_access_point:gitness-efs:gitness-data:
     aws:efs_access_point:gitness-efs:gitness-data -> aws:efs_file_system:gitness-efs:
     # Service to FS edge sets up the mount_target
@@ -78,26 +78,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the gitness database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store gitness data on the instance
     type: string
-    default: gitnessuser
-    pulumi_key: klo:gitness-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the gitness database
-    type: string
-    pulumi_key: klo:gitness-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: gitness
+    action: create_database
 
 outputs:
   URL:

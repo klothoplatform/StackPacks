@@ -139,7 +139,7 @@ def send_klotho_engineering_email(client: boto3.client, message: str):
                 "Simple": {
                     "Subject": {
                         "Charset": CHARSET,
-                        "Data": "SnackStap Customer Alarm",
+                        "Data": "StackSnap Customer Alarm",
                     },
                     "Body": {
                         "Text": {

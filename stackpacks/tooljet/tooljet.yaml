@@ -5,7 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
-
+  - postgres
 base:
   resources:
     aws:ecr_image:tooljet:
@@ -34,13 +34,13 @@ base:
         - Name: TOOLJET_HOST
           Value: "http://localhost"
         - Name: PG_HOST
-          Value: aws:rds_instance:tooljet-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: PG_USER
-          Value: aws:rds_instance:tooljet-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: PG_PASS
-          Value: aws:rds_instance:tooljet-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: PG_DB
-          Value: aws:rds_instance:tooljet-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: DEPLOYMENT_PLATFORM
           Value: "aws:ecs"
         - Name: REDIS_HOST
@@ -64,8 +64,6 @@ base:
       DefaultAction:
         Type: forward
         TargetGroup: aws:target_group:tooljet-tg
-    aws:rds_instance:tooljet-db:
-      AllocatedStorage: 100
     aws:memorydb_cluster:tooljet-memcluster:
     aws:cloudfront_distribution:tooljet-cf:
   edges:
@@ -74,7 +72,7 @@ base:
     aws:load_balancer:tooljet-lb -> aws:load_balancer_listener:tooljet-lb:tooljet-listener:
     aws:load_balancer_listener:tooljet-lb:tooljet-listener -> aws:target_group:tooljet-tg:
     aws:target_group:tooljet-tg -> aws:ecs_service:tooljet-service:
-    aws:ecs_service:tooljet-service -> aws:rds_instance:tooljet-db:
+    aws:ecs_service:tooljet-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:tooljet-service -> aws:memorydb_cluster:tooljet-memcluster:
   files:
     Dockerfile:
@@ -98,25 +96,12 @@ configuration:
       minValue: 3072
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the ToolJet database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store tooljet data on the instance
     type: string
-    default: tooljetuser
-    pulumi_key: klo:tooljet-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the ToolJet database
-    type: string
-    pulumi_key: klo:tooljet-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: tooljet
+    action: create_database
   
   RedisClusterPassword:
     name: Redis Cluster Password

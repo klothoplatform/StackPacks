@@ -5,7 +5,7 @@ description: Enterprise communication platform for developers
 requires:
   - network
   - ecs
-
+  - postgres
 base:
   resources:
     aws:ecr_image:mattermost:
@@ -45,16 +45,15 @@ base:
         - Name: MM_SQLSETTINGS_DRIVERNAME
           Value: postgres
         - Name: MM_DB_NAME
-          Value: aws:rds_instance:mattermost-db#DatabaseName
+          Value: ${DatabaseName}
     aws:load_balancer:mattermost-lb:
       Scheme: internet-facing
-    aws:rds_instance:mattermost-db:
     aws:efs_file_system:mattermost-efs:
     aws:cloudfront_distribution:mattermost-cf:
   edges:
     aws:cloudfront_distribution:mattermost-cf -> aws:load_balancer:mattermost-lb:
     aws:load_balancer:mattermost-lb -> aws:ecs_service:mattermost-service:
-    aws:ecs_service:mattermost-service -> aws:rds_instance:mattermost-db:
+    aws:ecs_service:mattermost-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:mattermost-service -> aws:efs_file_system:mattermost-efs:
   files:
     Dockerfile:
@@ -81,43 +80,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the Mattermost database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store mattermost data on the instance
     type: string
-    default: mattermostuser
-    pulumi_key: klo:mattermost-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the Mattermost database
-    type: string
-    pulumi_key: klo:mattermost-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
-
-  EnableS3:
-    name: Enable S3
-    description: A sample configuration that adds an s3 bucket. NOT a real configuration
-    type: boolean
-    default: false
-    values:
-      true:
-        resources:
-          aws:s3_bucket:mattermost-s3:
-          aws:ecs_task_definition:mattermost-task:
-            ContainerDefinitions[0].Environment:
-            - Name: MM_FILESETTINGS_DRIVERNAME
-              Value: amazons3
-            - Name: MM_FILESETTINGS_AMAZONS3BUCKET
-              Value: aws:s3_bucket:mattermost-s3#BucketName
-        edges:
-          aws:ecs_service:mattermost-service -> aws:s3_bucket:mattermost-s3:
+    default: mattermost
+    action: create_database
 
 outputs:
   URL:

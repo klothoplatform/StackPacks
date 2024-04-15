@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:strapi:
@@ -30,15 +31,15 @@ base:
         - Name: DATABASE_CLIENT
           Value: postgres
         - Name: DATABASE_HOST 
-          Value: aws:rds_instance:strapi-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: DATABASE_PORT 
-          Value: aws:rds_instance:strapi-db#Port
+          Value: aws:rds_instance:stacksnap-postgres#Port
         - Name: DATABASE_NAME 
-          Value: aws:rds_instance:strapi-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: DATABASE_USERNAME 
-          Value: aws:rds_instance:strapi-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: DATABASE_PASSWORD 
-          Value: aws:rds_instance:strapi-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
     aws:target_group:strapi-tg:
       Port: 1337
       Protocol: HTTP
@@ -55,7 +56,6 @@ base:
     aws:load_balancer:strapi-lb:
       Type: application
       Scheme: internet-facing
-    aws:rds_instance:strapi-db:
     aws:cloudfront_distribution:strapi-cf:
   edges:
     aws:cloudfront_distribution:strapi-cf -> aws:load_balancer:strapi-lb:
@@ -63,7 +63,7 @@ base:
     aws:load_balancer:strapi-lb -> aws:load_balancer_listener:strapi-lb:strapi-listener:
     aws:load_balancer_listener:strapi-lb:strapi-listener -> aws:target_group:strapi-tg:
     aws:target_group:strapi-tg -> aws:ecs_service:strapi-service:
-    aws:ecs_service:strapi-service -> aws:rds_instance:strapi-db:
+    aws:ecs_service:strapi-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:
@@ -85,26 +85,12 @@ configuration:
       minValue: 2048
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the strapi database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store strapi data on the instance
     type: string
-    default: strapiuser
-    pulumi_key: klo:strapi-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the strapi database
-    type: string
-    pulumi_key: klo:strapi-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: strapi
+    action: create_database
 
 outputs:
   URL:

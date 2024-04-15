@@ -15,7 +15,6 @@ from src.project import (
     StackPack,
     StackParts,
 )
-from src.util.logging import logger
 
 
 class Feature(Enum):
@@ -30,6 +29,7 @@ class CommonPart(BaseModel):
     edges: Edges = Field(default_factory=Edges)
     files: dict[str, Optional[dict]] = Field(default_factory=dict)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
+    additional_policy: dict = Field(default_factory=dict)
 
 
 class CommonPack(dict[BaseRequirements | Feature, CommonPart]):
@@ -60,6 +60,7 @@ class CommonStack(StackPack):
 
     always_inject: Set[str] = Field(default_factory=set)
     never_inject: Set[str] = Field(default_factory=set)
+    additional_policies: List[dict] = Field(default_factory=list)
 
     def __init__(self, stack_packs: List[StackPack], features: List[str]):
 
@@ -71,6 +72,7 @@ class CommonStack(StackPack):
         files = {}
         always_inject = set()
         never_inject = set()
+        additional_policies = []
 
         requirements = set()
         # find all required base parts
@@ -83,6 +85,8 @@ class CommonStack(StackPack):
         def add_dependencies(base_part: CommonPart):
             always_inject.update(base_part.always_inject)
             never_inject.update(base_part.never_inject)
+            if base_part.additional_policy:
+                additional_policies.append(base_part.additional_policy)
             resources.update(base_part.resources)
             edges.update(base_part.edges)
             files.update(base_part.files)
@@ -106,6 +110,7 @@ class CommonStack(StackPack):
         super().__init__(
             always_inject=always_inject,
             never_inject=never_inject,
+            additional_policies=additional_policies,
             id="base",
             name="base",
             version="0.0.1",
@@ -114,9 +119,9 @@ class CommonStack(StackPack):
             configuration=configuration,
         )
 
-    def copy_files(self, user_config: ConfigValues, out_dir: Path):
-
-        root = Path("stackpacks_common")
-        for f, data in self.base.files.items():
-            logger.info("writing commons file: " + str(out_dir / f))
-            (out_dir / f).write_bytes((root / f).read_bytes())
+    def copy_files(
+        self, user_config: ConfigValues, out_dir: Path, root: Path | None = None
+    ):
+        if root is None:
+            root = Path("stackpacks_common")
+        super().copy_files(user_config, out_dir, root)

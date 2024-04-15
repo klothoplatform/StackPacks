@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:keila:
@@ -28,7 +29,7 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: DB_URL
-          Value: aws:rds_instance:keila-db#ConnectionString
+          Value: ${DatabaseName:output}
         - Name: URL_HOST
           Value: aws:load_balancer:keila-lb#DnsName
         - Name: SECRET_KEY_BASE
@@ -56,14 +57,13 @@ base:
         Protocol: HTTP
         Path: /
         Matcher: 200-399
-    aws:rds_instance:keila-db:
   edges:
     aws:load_balancer:keila-lb -> aws:load_balancer_listener:keila-lb:keila-web:
     aws:load_balancer_listener:keila-lb:keila-web -> aws:target_group:keila-web:
     aws:target_group:keila-web -> aws:ecs_service:keila-service:
     aws:load_balancer:keila-lb -> aws:ecs_service:keila-service:
 
-    aws:ecs_service:keila-service -> aws:rds_instance:keila-db:
+    aws:ecs_service:keila-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:
@@ -85,25 +85,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the Keila database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store keila data on the instance
     type: string
-    default: keilauser
-    pulumi_key: klo:keila-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the Keila database
-    type: string
-    pulumi_key: klo:keila-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: keila
+    action: create_database
 
   SecretKeyBase:
     name: Secret Key Base
@@ -141,3 +128,8 @@ configuration:
     validation:
       minLength: 8
       maxLength: 128    
+
+outputs:
+  URL:
+    description: The URL of the keila service
+    value: aws:load_balancer:keila-lb#DomainName

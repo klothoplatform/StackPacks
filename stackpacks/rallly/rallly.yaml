@@ -28,13 +28,13 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: RALLLY_DB_ENDPOINT
-          Value: aws:rds_instance:rallly-db#Endpoint
+          Value: aws:rds_instance:stacksnap-postgres#Endpoint
         - Name: RALLLY_DB_NAME
-          Value: aws:rds_instance:rallly-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: RALLLY_DB_USER
-          Value: aws:rds_instance:rallly-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: RALLLY_DB_PASSWORD
-          Value: aws:rds_instance:rallly-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: DOMAIN_NAME
           Value: aws:cloudfront_distribution:rallly-cf#DomainName
         - Name: SECRET_PASSWORD
@@ -58,7 +58,6 @@ base:
         Protocol: HTTP
         Path: /
         Matcher: 200-399
-    aws:rds_instance:rallly-db:
     aws:cloudfront_distribution:rallly-cf:
   edges:
     aws:load_balancer:rallly-lb -> aws:load_balancer_listener:rallly-lb:rallly-web:
@@ -66,7 +65,7 @@ base:
     aws:target_group:rallly-web -> aws:ecs_service:rallly-service:
     aws:load_balancer:rallly-lb -> aws:ecs_service:rallly-service:
     aws:cloudfront_distribution:rallly-cf -> aws:load_balancer:rallly-lb:
-    aws:ecs_service:rallly-service -> aws:rds_instance:rallly-db:
+    aws:ecs_service:rallly-service -> aws:rds_instance:stacksnap-postgres:
   files:
     Dockerfile:
     container_start.sh:
@@ -90,25 +89,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the Rallly database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store rally data on the instance
     type: string
-    default: ralllyuser
-    pulumi_key: klo:rallly-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the Rallly database
-    type: string
-    pulumi_key: klo:rallly-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: rally
+    action: create_database
 
   SecretPassword:
     name: Secret Password
@@ -127,3 +113,7 @@ configuration:
       minLength: 1
       maxLength: 128
 
+outputs:
+  URL:
+    description: The URL of the rally service
+    value: aws:cloudfront_distribution:rally-cf#Domain

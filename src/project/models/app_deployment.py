@@ -22,6 +22,7 @@ from src.engine_service.engine_commands.run import (
     run_engine,
 )
 from src.project import ConfigValues, StackPack
+from src.project.common_stack import CommonStack
 from src.util.aws.iam import Policy
 
 
@@ -187,6 +188,10 @@ class AppDeployment(Model):
     ):
         constraints = stack_pack.to_constraints(self.get_configurations())
         constraints.extend(imports)
+        if len(imports) == 0:
+            common_modules = CommonStack([stack_pack], [])
+            constraints.extend(common_modules.to_constraints({}))
+
         binary_storage.ensure_binary(Binary.ENGINE)
         engine_result: RunEngineResult = await run_engine(
             RunEngineRequest(

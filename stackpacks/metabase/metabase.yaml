@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:metabase:
@@ -28,13 +29,13 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: MB_DB_DBNAME
-          Value: aws:rds_instance:metabase-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: MB_DB_PASS
-          Value: aws:rds_instance:metabase-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: MB_DB_USER
-          Value: aws:rds_instance:metabase-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: MB_DB_HOST
-          Value: aws:rds_instance:metabase-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: MB_DB_TYPE
           Value: postgres
         - Name: MB_DB_PORT
@@ -56,7 +57,6 @@ base:
     aws:load_balancer:metabase-lb:
       Type: application
       Scheme: internet-facing
-    aws:rds_instance:metabase-db:
     aws:cloudfront_distribution:metabase-cf:
   edges:
     aws:cloudfront_distribution:metabase-cf -> aws:load_balancer:metabase-lb:
@@ -64,7 +64,7 @@ base:
     aws:load_balancer:metabase-lb -> aws:load_balancer_listener:metabase-lb:metabase-listener:
     aws:load_balancer_listener:metabase-lb:metabase-listener -> aws:target_group:metabase-tg:
     aws:target_group:metabase-tg -> aws:ecs_service:metabase-service:
-    aws:ecs_service:metabase-service -> aws:rds_instance:metabase-db:
+    aws:ecs_service:metabase-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:
@@ -86,26 +86,12 @@ configuration:
       minValue: 2048
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the metabase database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store metabase data on the instance
     type: string
-    default: metabaseuser
-    pulumi_key: klo:metabase-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the metabase database
-    type: string
-    pulumi_key: klo:metabase-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: metabase
+    action: create_database
 
 outputs:
   URL:

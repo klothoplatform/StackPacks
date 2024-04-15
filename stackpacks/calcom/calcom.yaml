@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:calcom:
@@ -28,13 +29,13 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: DATABASE_ENDPOINT
-          Value: aws:rds_instance:calcom-db#Endpoint
+          Value: aws:rds_instance:stacksnap-postgres#Endpoint
         - Name: POSTGRES_DB
-          Value: aws:rds_instance:calcom-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: POSTGRES_USER
-          Value: aws:rds_instance:calcom-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: POSTGRES_PASSWORD
-          Value: aws:rds_instance:calcom-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: EMAIL_FROM
           Value: ${EmailFrom}
         - Name: EMAIL_SERVER_HOST
@@ -68,14 +69,13 @@ base:
         Protocol: HTTP
         Path: /
         Matcher: 200-399
-    aws:rds_instance:calcom-db:
   edges:
     aws:load_balancer:calcom-lb -> aws:load_balancer_listener:calcom-lb:calcom-web:
     aws:load_balancer_listener:calcom-lb:calcom-web -> aws:target_group:calcom-web:
     aws:target_group:calcom-web -> aws:ecs_service:calcom-service:
     aws:load_balancer:calcom-lb -> aws:ecs_service:calcom-service:
 
-    aws:ecs_service:calcom-service -> aws:rds_instance:calcom-db:
+    aws:ecs_service:calcom-service -> aws:rds_instance:stacksnap-postgres:
   files:
     Dockerfile:
     container_start.sh:
@@ -99,25 +99,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the cal.com database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store cal.com data on the instance
     type: string
-    default: calcomuser
-    pulumi_key: klo:calcom-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the cal.com database
-    type: string
-    pulumi_key: klo:calcom-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: metabase
+    action: create_database
 
   EmailFrom:
     name: Email From
@@ -181,3 +168,7 @@ configuration:
       minLength: 8
       maxLength: 128
 
+outputs:
+  URL:
+    description: The URL of the cal.com service
+    value: aws:load_balancer:calcom-lb#DomainName
