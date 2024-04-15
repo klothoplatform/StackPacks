@@ -1,9 +1,11 @@
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from pydantic import BaseModel, Field
 from pynamodb.attributes import (
     BooleanAttribute,
     JSONAttribute,
@@ -24,6 +26,7 @@ from src.project import ConfigValues, StackPack
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import (
     AppDeployment,
+    AppDeploymentView,
     AppLifecycleStatus,
     get_resources,
 )
@@ -266,22 +269,9 @@ class Project(Model):
 
         new_resources = set()
         for app in apps:
-<<<<<<< HEAD
             new_resources.update(
                 get_resources(
                     stack_packs[app.app_id()].to_constraints(app.get_configurations())
-=======
-            subdir = Path(tmp_dir) / app.app_id()
-            subdir.mkdir(exist_ok=True)
-            sp = stack_packs[app.app_id()]
-            tasks.append(
-                app.run_app(
-                    sp,
-                    str(subdir.absolute()),
-                    iac_storage,
-                    binary_storage,
-                    imports,
->>>>>>> b179330 (shared rds)
                 )
             )
         diff = new_resources ^ old_resources

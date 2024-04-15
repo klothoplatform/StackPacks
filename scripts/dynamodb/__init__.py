@@ -96,29 +96,23 @@ async def list_user_packs(start_key):
         print(f"Last evaluated key: {response['LastEvaluatedKey']}")
     else:
         print("No more items.")
-
-
+        
 @dynamodb.command()
-@click.option("--pack-id", prompt="Pack ID", help="The ID of the pack.")
-@click.option("--app-name", prompt="App name", help="The name of the app.")
-async def get_user_app(pack_id, app_name):
+async def list_user_apps():
     # Create a DynamoDB resource
     dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
 
     # Get the table
     table = dynamodb.Table("AppDeployments")
 
-    # Create the app_id
-    app_id = f"{pack_id}#{app_name}"
-
-    # Query the table
-    response = table.query(KeyConditionExpression=Key("app_id").eq(app_id))
+    # Scan the table
+    response = table.scan()
 
     # Create a pretty table
     table = PrettyTable()
     table.field_names = [
-        "App ID",
-        "Version",
+        "Project ID",
+        "Range Key",
         "IAC Stack Composite Key",
         "Created By",
         "Created At",
@@ -131,8 +125,8 @@ async def get_user_app(pack_id, app_name):
     for item in response["Items"]:
         table.add_row(
             [
-                item["app_id"],
-                item["version"],
+                item["project_id"],
+                item["range_key"],
                 item.get("iac_stack_composite_key", None),
                 item["created_by"],
                 item["created_at"],
@@ -144,3 +138,86 @@ async def get_user_app(pack_id, app_name):
 
     # Print the table
     print(table)
+
+    # Print the last evaluated key for pagination
+    if "LastEvaluatedKey" in response:
+        print(f"Last evaluated key: {response['LastEvaluatedKey']}")
+    else:
+        print("No more items.")
+
+
+@dynamodb.command()
+@click.option("--pack-id", prompt="Pack ID", help="The ID of the pack.")
+@click.option("--app-name", prompt="App name", help="The name of the app.")
+async def get_user_app(pack_id, app_name):
+    # Create a DynamoDB resource
+    dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
+
+    # Get the table
+    table = dynamodb.Table("AppDeployments")
+
+    # Query the table
+    response = table.query(KeyConditionExpression=Key("project_id").eq(pack_id))
+
+    # Create a pretty table
+    table = PrettyTable()
+    table.field_names = [
+        "Project ID",
+        "Range Key",
+        "IAC Stack Composite Key",
+        "Created By",
+        "Created At",
+        "Status",
+        "Deployments",
+        "Configuration",
+    ]
+
+    # Add the items to the table
+    for item in response["Items"]:
+        print(item["range_key"])
+        if app_name in item["range_key"]:
+            table.add_row(
+                [
+                    item["project_id"],
+                    item["range_key"],
+                    item.get("iac_stack_composite_key", None),
+                    item["created_by"],
+                    item["created_at"],
+                    item.get("status", None),
+                    item.get("deployments", None),
+                    item["configuration"],
+                ]
+            )
+
+    # Print the table
+    print(table)
+
+@dynamodb.command()
+@click.option("--pack-id", prompt="Pack ID", help="The ID of the pack.")
+@click.option("--range-key", prompt="App range key", help="The range key of the app.")
+@click.option("--new-status", prompt="New status", help="The new status of the app.")
+async def transition_user_app_status(pack_id, range_key, new_status):
+    # Create a DynamoDB resource
+    dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
+
+    # Get the table
+    table = dynamodb.Table("AppDeployments")
+
+
+    # Query the table to get the item
+    response = table.query(KeyConditionExpression=Key("project_id").eq(pack_id))
+    items = response.get("Items")
+
+    if not items:
+        print(f"No app found with ID: {range_key}")
+        return
+
+    item = [i for i in items if i["range_key"] == range_key][0]
+    # Update the status of the app
+    item["status"] = new_status
+
+    # Update the item in the table
+    table.put_item(Item=item)
+
+    print(f"Status of app '{range_key}' updated to '{new_status}'.")
+

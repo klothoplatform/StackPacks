@@ -5,7 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
-  - rds
+  - postgres
 base:
   resources:
     aws:ecr_image:metabase:
@@ -31,11 +31,11 @@ base:
         - Name: MB_DB_DBNAME
           Value: ${DatabaseName}
         - Name: MB_DB_PASS
-          Value: aws:rds_instance:stacksnap-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: MB_DB_USER
-          Value: aws:rds_instance:stacksnap-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: MB_DB_HOST
-          Value: aws:rds_instance:stacksnap-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: MB_DB_TYPE
           Value: postgres
         - Name: MB_DB_PORT
@@ -64,7 +64,7 @@ base:
     aws:load_balancer:metabase-lb -> aws:load_balancer_listener:metabase-lb:metabase-listener:
     aws:load_balancer_listener:metabase-lb:metabase-listener -> aws:target_group:metabase-tg:
     aws:target_group:metabase-tg -> aws:ecs_service:metabase-service:
-    aws:ecs_service:metabase-service -> aws:rds_instance:stacksnap-db:
+    aws:ecs_service:metabase-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:

@@ -1,16 +1,28 @@
+import json
+
 import boto3
 
+from src.project import BaseRequirements, StackPack
 from src.project.live_state import LiveState
 from src.project.models.project import Project
 from src.util.aws.sts import assume_role
 from src.util.logging import logger
 
 
-def create_database(database_name: str, project: Project, live_state: LiveState):
+def create_database(database_name: str, sp: StackPack, project: Project, live_state: LiveState):
     logger.info(f"Creating database {database_name}")
-    db_manager = live_state.resources.get("aws:lambda_function:database_manager")
+    db_manager = None
+    print(sp.requires)
+    print(BaseRequirements.POSTGRES in sp.requires)
+    print(BaseRequirements.MYSQL in sp.requires)
+    if BaseRequirements.POSTGRES in sp.requires:
+        db_manager = live_state.resources.get("aws:lambda_function:postgres_manager")
+    elif BaseRequirements.MYSQL in sp.requires:
+        db_manager = live_state.resources.get("aws:lambda_function:mysql_manager")
+    
     if db_manager is None:
         raise ValueError("No DB Manager found")
+    
     db_manager_arn = db_manager.get("Arn")
     if db_manager_arn is None:
         raise ValueError("No DB Manager Arn found")
@@ -43,7 +55,11 @@ def create_database(database_name: str, project: Project, live_state: LiveState)
     if payload is None:
         logger.error(f"Failed to create database: {response}")
         raise ValueError("Failed to create database")
-    result = payload.read()
+    
+    result = json.loads(payload.read())
+    if result.get("StatusCode") != 200:
+        logger.error(f"Failed to create database: {result}")
+        raise ValueError("Failed to create database")
     logger.info(f"Result: {result}")
     logger.info(f"Database {database_name} created")
-    return
+    return result.get("ConnectionString")

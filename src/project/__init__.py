@@ -13,7 +13,8 @@ from src.util.logging import logger
 class BaseRequirements(Enum):
     NETWORK = "network"
     ECS = "ecs"
-    RDS = "rds"
+    POSTGRES = "postgres"
+    MYSQL = "mysql"
 
 
 class Output(BaseModel):
@@ -239,7 +240,9 @@ class StackPack(BaseModel):
         constraints = self.base.to_constraints(config)
 
         for k, v in config.items():
-            cfg = self.configuration[k]
+            cfg = self.configuration.get(k)
+            if cfg is None:
+                continue
             if v in cfg.values:
                 constraints.extend(cfg.values[v].to_constraints(config))
         return constraints
@@ -273,12 +276,12 @@ class StackPack(BaseModel):
 
         return result
 
-    def get_actions(self, config: ConfigValues) -> list[tuple[str, str]]:
+    def get_actions(self, config: ConfigValues) -> list[tuple[str, str, str]]:
         result = []
         config = self.final_config(config)
         for k, v in self.configuration.items():
             if v.action:
-                result.append((v.action, config[k]))
+                result.append((v.action, config[k], k))
         return result
 
 
@@ -305,6 +308,8 @@ def get_stack_packs() -> dict[str, StackPack]:
     _cached_stack_packs = sps
     return sps
 
+def get_stack_pack(id: str) -> StackPack:
+    return get_stack_packs().get(id)
 
 def get_app_name(app_id: str):
     if app_id and "#" in app_id:

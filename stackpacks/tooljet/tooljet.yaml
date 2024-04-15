@@ -5,7 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
-  - rds
+  - postgres
 base:
   resources:
     aws:ecr_image:tooljet:
@@ -34,11 +34,11 @@ base:
         - Name: TOOLJET_HOST
           Value: "http://localhost"
         - Name: PG_HOST
-          Value: aws:rds_instance:stacksnap-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: PG_USER
-          Value: aws:rds_instance:stacksnap-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: PG_PASS
-          Value: aws:rds_instance:stacksnap-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: PG_DB
           Value: ${DatabaseName}
         - Name: DEPLOYMENT_PLATFORM
@@ -72,7 +72,7 @@ base:
     aws:load_balancer:tooljet-lb -> aws:load_balancer_listener:tooljet-lb:tooljet-listener:
     aws:load_balancer_listener:tooljet-lb:tooljet-listener -> aws:target_group:tooljet-tg:
     aws:target_group:tooljet-tg -> aws:ecs_service:tooljet-service:
-    aws:ecs_service:tooljet-service -> aws:rds_instance:stacksnap-db:
+    aws:ecs_service:tooljet-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:tooljet-service -> aws:memorydb_cluster:tooljet-memcluster:
   files:
     Dockerfile:

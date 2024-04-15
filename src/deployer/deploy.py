@@ -299,8 +299,7 @@ async def deploy_applications(
         apps[app.app_id()] = app
         sp = sps[app.app_id()]
         try:
-            actions = sp.get_actions(app.get_configurations())
-            run_actions(actions, project, live_state)
+            run_actions(app, project, live_state)
             common_app = AppDeployment.get(
                 project.id,
                 AppDeployment.compose_range_key(
@@ -311,7 +310,9 @@ async def deploy_applications(
             pulumi_config = CommonStack([sp], []).get_pulumi_configs(
                 common_app.get_configurations()
             )
+            print("common config", pulumi_config)
             pulumi_config.update(sp.get_pulumi_configs(app.get_configurations()))
+            print("updated config", pulumi_config)
 
             outputs = {k: v.value_string() for k, v in sp.outputs.items()}
             deployment_stacks.append(
@@ -342,8 +343,9 @@ async def deploy_app(
     stack_pack: StackPack,
     tmp_dir: Path,
     imports: list = [],
+    pulumi_config: dict[str, str] = {},
 ) -> DeploymentResult:
-    pulumi_config = stack_pack.get_pulumi_configs(app.get_configurations())
+    pulumi_config.update(stack_pack.get_pulumi_configs(app.get_configurations()))
     outputs = {k: v.value_string() for k, v in stack_pack.outputs.items()}
     _, results = await run_concurrent_deployments(
         [
@@ -586,15 +588,17 @@ async def execute_deploy_single_workflow(
             constraints = live_state.to_constraints(
                 common_stack, common_app.get_configurations()
             )
-
-            actions = stack_pack.get_actions(app.get_configurations())
-            run_actions(actions, project, live_state)
+            run_actions(app, project, live_state)
+            pulumi_config = CommonStack([stack_pack], []).get_pulumi_configs(
+                common_app.get_configurations()
+            )
             await deploy_app(
                 deployment_job=deploy_app_job,
                 app=app,
                 stack_pack=stack_pack,
                 tmp_dir=tmp_dir,
                 imports=constraints,
+                pulumi_config=pulumi_config,
             )
             complete_workflow_run(run)
             if run.notification_email is not None:

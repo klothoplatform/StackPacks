@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:supertokens:
@@ -27,15 +28,15 @@ base:
         Memory: ${Memory}
         Environment:
         - Name: POSTGRESQL_HOST 
-          Value: aws:rds_instance:supertokens-db#Host
+          Value: aws:rds_instance:stacksnap-postgres#Host
         - Name: POSTGRESQL_PORT 
-          Value: aws:rds_instance:supertokens-db#Port
+          Value: aws:rds_instance:stacksnap-postgres#Port
         - Name: POSTGRESQL_DATABASE_NAME 
-          Value: aws:rds_instance:supertokens-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: POSTGRESQL_USER 
-          Value: aws:rds_instance:supertokens-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: POSTGRESQL_PASSWORD 
-          Value: aws:rds_instance:supertokens-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
     aws:load_balancer:supertokens-lb:
       Type: application
       Scheme: internet-facing
@@ -53,12 +54,11 @@ base:
       DefaultAction:
         Type: forward
         TargetGroup: aws:target_group:supertokens-tg
-    aws:rds_instance:supertokens-db:
     aws:cloudfront_distribution:supertokens-cf:
   edges:
     aws:cloudfront_distribution:supertokens-cf -> aws:load_balancer:supertokens-lb:
     aws:load_balancer:supertokens-lb -> aws:ecs_service:supertokens-service:
-    aws:ecs_service:supertokens-service -> aws:rds_instance:supertokens-db:
+    aws:ecs_service:supertokens-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:
@@ -80,26 +80,12 @@ configuration:
       minValue: 2048
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the supertokens database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store supertokens data on the instance
     type: string
-    default: supertokensuser
-    pulumi_key: klo:supertokens-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the supertokens database
-    type: string
-    pulumi_key: klo:supertokens-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: supertokens
+    action: create_database
 
 outputs:
   URL:

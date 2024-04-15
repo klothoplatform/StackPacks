@@ -5,6 +5,7 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+  - postgres
 base:
   resources:
     aws:ecr_image:gitea:
@@ -68,13 +69,13 @@ base:
         - Name: GITEA__database__DB_TYPE
           Value: postgres
         - Name: GITEA__database__HOST
-          Value: aws:rds_instance:gitea-db#Endpoint
+          Value: aws:rds_instance:stacksnap-postgres#Endpoint
         - Name: GITEA__database__NAME
-          Value: aws:rds_instance:gitea-db#DatabaseName
+          Value: ${DatabaseName}
         - Name: GITEA__database__USER
-          Value: aws:rds_instance:gitea-db#Username
+          Value: aws:rds_instance:stacksnap-postgres#Username
         - Name: GITEA__database__PASSWD
-          Value: aws:rds_instance:gitea-db#Password
+          Value: aws:rds_instance:stacksnap-postgres#Password
         - Name: SSH_PORT
           Value: "2222" # ECS reserves port 22 for internal ssh
     aws:load_balancer:gitea-lb:
@@ -126,7 +127,6 @@ base:
               OwnerUid: 0
               Permissions: "0700"
           Path: /mnt/ssh
-    aws:rds_instance:gitea-db:
   edges:
     aws:load_balancer:gitea-lb -> aws:load_balancer_listener:gitea-lb:gitea-web:
     aws:load_balancer_listener:gitea-lb:gitea-web -> aws:target_group:gitea-web:
@@ -149,7 +149,7 @@ base:
     # Service to FS edge sets up the mount_target
     aws:ecs_service:gitea-service -> aws:efs_file_system:gitea-efs:
 
-    aws:ecs_service:gitea-service -> aws:rds_instance:gitea-db:
+    aws:ecs_service:gitea-service -> aws:rds_instance:stacksnap-postgres:
   files: {}
 
 configuration:
@@ -171,26 +171,12 @@ configuration:
       minValue: 256
       maxValue: 4096
 
-  DBUsername:
-    name: Database Username
-    description: The username to use for the Gitea database
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store gitea data on the instance
     type: string
-    default: giteauser
-    pulumi_key: klo:gitea-db-username
-    validation:
-      minLength: 1
-      maxLength: 63
-
-
-  DBPassword:
-    name: Database Password
-    description: The password to use for the Gitea database
-    type: string
-    pulumi_key: klo:gitea-db-password
-    secret: true
-    validation:
-      minLength: 8
-      maxLength: 128
+    default: gitea
+    action: create_database
 
 
 outputs:
