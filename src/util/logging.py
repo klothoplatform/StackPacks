@@ -13,7 +13,7 @@ c_handler = logging.StreamHandler(sys.stdout)
 file_handler = None
 
 c_format = logging.Formatter(
-    "%(name)s - %(pathname)s - %(lineno)d - %(levelname)s - %(asctime)s - %(message)s"
+    "%(name)s - %(pathname)s:%(lineno)d - %(levelname)s - %(asctime)s - %(message)s"
 )
 c_handler.setFormatter(c_format)
 
