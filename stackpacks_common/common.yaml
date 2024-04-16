@@ -41,7 +41,6 @@ ecs:
     - network
   resources:
     aws:ecs_cluster:stackpacks-ecs-cluster:
-  edges:
 
 health_monitor:
   always_inject:

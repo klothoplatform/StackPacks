@@ -29,8 +29,6 @@ async def calculate_costs(
     sps = get_stack_packs()
 
     costs: List[CostElement] = []
-    ecs_tasks = []
-    ecs_services = []
     for app_id in app_ids:
         app = AppDeployment.get(
             project.id,
@@ -48,24 +46,6 @@ async def calculate_costs(
 
         constraints = spec.to_constraints(app.get_configurations())
         costs.extend(await calculate_costs_single(app_id, constraints))
-        ecs_tasks.extend(
-            [
-                c
-                for c in constraints
-                if c["operator"] in ["equals"]
-                and c["scope"] == "resource"
-                and c["target"].startswith("aws:ecs_task_definition")
-            ]
-        )
-        ecs_services.extend(
-            [
-                c
-                for c in constraints
-                if c["operator"] in ["equals"]
-                and c["scope"] == "resource"
-                and c["target"].startswith("aws:ecs_service")
-            ]
-        )
 
     return costs
 
