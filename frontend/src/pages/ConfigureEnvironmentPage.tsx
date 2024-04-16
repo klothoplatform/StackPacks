@@ -107,6 +107,7 @@ export const ConfigureEnvironmentForm: FC<{
         await updateProject({
           region: isProjectDeployed(project) ? undefined : data.region,
           assumed_role_arn: data.assumedRoleArn,
+          assumed_role_external_id: data.assumedRoleExternalId,
         });
       } catch (e) {
         addError(
