@@ -1,4 +1,3 @@
-import math
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -30,7 +29,6 @@ async def calculate_costs(
     sps = get_stack_packs()
 
     costs: List[CostElement] = []
-    ecs_tasks = []
     for app_id in app_ids:
         app = AppDeployment.get(
             project.id,
@@ -48,17 +46,6 @@ async def calculate_costs(
 
         constraints = spec.to_constraints(app.get_configurations())
         costs.extend(await calculate_costs_single(app_id, constraints))
-        ecs_tasks.extend(
-            [
-                c
-                for c in constraints
-                if c["operator"] in ["equals"]
-                and c["scope"] == "resource"
-                and c["target"].startswith("aws:ecs_task_definition")
-            ]
-        )
-
-    costs.append(calculate_ecs_cost(ecs_tasks))
 
     return costs
 
@@ -162,26 +149,41 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                         monthly_cost=0.6,
                     )
                 )
+            case "ecs_service":
+                # We set some defaults so that we dont fail on cost calculation
+                cpu = 0.512
+                memory = 2.048
+                count = 1
+                tasks = {}
+                task_def = None
+                for c in constraints:
+                    if c["scope"] == "resource" and c["target"].startswith(
+                        "aws:ecs_task_definition"
+                    ):
+                        tasks[c["target"]] = {}
+                        if c["property"] == "Cpu":
+                            tasks[c["target"]]["Cpu"] = c["value"]
+                        if c["property"] == "Memory":
+                            tasks[c["target"]]["Memory"] = c["value"]
+                    if c["scope"] == "resource" and c["target"] == constraint["node"]:
+                        if c["property"] == "TaskDefinition":
+                            task_def = c["value"]
+                        if c["property"] == "DesiredCount":
+                            count = c["value"]
+
+                task_definition = tasks.get(task_def)
+                if task_definition:
+                    cpu = task_definition.get("Cpu", cpu)
+                    memory = task_definition.get("Memory", memory)
+
+                costs.append(
+                    CostElement(
+                        app_id=app_id,
+                        category="compute",
+                        resource=constraint["node"],
+                        # the below costs are per hour so average for a month
+                        monthly_cost=count * 730 * (cpu * 0.04048 + memory * 0.004445),
+                    )
+                )
 
     return costs
-
-
-t3_medium_size = {
-    "Cpu": 2 * 1024,
-    "Memory": 4 * 1025,
-}
-
-
-def calculate_ecs_cost(ecs_tasks: List[dict]):
-    cpu = sum(c["value"] for c in ecs_tasks if c["property"] == "Cpu")
-    memory = sum(c["value"] for c in ecs_tasks if c["property"] == "Memory")
-
-    instances = math.ceil(
-        max(cpu / t3_medium_size["Cpu"], memory / t3_medium_size["Memory"])
-    )
-
-    return CostElement(
-        category="compute",
-        monthly_cost=instances * 30.36,
-        resource="aws:ec2_instance",
-    )
