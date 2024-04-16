@@ -96,7 +96,6 @@ configuration:
     name: Secret Key Base
     description: Strong secret with at least 64 characters. Can be generated with head -c 48 /dev/urandom | base64
     type: string
-    pulumi_key: klo:keila-db-password
     secret: true
     generate_default: true
     validation:
