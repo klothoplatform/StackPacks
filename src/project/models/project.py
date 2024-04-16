@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Iterator
 
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
@@ -22,7 +22,7 @@ from src.deployer.models.workflow_run import (
     WorkflowType,
 )
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.project import ConfigValues, StackPack
+from src.project import ConfigValues, StackPack, get_stack_packs
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import (
     AppDeployment,
@@ -81,15 +81,11 @@ class Project(Model):
 
     def get_policy(self) -> Policy:
         p = Policy()
-        for app_id, version in self.apps.items():
-            app = AppDeployment.get(
-                self.id,
-                AppDeployment.compose_range_key(app_id=app_id, version=version),
-            )
+        for app in self.get_app_deployments():
             p.combine(Policy(app.policy))
         return p
 
-    async def run_base(
+    async def run_common_pack(
         self,
         stack_packs: List[StackPack],
         config: ConfigValues,
@@ -97,17 +93,17 @@ class Project(Model):
         tmp_dir: Path,
         dry_run: bool = False,
     ):
-        base_stack = CommonStack(stack_packs, self.features)
-        base_version = self.apps.get(Project.COMMON_APP_NAME, None)
+        common_stack = CommonStack(stack_packs, self.features)
+        common_version = self.apps.get(Project.COMMON_APP_NAME, None)
         app: AppDeployment | None = None
         old_config: ConfigValues | None = None
         config = config if config is not None else ConfigValues({})
-        if base_version is not None:
+        if common_version is not None:
             try:
                 app = AppDeployment.get(
                     self.id,
                     AppDeployment.compose_range_key(
-                        app_id=Project.COMMON_APP_NAME, version=base_version
+                        app_id=Project.COMMON_APP_NAME, version=common_version
                     ),
                 )
                 old_config = app.get_configurations()
@@ -131,28 +127,37 @@ class Project(Model):
                     f"App {Project.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
                 )
         if app is None:
+            try:
+                latest = AppDeployment.get_latest_version(
+                    project_id=self.id, app_id=Project.COMMON_APP_NAME
+                )
+            except DoesNotExist:
+                latest = None
             app = AppDeployment(
                 # This has to be a composite key so we can correlate the app with the pack
                 project_id=self.id,
                 range_key=AppDeployment.compose_range_key(
-                    app_id=Project.COMMON_APP_NAME, version=1
+                    app_id=Project.COMMON_APP_NAME,
+                    version=latest.version() + 1 if latest else 1,
                 ),
                 created_by=self.created_by,
                 created_at=datetime.now(timezone.utc),
                 configuration=config,
                 status=AppLifecycleStatus.NEW.value,
             )
+
+        # Set the configuration for the common app (including hardcoded values for the pack id and health endpoint)
         health_endpoint_url = os.environ.get(
             "HEALTH_ENDPOINT_URL", "http://localhost:3000"
         )
-        app.configuration.update(
-            {"PackId": self.id, "HealthEndpointUrl": health_endpoint_url}
-        )
+        config["PackId"] = self.id
+        config["HealthEndpointUrl"] = health_endpoint_url
+        app.configuration = common_stack.final_config(config)
 
         resources_changed = True
         if old_config is not None:
-            old_resources = get_resources(base_stack.to_constraints(old_config))
-            new_resources = get_resources(base_stack.to_constraints(config))
+            old_resources = get_resources(common_stack.to_constraints(old_config))
+            new_resources = get_resources(common_stack.to_constraints(config))
             diff = new_resources ^ old_resources
             logger.debug(
                 f"common:: old: {old_resources}; new: {new_resources}; diff: {diff}"
@@ -163,10 +168,10 @@ class Project(Model):
             # Run the packs in parallel and only store the iac if we are incrementing the version
             subdir = tmp_dir / app.app_id()
             subdir.mkdir(exist_ok=True)
-            await app.run_app(base_stack, str(subdir.absolute()), binary_storage)
+            await app.run_app(common_stack, str(subdir.absolute()), binary_storage)
 
             # Run the packs in parallel and only store the iac if we are incrementing the version
-            for pol in base_stack.additional_policies:
+            for pol in common_stack.additional_policies:
                 additional_policies = Policy(json.dumps(pol))
                 curr_policy = Policy(app.policy)
                 curr_policy.combine(additional_policies)
@@ -174,8 +179,9 @@ class Project(Model):
         if not dry_run:
             app.save()
             self.apps[Project.COMMON_APP_NAME] = app.version()
+            self.save()
 
-    async def run_pack(
+    async def run_packs(
         self,
         stack_packs: dict[str, StackPack],
         config: dict[str, ConfigValues],
@@ -233,10 +239,18 @@ class Project(Model):
                         f"App {app_id} does not exist for pack id {self.id}. Creating a new one."
                     )
             if app is None:
+                try:
+                    latest = AppDeployment.get_latest_version(
+                        project_id=self.id, app_id=app_id
+                    )
+                except DoesNotExist:
+                    latest = None
                 app = AppDeployment(
                     # This has to be a composite key so we can correlate the app with the pack
                     project_id=self.id,
-                    range_key=AppDeployment.compose_range_key(app_id=app_id, version=1),
+                    range_key=AppDeployment.compose_range_key(
+                        app_id=app_id, version=latest.version() + 1 if latest else 1
+                    ),
                     created_by=self.created_by,
                     created_at=datetime.now(timezone.utc),
                     configuration=app_config,
@@ -322,6 +336,28 @@ class Project(Model):
             created_at=self.created_at,
             policy=str(self.get_policy()),
         )
+
+    def common_stackpack(self) -> CommonStack:
+        """Get the common stackpack for the project based on the project's apps and features"""
+        return CommonStack(self.stack_packs(), self.features)
+
+    def stack_packs(self) -> List[StackPack]:
+        """Get the stack packs for the project app deployments associated with the project"""
+        sps = get_stack_packs()
+        return [
+            sps[app_id] for app_id in self.apps.keys() if sps.get(app_id) is not None
+        ]
+
+    def get_app_deployments(self) -> Iterator[AppDeployment]:
+        """Get the app deployments associated with the project using a batch get operation"""
+        keys = [
+            (
+                self.id,
+                AppDeployment.compose_range_key(app_id=app_id, version=version),
+            )
+            for app_id, version in self.apps.items()
+        ]
+        return AppDeployment.batch_get(keys)
 
 
 class ProjectView(BaseModel):

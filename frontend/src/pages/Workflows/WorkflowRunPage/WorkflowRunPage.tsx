@@ -57,7 +57,7 @@ function WorkflowRunPage() {
     const run = await getWorkflowRun({
       workflowType: workflowType.toUpperCase() as WorkflowType,
       appId,
-      runNumber: parseInt(runNumber, 10),
+      runNumber: runNumber === "latest" ? "latest" : parseInt(runNumber, 10),
     });
     if (run.completed_at) {
       setInterval(null);
@@ -103,7 +103,8 @@ function WorkflowRunPage() {
         const run = await getWorkflowRun({
           workflowType: workflowType.toUpperCase() as WorkflowType,
           appId,
-          runNumber: parseInt(runNumber, 10),
+          runNumber:
+            runNumber === "latest" ? "latest" : parseInt(runNumber, 10),
         });
         if (!run.completed_at) {
           setInterval(10000);

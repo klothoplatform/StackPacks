@@ -86,7 +86,7 @@ export function toFormState(
   appConfig: Record<string, any> = {},
   fields: Property[] = [],
   stackPackId?: string,
-) {
+): Record<string, any> {
   const formState: any = {};
   if (!appConfig) {
     return formState;
@@ -105,6 +105,13 @@ export function toFormState(
 
     const value = appConfig[property];
     const field = fields.find((field) => field.id === property);
+    if (!field) {
+      console.warn(`Field ${property} not found in fields`);
+      return;
+    }
+    if (field.hidden) {
+      return;
+    }
     switch (field?.type) {
       case CollectionTypes.Map:
         if (!value) {
@@ -266,7 +273,6 @@ export function isProjectDeployed(userStack: Project) {
 }
 
 export function parseProject(data: any): Project {
-  delete data?.stack_packs?.common;
   return data;
 }
 

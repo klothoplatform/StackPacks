@@ -27,7 +27,8 @@ export const ConfigureAppsStep: FC<StepperNavigatorProps> = ({ ...props }) => {
 
   useEffect(() => {
     (async () => {
-      const stackPacks = await getStackPacks();
+      const stackPacks = new Map(await getStackPacks());
+      stackPacks.delete("common");
       setStackPacks(stackPacks);
 
       const sections: ConfigFormSection[] = Object.entries(

@@ -2,19 +2,11 @@ import type { FC } from "react";
 import React, { useEffect, useState } from "react";
 import useApplicationStore from "../store/ApplicationStore.ts";
 import { UIError } from "../../shared/errors.ts";
-import { Badge, Button, Dropdown, useThemeMode } from "flowbite-react";
+import { Button, Dropdown, useThemeMode } from "flowbite-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle.ts";
 import { useNavigate } from "react-router-dom";
-import {
-  AiFillDelete,
-  AiFillEye,
-  AiOutlineCheckCircle,
-  AiOutlineExclamationCircle,
-  AiOutlineLoading3Quarters,
-  AiOutlineQuestionCircle,
-} from "react-icons/ai";
+import { AiFillDelete, AiFillEye } from "react-icons/ai";
 import classNames from "classnames";
-import { resolveStackpacks } from "../../shared/models/Stackpack.ts";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Tooltip } from "../../components/Tooltip.tsx";
 import { useClickedOutside } from "../../hooks/useClickedOutside.ts";
@@ -22,9 +14,7 @@ import type { ApplicationDeployment } from "../../shared/models/Project.ts";
 import {
   AppLifecycleStatus,
   hasDeploymentInProgress,
-  toAppStatusString,
 } from "../../shared/models/Project.ts";
-import { outlineBadge } from "../../shared/custom-themes.ts";
 import {
   RiExternalLinkLine,
   RiInstallFill,
@@ -42,6 +32,7 @@ import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { EnvironmentSection } from "./EnvironmentSection.tsx";
 import { hasMapping } from "../../shared/LogoMappings.tsx";
 import { Container } from "../../components/Container.tsx";
+import { AppStatusBadge } from "../../components/AppStatusBadge.tsx";
 
 export const ProjectPage: FC = () => {
   const { project, getProject, stackPacks } = useApplicationStore();
@@ -126,17 +117,14 @@ export const ProjectPage: FC = () => {
         </div>
         {project && (
           <div className="flex size-full flex-col gap-4">
-            {Object.entries(project.stack_packs).map(
-              ([appTemplateId, appDeployment], index) => {
-                const name =
-                  resolveStackpacks([appTemplateId], stackPacks)[0]?.name ??
-                  appTemplateId;
+            {Object.values(project.stack_packs)
+              .filter((appDeployment) => appDeployment.app_id !== "common")
+              .map((appDeployment, index) => {
                 const status =
                   appDeployment.status ?? AppLifecycleStatus.Uninstalled;
-                const app = { ...appDeployment, name, status };
+                const app = { ...appDeployment, status };
                 return <AppCard key={index} app={app} />;
-              },
-            )}
+              })}
           </div>
         )}
       </div>
@@ -144,99 +132,7 @@ export const ProjectPage: FC = () => {
   );
 };
 
-type AppStatusBadgeStyle = {
-  color: string;
-  icon?: FC;
-  pulse?: boolean;
-};
-
-const statusStyles: Record<
-  AppLifecycleStatus | "default",
-  AppStatusBadgeStyle
-> = {
-  [AppLifecycleStatus.Installing]: {
-    color: "yellow",
-    icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
-    pulse: true,
-  },
-  [AppLifecycleStatus.Installed]: {
-    color: "green",
-    icon: AiOutlineCheckCircle,
-  },
-  [AppLifecycleStatus.InstallFailed]: {
-    color: "red",
-    icon: AiOutlineExclamationCircle,
-  },
-  [AppLifecycleStatus.Updating]: {
-    color: "green",
-    icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
-    pulse: true,
-  },
-  [AppLifecycleStatus.UpdateFailed]: {
-    color: "red",
-    icon: AiOutlineExclamationCircle,
-  },
-  [AppLifecycleStatus.Uninstalling]: {
-    color: "yellow",
-    icon: () => <AiOutlineLoading3Quarters className="animate-spin" />,
-    pulse: true,
-  },
-  [AppLifecycleStatus.UninstallFailed]: {
-    color: "red",
-    icon: AiOutlineExclamationCircle,
-  },
-  [AppLifecycleStatus.Uninstalled]: {
-    color: "gray",
-  },
-  [AppLifecycleStatus.Unknown]: {
-    color: "gray",
-    icon: AiOutlineQuestionCircle,
-  },
-  [AppLifecycleStatus.New]: {
-    color: "blue",
-  },
-  [AppLifecycleStatus.Pending]: {
-    color: "blue",
-    pulse: true,
-  },
-  default: {
-    color: "gray",
-  },
-};
-
-const AppStatusBadge: FC<{
-  rtl?: boolean;
-  status: AppLifecycleStatus;
-}> = ({ rtl, status }) => {
-  const statusStyle = statusStyles[status] ?? statusStyles.default;
-  const theme = outlineBadge;
-  return (
-    <Badge
-      size="xs"
-      theme={{
-        ...theme,
-        icon: rtl
-          ? {
-              ...theme.icon,
-              on: "rounded-md py-1 px-2 flex-row-reverse",
-            }
-          : {},
-      }}
-      icon={statusStyle.icon}
-      color={statusStyle.color}
-      className={classNames(
-        "items-center flex w-fit flex-nowrap text-xs font-normal",
-        {
-          "animate-pulse": (statusStyle as any).pulse,
-        },
-      )}
-    >
-      <span>{toAppStatusString(status)}</span>
-    </Badge>
-  );
-};
-
-const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
+const AppCard: FC<{ app: ApplicationDeployment }> = ({ app }) => {
   const { mode } = useThemeMode();
   const appTemplateId = app.app_id;
   return (
@@ -254,7 +150,10 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
               " "
             )}
           </span>
-          <Tooltip content={`Open ${app.name}`} disabled={!app.outputs?.URL}>
+          <Tooltip
+            content={`Open ${app.display_name}`}
+            disabled={!app.outputs?.URL}
+          >
             <h4
               className={classNames("text-lg font-medium", {
                 "hover:text-blue-600 hover:underline dark:hover:text-blue-400":
@@ -268,29 +167,25 @@ const AppCard: FC<{ app: AppCardProps }> = ({ app }) => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {app.name}
+                  {app.display_name}
                   <RiExternalLinkLine />
                 </a>
               ) : (
-                app.name
+                app.display_name
               )}
             </h4>
           </Tooltip>
         </div>
         <div className="flex items-center gap-8">
           <AppStatusBadge status={app.status} rtl />
-          <AppButtonGroup {...app} />
+          <AppButtonGroup app={app} />
         </div>
       </div>
     </Container>
   );
 };
 
-interface AppCardProps extends ApplicationDeployment {
-  name: string;
-}
-
-const AppButtonGroup: FC<AppCardProps> = (app) => {
+const AppButtonGroup: FC<{ app: ApplicationDeployment }> = ({ app }) => {
   const { mode } = useThemeMode();
   const navigate = useNavigate();
   const [showUninstallModal, setShowUninstallModal] = useState(false);
@@ -311,7 +206,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
       addError(
         new UIError({
           errorId: "OnRemoveApp",
-          message: `Removing ${app.name} failed!`,
+          message: `Removing ${app.display_name} failed!`,
           cause: e,
         }),
       );
@@ -328,7 +223,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
       addError(
         new UIError({
           errorId: "OnInstallApp",
-          message: `Installing ${app.name} failed!`,
+          message: `Installing ${app.display_name} failed!`,
           cause: e,
         }),
       );
@@ -377,7 +272,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
                   icon={RiInstallFill}
                   onClick={onInstallApp}
                 >
-                  Install {app.name}
+                  Install {app.display_name}
                 </Dropdown.Item>
               )}
               {isInstalled(app) && (
@@ -386,7 +281,7 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
                   icon={IoRefresh}
                   onClick={() => onInstallApp()}
                 >
-                  Redeploy {app.name}
+                  Redeploy {app.display_name}
                 </Dropdown.Item>
               )}
               {isInstalled(app) && (
@@ -395,13 +290,13 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
                   icon={RiUninstallFill}
                   color={"red"}
                   onClick={() => setShowUninstallModal(true)}
-                >{`Uninstall ${app.name}`}</Dropdown.Item>
+                >{`Uninstall ${app.display_name}`}</Dropdown.Item>
               )}
               {!isInstalled(app) && !isBusy(app) && (
                 <Dropdown.Item
                   icon={AiFillDelete}
                   onClick={() => setShowRemoveModal(true)}
-                >{`Remove ${app.name}`}</Dropdown.Item>
+                >{`Remove ${app.display_name}`}</Dropdown.Item>
               )}
             </div>
           </Dropdown>
@@ -411,16 +306,16 @@ const AppButtonGroup: FC<AppCardProps> = (app) => {
         <UninstallAppModal
           onClose={() => setShowUninstallModal(false)}
           id={app.app_id}
-          name={app.name}
+          name={app.display_name}
         />
       )}
       {showRemoveModal && (
         <ConfirmationModal
           cancelable
-          title={`Remove "${app.name}"`}
+          title={`Remove "${app.display_name}"`}
           onClose={() => setShowRemoveModal(false)}
           confirmButtonLabel={"Remove"}
-          prompt={`Are you sure you want to remove ${app.name} from your project?`}
+          prompt={`Are you sure you want to remove ${app.display_name} from your project?`}
           confirmationText={"remove"}
           onConfirm={onRemoveApp}
         />

@@ -138,7 +138,7 @@ export const ConfirmationModal: FC<ConfirmationModalProps> = ({
                 color="purple"
                 disabled={
                   Object.entries(errors).length > 0 ||
-                  !watchConfirmation ||
+                  (confirmationText && !watchConfirmation) ||
                   isSubmitting
                 }
                 isProcessing={isSubmitting}

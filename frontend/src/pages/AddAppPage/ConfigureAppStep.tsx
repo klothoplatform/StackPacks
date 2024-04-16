@@ -35,7 +35,8 @@ export const ConfigureAppStep: FC<ConfigureAppStepProps> = ({
 
   useEffect(() => {
     (async () => {
-      const stackPacks = await getStackPacks();
+      const stackPacks = new Map(await getStackPacks());
+      stackPacks.delete("common");
       setStackPacks(stackPacks);
       setSelectedAppName(stackPacks.get(selectedApp)?.name ?? selectedApp);
       const appDeployment = project?.stack_packs?.[selectedApp];

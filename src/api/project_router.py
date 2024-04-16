@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,7 +8,7 @@ from src.auth.token import get_user_id
 from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
-from src.project import ConfigValues, get_stack_packs
+from src.project import ConfigValues, get_stack_packs, StackPack
 from src.project.common_stack import Feature
 from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
@@ -62,14 +62,17 @@ async def create_stack(
     )
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
-        await project.run_base(
-            stack_packs=[sp for k, sp in stack_packs.items()],
-            config=body.configuration.get("base", {}),
+        project_stack_packs = {
+            k: sp for k, sp in stack_packs.items() if k in body.configuration
+        }
+        await project.run_common_pack(
+            stack_packs=[*project_stack_packs.values()],
+            config=body.configuration.get("common", {}),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        await project.run_pack(
-            stack_packs=stack_packs,
+        await project.run_packs(
+            stack_packs=project_stack_packs,
             config=body.configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
@@ -84,7 +87,7 @@ class UpdateStackRequest(BaseModel):
     configuration: dict[str, ConfigValues] = None
     assumed_role_arn: str = None
     assumed_role_external_id: str = None
-    health_monitor_enabled: bool = True
+    health_monitor_enabled: bool = None
     region: str = None
 
 
@@ -107,8 +110,8 @@ async def update_stack(
         apps = project.to_view_model().stack_packs
         if project.region not in {None, body.region}:
             # check if any apps are deployed to avoid changing region while stack is running
-            for app in apps.values():
-                if app.status and app.status not in ["UNINSTALLED", "NEW"]:
+            for app_id in apps.values():
+                if app_id.status and app_id.status not in ["UNINSTALLED", "NEW"]:
                     raise HTTPException(
                         status_code=400,
                         detail="Cannot change region while project has deployed "
@@ -118,7 +121,7 @@ async def update_stack(
     if len(actions) > 0:
         project.update(actions=actions)
 
-    # TODO: Determine if the base stack needs changing (this will only be true when we have samples that arent just ECS + VPC)
+    # TODO: Determine if the common stack needs changing (this will only be true when we have samples that arent just ECS + VPC)
     # If this is the case we also need to build in the diff ability of the base stack to ensure that we arent going to delete any imported resources to other stacks
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
     if body.configuration or body.health_monitor_enabled:
@@ -126,26 +129,37 @@ async def update_stack(
         if body.health_monitor_enabled:
             logger.info("Enabling health monitor")
             project.features = [Feature.HEALTH_MONITOR.value]
-        else:
+        elif body.health_monitor_enabled is False:
             project.features = []
-        if body.configuration is None:
-            for app, version in project.apps.items():
-                app_deployment = AppDeployment.get(
-                    project.id, AppDeployment.compose_range_key(app, version)
-                )
-                configuration[app] = app_deployment.get_configurations()
-                logger.info(f"Configuration for {app} is {configuration[app]}")
+
         stack_packs = get_stack_packs()
+        initial_apps = {**project.apps}
+        for app_deployment in project.get_app_deployments():
+            app_id = app_deployment.app_id()
+            configuration[app_id] = ConfigValues(
+                {
+                    **app_deployment.get_configurations(),
+                    **configuration.get(app_id, {}),
+                }
+            )
         with TempDir() as tmp_dir:
-            await project.run_base(
-                stack_packs=list(stack_packs.values()),
-                config=configuration.get("base", {}),
+            await project.run_packs(
+                stack_packs=stack_packs,
+                config=configuration,
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
-            await project.run_pack(
-                stack_packs=stack_packs,
-                config=configuration,
+
+            current_apps = [*project.apps.keys()]
+            project_stack_packs = []
+            if current_apps != [*initial_apps.keys()]:
+                for app_id in current_apps:
+                    if app_id in stack_packs:
+                        project_stack_packs.append(stack_packs[app_id])
+
+            await project.run_common_pack(
+                stack_packs=project_stack_packs,
+                config=configuration.get("common", {}),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
@@ -208,31 +222,25 @@ async def add_app(
             detail="App already exists in stack, use PATCH to update",
         )
 
-    for app, version in project.apps.items():
-        if app == Project.COMMON_APP_NAME:
-            continue
-        user_app = AppDeployment.get(
-            project.id, AppDeployment.compose_range_key(app_id=app, version=version)
-        )
-        configuration[app] = user_app.get_configurations()
+    for user_app in project.get_app_deployments():
+        configuration[user_app.app_id()] = user_app.get_configurations()
+
     with TempDir() as tmp_dir:
-        policy = await project.run_pack(
+        await project.run_packs(
             stack_packs=get_stack_packs(),
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        common_policy = await project.run_base(
-            stack_packs=list(get_stack_packs().values()),
+        await project.run_common_pack(
+            stack_packs=project.stack_packs(),
             config=ConfigValues(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        policy.combine(common_policy)
-        policy = str(policy)
-        project.policy = policy
-        project.save()
-        return StackResponse(stack=project.to_view_model(), policy=policy)
+        return StackResponse(
+            stack=project.to_view_model(), policy=str(project.get_policy())
+        )
 
 
 @router.patch("/api/project/{app_id}")
@@ -245,31 +253,35 @@ async def update_app(
     project = Project.get(user_id)
     configuration: dict[str, ConfigValues] = {app_id: body.configuration}
     for app, version in project.apps.items():
-        if app == app_id or app == Project.COMMON_APP_NAME:
+        if app == Project.COMMON_APP_NAME:
             continue
         user_app = AppDeployment.get(
             project.id, AppDeployment.compose_range_key(app_id=app, version=version)
         )
-        configuration[app] = user_app.get_configurations()
+        if app == app_id:
+            # merge user-supplied configuration with existing configuration (shallow merge)
+            configuration[app] = ConfigValues(
+                {**user_app.get_configurations(), **body.configuration}
+            )
+        else:
+            configuration[app] = user_app.get_configurations()
 
     with TempDir() as tmp_dir:
-        policy = await project.run_pack(
+        await project.run_packs(
             stack_packs=get_stack_packs(),
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        common_policy = await project.run_base(
+        await project.run_common_pack(
             stack_packs=list(get_stack_packs().values()),
             config=ConfigValues(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        policy.combine(common_policy)
-        policy = str(policy)
-        project.policy = policy
-        project.save()
-        return StackResponse(stack=project.to_view_model(), policy=policy)
+        return StackResponse(
+            stack=project.to_view_model(), policy=str(project.get_policy())
+        )
 
 
 @router.delete("/api/project/{app_name}")
@@ -281,13 +293,17 @@ async def remove_app(
     project = Project.get(user_id)
     project.apps.pop(app_name)
     configuration: dict[str, ConfigValues] = {}
-    for app, version in project.apps.items():
-        if app == app_name:
+    common_app_config: ConfigValues = {}
+    sps = get_stack_packs()
+    project_stack_packs = {}
+    for app in project.get_app_deployments():
+        app_id = app.app_id()
+        if app_id == Project.COMMON_APP_NAME:
+            common_app_config = app.get_configurations()
             continue
-        user_app = AppDeployment.get(
-            project.id, AppDeployment.compose_range_key(app_id=app, version=version)
-        )
-        configuration[app] = user_app.get_configurations()
+        configuration[app_id] = app.get_configurations()
+        if app_id in sps and app_id != app_name:
+            project_stack_packs[app_id] = sps[app_id]
 
     if len(configuration) == 0 or (
         len(configuration) == 1
@@ -298,16 +314,29 @@ async def remove_app(
         return StackResponse(stack=project.to_view_model())
 
     with TempDir() as tmp_dir:
-        policy = await project.run_pack(
-            stack_packs=get_stack_packs(),
+        await project.run_packs(
+            stack_packs=project_stack_packs,
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        policy = str(policy)
-        project.policy = policy
-        project.save()
-        return StackResponse(stack=project.to_view_model(), policy=policy)
+
+        common_config_fields = {*project.common_stackpack().configuration.keys()}
+        await project.run_common_pack(
+            stack_packs=list(get_stack_packs().values()),
+            config=ConfigValues(
+                {
+                    k: v
+                    for k, v in common_app_config.items()
+                    if k in common_config_fields
+                }
+            ),
+            binary_storage=get_binary_storage(),
+            tmp_dir=tmp_dir,
+        )
+        return StackResponse(
+            stack=project.to_view_model(), policy=str(project.get_policy())
+        )
 
 
 class CostRequest(BaseModel):
