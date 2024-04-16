@@ -13,7 +13,7 @@ SHOW_TEST_PACKS = os.getenv("SHOW_TEST_PACKS", "false").lower() == "true"
 
 def generate_default(length: int):
     cs = string.ascii_letters + string.digits
-    return "".join(secrets.choices(cs, k=length))
+    return "".join(cs[secrets.randbelow(len(cs))] for _ in range(length))
 
 
 def config_to_dict(cfg: StackConfig):

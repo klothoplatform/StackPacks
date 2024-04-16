@@ -287,13 +287,7 @@ class StackPack(BaseModel):
         return result
 
 
-_cached_stack_packs = None
-
-
 def get_stack_packs() -> dict[str, StackPack]:
-    global _cached_stack_packs
-    if _cached_stack_packs:
-        return _cached_stack_packs
     root = Path("stackpacks")
     sps = {}
     for dir in root.iterdir():
@@ -307,12 +301,15 @@ def get_stack_packs() -> dict[str, StackPack]:
             raise ValueError(f"Duplicate stack pack id: {sp.id}")
 
         sps[sp.id] = sp
-    _cached_stack_packs = sps
     return sps
 
 
 def get_stack_pack(id: str) -> StackPack:
-    return get_stack_packs().get(id)
+    f = Path("stackpacks") / id / f"{id}.yaml"
+    try:
+        return parse_yaml_file_as(StackPack, f)
+    except Exception as e:
+        raise ValueError(f"Failed to parse {id}") from e
 
 
 def get_app_name(app_id: str):
