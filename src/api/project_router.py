@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,7 +8,7 @@ from src.auth.token import get_user_id
 from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
-from src.project import ConfigValues, get_stack_packs, StackPack
+from src.project import ConfigValues, get_stack_packs
 from src.project.common_stack import Feature
 from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
@@ -143,7 +143,15 @@ async def update_stack(
                 }
             )
         with TempDir() as tmp_dir:
-            await project.run_packs(
+            await project.run_base(
+                stack_packs=[
+                    stack_packs[a] for a in configuration.keys() if a in stack_packs
+                ],
+                config=configuration.get("base", {}),
+                binary_storage=get_binary_storage(),
+                tmp_dir=tmp_dir,
+            )
+            await project.run_pack(
                 stack_packs=stack_packs,
                 config=configuration,
                 binary_storage=get_binary_storage(),
@@ -226,14 +234,17 @@ async def add_app(
         configuration[user_app.app_id()] = user_app.get_configurations()
 
     with TempDir() as tmp_dir:
+        stack_packs = get_stack_packs()
         await project.run_packs(
-            stack_packs=get_stack_packs(),
+            stack_packs=stack_packs,
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        await project.run_common_pack(
-            stack_packs=project.stack_packs(),
+        common_policy = await project.run_common_pack(
+            stack_packs=[
+                stack_packs[a] for a in configuration.keys() if a in stack_packs
+            ],
             config=ConfigValues(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,

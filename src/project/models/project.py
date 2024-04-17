@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional, Iterator
+from typing import Iterable, Iterator, List, Optional
 
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
@@ -168,7 +168,9 @@ class Project(Model):
             # Run the packs in parallel and only store the iac if we are incrementing the version
             subdir = tmp_dir / app.app_id()
             subdir.mkdir(exist_ok=True)
-            await app.run_app(common_stack, str(subdir.absolute()), binary_storage)
+            await app.update_policy(
+                common_stack, str(subdir.absolute()), binary_storage
+            )
 
             # Run the packs in parallel and only store the iac if we are incrementing the version
             for pol in common_stack.additional_policies:
@@ -295,7 +297,7 @@ class Project(Model):
                 subdir.mkdir(exist_ok=True)
                 sp = stack_packs[app.app_id()]
                 tasks.append(
-                    app.run_app(
+                    app.update_policy(
                         sp,
                         str(subdir.absolute()),
                         binary_storage,

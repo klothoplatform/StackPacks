@@ -84,7 +84,10 @@ export const DeployAppStep: FC<DeployAppStepProps> = ({
                     <GrDeploy /> <span>Deploy</span>
                   </span>
                 </Button>
-                <CostChange operation={"install"} appIds={[selectedApp]} />
+                <CostChange
+                  operation={"install"}
+                  appIds={[selectedApp, "common"]}
+                />
               </div>
             </div>
             <div className="ml-auto flex gap-4 justify-self-end">
