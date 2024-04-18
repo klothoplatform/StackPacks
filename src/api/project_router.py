@@ -143,31 +143,21 @@ async def update_stack(
                 }
             )
         with TempDir() as tmp_dir:
-            await project.run_base(
-                stack_packs=[
-                    stack_packs[a] for a in configuration.keys() if a in stack_packs
-                ],
-                config=configuration.get("base", {}),
-                binary_storage=get_binary_storage(),
-                tmp_dir=tmp_dir,
-            )
-            await project.run_pack(
+            await project.run_packs(
                 stack_packs=stack_packs,
                 config=configuration,
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
-
-            current_apps = [*project.apps.keys()]
-            project_stack_packs = []
-            if current_apps != [*initial_apps.keys()]:
-                for app_id in current_apps:
-                    if app_id in stack_packs:
-                        project_stack_packs.append(stack_packs[app_id])
-
+            sps_in_project = [
+                stack_packs[a]
+                for a in set(configuration.keys()) | set(project.apps.keys())
+                if a in stack_packs
+            ]
+            sps_in_project.sort(key=lambda x: x.id)
             await project.run_common_pack(
-                stack_packs=project_stack_packs,
-                config=configuration.get("common", {}),
+                stack_packs=sps_in_project,
+                config=configuration.get("base", {}),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
@@ -247,7 +237,7 @@ async def add_app(
             if a in stack_packs
         ]
         sps_in_project.sort(key=lambda x: x.id)
-        await project.run_base(
+        await project.run_common_pack(
             stack_packs=sps_in_project,
             config=ConfigValues(),
             binary_storage=get_binary_storage(),

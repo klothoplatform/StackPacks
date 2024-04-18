@@ -183,13 +183,13 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_stack_packs.assert_called_once()
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
-        mock_project_instance.run_base.assert_called_once_with(
+        mock_project_instance.run_common_pack.assert_called_once_with(
             stack_packs=[sps["app1"]],
             config={},
             binary_storage=binary_storage,
             tmp_dir="/tmp",
         )
-        mock_project_instance.run_pack.assert_called_once_with(
+        mock_project_instance.run_packs.assert_called_once_with(
             stack_packs=sps,
             config={"app1": {"config1": "value1"}},
             binary_storage=binary_storage,

@@ -117,7 +117,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_update_policy.assert_called_once_with(
             self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
-        self.assertEqual({"common": 2}, self.project.apps)
+        self.assertEqual({"common": 1}, self.project.apps)
 
     @patch.object(AppDeployment, "update_policy")
     async def test_run_common_pack_does_not_exist(self, mock_update_policy):
