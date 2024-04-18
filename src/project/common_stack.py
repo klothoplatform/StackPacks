@@ -15,6 +15,7 @@ from src.project import (
     StackPack,
     StackParts,
 )
+from src.project.models.project import Project
 
 
 class Feature(Enum):
@@ -111,8 +112,8 @@ class CommonStack(StackPack):
             always_inject=always_inject,
             never_inject=never_inject,
             additional_policies=additional_policies,
-            id="common",
-            name="common",
+            id=Project.COMMON_APP_NAME,
+            name=Project.COMMON_APP_NAME,
             version="0.0.1",
             requires=[],
             base=stack_base,

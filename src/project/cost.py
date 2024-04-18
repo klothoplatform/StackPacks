@@ -116,6 +116,16 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
                     )
                 )
 
+            case "elasticache_cluster":
+                costs.append(
+                    CostElement(
+                        app_id=app_id,
+                        category="storage",
+                        resource=constraint["node"],
+                        monthly_cost=21.09,
+                    )
+                )
+
             case "efs_file_system":
                 costs.append(
                     CostElement(

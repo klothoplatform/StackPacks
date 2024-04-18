@@ -47,7 +47,6 @@ class LiveState(BaseModel):
             if c["scope"] == "application" and c["operator"] == "must_exist":
                 logger.info(f"Adding import constraint from live state resource {c}")
                 c["operator"] = "import"
-            logger.info(c)
             constraints.append(c)
         if self.edges:
             constraints.extend(self.edges.to_constraints())

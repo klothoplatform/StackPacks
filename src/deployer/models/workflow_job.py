@@ -4,16 +4,19 @@ from enum import Enum
 from typing import Optional
 
 from pynamodb.attributes import (
+    JSONAttribute,
+    ListAttribute,
+    NumberAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
-    NumberAttribute,
-    ListAttribute,
-    JSONAttribute,
 )
 from pynamodb.exceptions import PutError
 from pynamodb.models import Model
 
-from src.project import get_app_name
+from src.project import StackPack, get_app_name, get_stack_packs
+from src.project.common_stack import CommonStack
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project
 from src.util.logging import logger
 
 
@@ -33,6 +36,7 @@ class WorkflowJobType(Enum):
 
 
 class WorkflowJob(Model):
+
     class Meta:
         table_name = os.environ.get("WORKFLOW_JOBS_TABLE_NAME", "WorkflowJobs")
         billing_mode = "PAY_PER_REQUEST"
@@ -70,6 +74,29 @@ class WorkflowJob(Model):
 
     def run_number(self) -> int:
         return int(self.partition_key.split("#")[3])
+
+    def get_project_and_app(self) -> tuple[Project, AppDeployment]:
+        project = Project.get(self.project_id())
+        app = AppDeployment.get(
+            self.project_id(),
+            AppDeployment.compose_range_key(
+                app_id=self.modified_app_id, version=project.apps[self.modified_app_id]
+            ),
+        )
+        return project, app
+
+    def get_stack_pack(self) -> StackPack:
+        project = Project.get(self.project_id())
+        app_id = self.modified_app_id
+        stack_packs = get_stack_packs()
+        if app_id in stack_packs:
+            stack_pack = stack_packs[app_id]
+        else:
+            stack_pack = CommonStack(
+                stack_packs=[stack_packs[a] for a in project.apps if a in stack_packs],
+                features=project.features,
+            )
+        return stack_pack
 
     @staticmethod
     def compose_partition_key(
