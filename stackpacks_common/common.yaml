@@ -74,10 +74,13 @@ health_monitor:
       name: PackId
       description: The pack id that this health monitor is monitoring
       type: string
-    HealthEndpointUrl: 
+      hidden: true
+
+    HealthEndpointUrl:
       name: HealthEndpointUrl
       description: The health endpoint url that this health monitor is monitoring
       type: string
+      hidden: true
 
 postgres:
   never_inject:
@@ -102,15 +105,16 @@ postgres:
         DB_PASSWORD: aws:rds_instance:stacksnap-postgres#Password
   edges:
     aws:lambda_function:postgres_manager -> aws:rds_instance:stacksnap-postgres:
-  files: 
+  files:
     postgres_manager/main.py:
     postgres_manager/requirements.txt:
     postgres_manager/Dockerfile:
 
   configuration:
     PostgresDBUsername:
-      name: Database Username
-      description: The username to use for the metabase database
+      name: Postgres Database Username
+      description: The username to use for your project's Postgres database user
+      configurationDisabled: true
       type: string
       default: masterdbuser
       pulumi_key: klo:stacksnap-postgres-username
@@ -119,13 +123,12 @@ postgres:
         maxLength: 63
 
     PostgresDBPassword:
-      name: Database Password
-      description: The password to use for the metabase database
+      name: Postgres Database Password
+      description: The password to use for your project's Postgres database user
       type: string
-      default: masterdbpassword
+      generate_default: true
       pulumi_key: klo:stacksnap-postgres-password
       secret: true
-      generate_default: true
       validation:
         minLength: 8
         maxLength: 128
@@ -141,7 +144,6 @@ postgres:
           StringEquals:
             aws:ResourceTag/STACKSNAP_FUNCTION: "POSTGRES_MANAGER"
 
-  
 mysql:
   never_inject:
     - aws:ecr_image:mysql_manager
@@ -167,27 +169,28 @@ mysql:
         DB_PASSWORD: aws:rds_instance:stacksnap-mysql#Password
   edges:
     aws:lambda_function:mysql_manager -> aws:rds_instance:stacksnap-mysql:
-  files: 
+  files:
     mysql_manager/main.py:
     mysql_manager/requirements.txt:
     mysql_manager/Dockerfile:
 
   configuration:
     MySqlDBUsername:
-      name: Database Username
-      description: The username to use for the metabase database
+      name: MySQL Database Username
+      description: The username to use for your project's MySQL database user
       type: string
       default: masterdbuser
       pulumi_key: klo:stacksnap-mysql-username
+      configurationDisabled: true
       validation:
         minLength: 1
         maxLength: 63
 
     MySqlDBPassword:
-      name: Database Password
-      description: The password to use for the metabase database
+      name: MySQL Database Password
+      description: The password to use for your project's MySQL database user
       type: string
-      default: masterdbpassword
+      generate_default: true
       pulumi_key: klo:stacksnap-mysql-password
       secret: true
       validation:
@@ -205,4 +208,3 @@ mysql:
           StringEquals:
             aws:ResourceTag/STACKSNAP_FUNCTION: "MYSQL_MANAGER"
 
-  

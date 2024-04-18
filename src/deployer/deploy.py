@@ -480,6 +480,7 @@ async def execute_deployment_workflow(
 
             if success:
                 if run.notification_email is not None:
+                    app.refresh()
                     app_data = [
                         AppData(
                             app_name=app.display_name or app.app_id(),
@@ -601,6 +602,7 @@ async def execute_deploy_single_workflow(
             )
             complete_workflow_run(run)
             if run.notification_email is not None:
+                app.refresh()
                 app_data = [
                     AppData(
                         app_name=app.display_name or app.app_id(),

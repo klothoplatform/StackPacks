@@ -47,7 +47,8 @@ export const RunOverviewPage = () => {
     (async () => {
       try {
         await getWorkflowRun({
-          runNumber: parseInt(runNumber, 10),
+          runNumber:
+            runNumber === "latest" ? "latest" : parseInt(runNumber, 10),
           workflowType: workflowType.toUpperCase() as WorkflowType,
           appId: appId,
         });
@@ -211,17 +212,21 @@ const WorkflowRunOutputs: FC<{
                       </Table.Cell>
                       <Table.Cell>{key}</Table.Cell>
                       <Table.Cell>
-                        <Linkify
-                          as={ExternalLinkWrapper}
-                          options={{
-                            attributes: {
-                              target: "_blank",
-                              rel: "noopener noreferrer",
-                            },
-                          }}
-                        >
-                          {value}
-                        </Linkify>
+                        {value ? (
+                          <Linkify
+                            as={ExternalLinkWrapper}
+                            options={{
+                              attributes: {
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                              },
+                            }}
+                          >
+                            {value}
+                          </Linkify>
+                        ) : (
+                          ""
+                        )}
                       </Table.Cell>
                     </Table.Row>
                   ))}

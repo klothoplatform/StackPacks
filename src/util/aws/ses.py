@@ -40,14 +40,14 @@ def create_installation_body_html(apps: list[AppData]):
 
     return f"""
     <h3>Hello!</h3>
-    <p>Stacksnap finished installing {app_names}!</p>
+    <p>StackSnap finished installing {app_names}!</p>
     {app_data}
     <p>To keep your software secure, we do not email passwords.</p>
-    <p>We’re working on adding nicer URLs and custom domains - that’s coming soon!</p>
+    <p>We're working on adding nicer URLs and custom domains — that’s coming soon!</p>
     <h2>Support and Community</h2>
-    <p>Join us on our discord to ask for features, chat with the team or ask for support! We’re happy to help!</p>
-    <p>Thanks again!<br>Stacksnap team</p>
-    <p><i>NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's web site for support.</i></p>
+    <p>Join us on our <a href="https://klo.dev/discordurl">discord</a> to ask for features, chat with the team or ask for support! We're happy to help!</p>
+    <p>Thanks again!<br>StackSnap team</p>
+    <p><i>NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's website for support.</i></p>
     """
 
 
@@ -57,15 +57,15 @@ def create_installation_body_text(apps: list[AppData]):
 
     return f"""
     Hello!
-    Stacksnap finished installing {app_names}!
+    StackSnap finished installing {app_names}!
     {app_data}
     To keep your software secure, we do not email passwords.
-    We’re working on adding nicer URLs and custom domains - that’s coming soon!
+    We're working on adding nicer URLs and custom domains - that’s coming soon!
     Support and Community
-    Join us on our discord to ask for features, chat with the team or ask for support! We’re happy to help!
+    Join us on our discord to ask for features, chat with the team or ask for support! We're happy to help!
     Thanks again!
-    Stacksnap team
-    NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's web site for support.
+    StackSnap team
+    NOTE: StackSnap is just an automatic software installer and does not provide any support for the individual software packages. Please visit the software vendor's website for support.
     """
 
 

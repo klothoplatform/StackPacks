@@ -8,7 +8,7 @@ export interface GetWorkflowRunRequest {
   idToken: string;
   workflowType?: WorkflowType;
   appId?: string;
-  runNumber?: number;
+  runNumber?: number | "latest";
 }
 
 export async function getWorkflowRun({

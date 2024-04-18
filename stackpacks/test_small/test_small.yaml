@@ -3,6 +3,9 @@ name: Small Testing SP
 description: A small testing stackpack
 version: '1.0.0'
 
+requires:
+  - postgres
+
 base:
   resources:
     aws:lambda_function:test_func:
@@ -11,3 +14,9 @@ base:
     test_func-image.Dockerfile:
 
 configuration: {}
+
+outputs:
+  URL:
+    description: The URL of the test service
+    value: https://google.com
+

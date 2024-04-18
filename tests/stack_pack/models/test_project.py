@@ -6,7 +6,9 @@ from pynamodb.exceptions import DoesNotExist
 
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, Resources, StackParts
+from src.project import StackPack
 from src.project.common_stack import CommonStack
+from src.project.common_stack import Feature
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
 from tests.test_utils.pynamo_test import PynamoTest
@@ -42,7 +44,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             apps={},
             region="region",
             assumed_role_arn="arn",
-            features=["feature1"],
+            features=[Feature.HEALTH_MONITOR.value],
         )
         self.project.save()
 
@@ -76,14 +78,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         return super().tearDown()
 
     @patch.object(AppDeployment, "run_app")
-    @patch("src.project.models.project.CommonStack")
-    async def test_run_base(self, mock_common_stack, mock_run_app):
+    async def test_run_common_pack(self, mock_run_app):
         # Arrange
-        common_stack = MagicMock(
-            spec=CommonStack,
-            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
-        )
-        mock_common_stack.return_value = common_stack
         common_app = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
@@ -96,29 +92,22 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.project.apps[Project.COMMON_APP_NAME] = 1  # project already has the app
 
         # Act
-        await self.project.run_base(
-            self.mock_stack_packs,
-            dict(self.config.get("common")),
+        await self.project.run_common_pack(
+            [*self.mock_stack_packs.values()],
+            ConfigValues(self.config.get("common")),
             self.mock_binary_storage,
             self.temp_dir,
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         common_app.run_app.assert_not_called()
 
         self.assertEqual({"common": 1}, self.project.apps)
         self.assertEqual({"id"}, common_app.deployments)
 
     @patch.object(AppDeployment, "run_app")
-    @patch("src.project.models.project.CommonStack")
-    async def test_run_base_latest_not_deployed(self, mock_common_stack, mock_run_app):
+    async def test_run_common_pack_latest_not_deployed(self, mock_run_app):
         # Arrange
-        common_stack = MagicMock(
-            spec=CommonStack,
-            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
-        )
-        mock_common_stack.return_value = common_stack
         common_app = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
@@ -130,48 +119,40 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         common_app.save()
 
         # Act
-        await self.project.run_base(
-            self.mock_stack_packs,
-            dict(self.config.get("common")),
+        await self.project.run_common_pack(
+            [*self.mock_stack_packs.values()],
+            ConfigValues(self.config.get("common")),
             self.mock_binary_storage,
             self.temp_dir,
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         mock_run_app.assert_called_once_with(
-            common_stack, "/tmp/common", self.mock_binary_storage
+            self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
-        self.assertEqual({"common": 1}, self.project.apps)
+        self.assertEqual({"common": 2}, self.project.apps)
 
     @patch.object(AppDeployment, "run_app")
-    @patch("src.project.models.project.CommonStack")
-    async def test_run_base_does_not_exist(self, mock_common_stack, mock_run_app):
+    async def test_run_common_pack_does_not_exist(self, mock_run_app):
         # Arrange
-        common_stack = MagicMock(
-            spec=CommonStack,
-            additional_policies=[{"Version": "2012-10-17", "Statement": []}],
-        )
-        mock_common_stack.return_value = common_stack
         with self.assertRaises(DoesNotExist):
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
 
         # Act
-        await self.project.run_base(
-            self.mock_stack_packs,
-            dict(self.config.get("common")),
+        await self.project.run_common_pack(
+            [*self.mock_stack_packs.values()],
+            ConfigValues(self.config.get("common")),
             self.mock_binary_storage,
             self.temp_dir,
         )
 
         # Assert
-        mock_common_stack.assert_called_once_with(self.mock_stack_packs, ["feature1"])
         self.assertEqual({"common": 1}, self.project.apps)
         self.assertIsNotNone(
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
         )
         mock_run_app.assert_called_once_with(
-            common_stack, "/tmp/common", self.mock_binary_storage
+            self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
 
     @patch.object(AppDeployment, "run_app")
@@ -207,7 +188,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.return_value = common_stack
 
         # Act
-        await self.project.run_pack(
+        await self.project.run_packs(
             self.mock_stack_packs,
             self.config,
             self.temp_dir,
@@ -262,7 +243,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             }
         ]
         # Act
-        await self.project.run_pack(
+        await self.project.run_packs(
             self.mock_stack_packs,
             self.config,
             self.temp_dir,
@@ -296,7 +277,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_common_stack.return_value = common_stack
 
         # Act
-        await self.project.run_pack(
+        await self.project.run_packs(
             self.mock_stack_packs,
             self.config,
             self.temp_dir,
@@ -347,7 +328,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         mock_binary_storage = MagicMock(spec=BinaryStorage)
         # Act & Assert
         with self.assertRaises(ValueError):
-            await project.run_pack(
+            await project.run_packs(
                 mock_stack_packs,
                 config,
                 self.temp_dir,

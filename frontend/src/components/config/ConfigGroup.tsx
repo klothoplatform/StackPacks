@@ -7,7 +7,7 @@ import type {
 import { CollectionTypes } from "../../shared/configuration-properties.ts";
 
 type ConfigGroupProps = {
-  stackPackId?: string;
+  prefix?: string;
   qualifiedFieldId?: string;
   valueSelector?: string;
   fields?: Property[];
@@ -15,25 +15,20 @@ type ConfigGroupProps = {
 };
 
 export const ConfigGroup: FC<ConfigGroupProps> = ({
-  stackPackId,
+  prefix,
   qualifiedFieldId,
   valueSelector,
   fields,
 }) => {
   const rows: ReactNode[] = [];
-  let resourceMetadata: any;
 
   // Make sure that all field names are fully qualified with the configResource prefix
-  const prefix =
-    qualifiedFieldId?.startsWith(`${stackPackId}#`) || stackPackId === undefined
+  prefix =
+    qualifiedFieldId?.startsWith(`${prefix}#`) || prefix === undefined
       ? ""
-      : `${stackPackId}#`;
+      : `${prefix}#`;
   const addRow = (property: Property) => {
-    if (resourceMetadata?.imported) {
-      if (property.hidden === true) {
-        return;
-      }
-    } else if (
+    if (
       property.deployTime ||
       property.configurationDisabled ||
       property.hidden
@@ -53,15 +48,8 @@ export const ConfigGroup: FC<ConfigGroupProps> = ({
           }
           valueSelector={valueSelector}
           title={property.name}
-          required={
-            (property.required && !resourceMetadata?.imported) ||
-            (property.required &&
-              property.deployTime &&
-              resourceMetadata?.imported)
-          }
-          disabled={
-            property.configurationDisabled && !resourceMetadata?.imported
-          }
+          required={property.required}
+          disabled={property.configurationDisabled}
         />
       </div>,
     );

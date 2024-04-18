@@ -16,6 +16,7 @@ const importantPropertyPredicate = (property: Property) =>
 export interface DynamicSection {
   icon?: React.ReactNode;
   title: string;
+  prefix?: string;
   propertyMap: Map<string, Property[]>;
   defaultOpened?: boolean;
   flat?: boolean;
@@ -52,7 +53,7 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
                 return (
                   <ConfigGroup
                     key={index}
-                    stackPackId={stackPackId}
+                    prefix={`${section.prefix ? section.prefix + "#" : ""}${stackPackId}`}
                     fields={properties}
                   />
                 );
@@ -70,7 +71,7 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
               configGroups.push(
                 <ConfigGroup
                   key={stackPackId}
-                  stackPackId={stackPackId}
+                  prefix={stackPackId}
                   fields={properties}
                 />,
               );
@@ -86,7 +87,7 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
             configGroups.push(
               <ConfigGroup
                 key={stackPackId}
-                stackPackId={stackPackId}
+                prefix={stackPackId}
                 fields={importantProperties}
               />,
             );
@@ -104,7 +105,7 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
                 placement={"top-left"}
               >
                 <ConfigGroup
-                  stackPackId={stackPackId}
+                  prefix={stackPackId}
                   fields={additionalProperties}
                 />
               </CollapsibleSection>,

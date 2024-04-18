@@ -1,4 +1,6 @@
 import glob
+import secrets
+import string
 from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional
@@ -215,8 +217,9 @@ class StackConfig(BaseModel):
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
     action: Optional[str] = Field(default=None)
-    script: Optional[str] = Field(default=None)
     generate_default: bool = Field(default=False)
+    hidden: Optional[bool] = Field(default=False)
+    configurationDisabled: Optional[bool] = Field(default=False)
 
 
 class StackPack(BaseModel):
@@ -234,6 +237,12 @@ class StackPack(BaseModel):
         for k, v in self.configuration.items():
             if v.default is not None:
                 final_cfg[k] = v.default
+            if v.generate_default and user_config.get(k) is None:
+                validation = v.validation or {}
+                length = min(
+                    validation.get("maxLength", 16), validation.get("minLength", 16)
+                )
+                final_cfg[k] = generate_default(length)
         final_cfg.update(user_config)
         return final_cfg
 
@@ -244,6 +253,7 @@ class StackPack(BaseModel):
         for k, v in config.items():
             cfg = self.configuration.get(k)
             if cfg is None:
+                logger.debug(f"no configuration for {k}")
                 continue
             if v in cfg.values:
                 constraints.extend(cfg.values[v].to_constraints(config))
@@ -317,3 +327,8 @@ def get_app_name(app_id: str):
         app_id = app_id.split("#")[1]
     pack = get_stack_packs().get(app_id)
     return pack.name if pack else app_id
+
+
+def generate_default(length: int):
+    cs = string.ascii_letters + string.digits
+    return "".join(cs[secrets.randbelow(len(cs))] for _ in range(length))

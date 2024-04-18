@@ -118,6 +118,7 @@ export type RawProperty = {
   properties: object;
   default?: any;
   secret?: boolean;
+  hidden?: boolean;
   validation: {
     required?: boolean;
     allowedValues?: string[];
@@ -185,6 +186,7 @@ export function parseProperty(
     default: defaultValue,
     validation,
     secret,
+    hidden,
   }: RawProperty = rawProperty as any;
 
   const {
@@ -222,6 +224,7 @@ export function parseProperty(
     required,
     defaultValue,
     important,
+    hidden,
   };
 
   switch (type) {

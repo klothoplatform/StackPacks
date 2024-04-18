@@ -25,7 +25,6 @@ export interface ChooseAppsFormState {
 
 export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
   const {
-    stackPacks,
     updateOnboardingWorkflowState,
     getStackPacks,
     createOrUpdateProject,
@@ -33,7 +32,7 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
     project,
   } = useApplicationStore();
 
-  const [apps, setApps] = useState<Stackpack[]>([...stackPacks.values()]);
+  const [apps, setApps] = useState<Stackpack[]>([]);
   const [selectedApps, setSelectedApps] = useState<string[]>(
     Object.keys(project?.stack_packs ?? {}) ?? [],
   );
@@ -53,10 +52,10 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
 
     // load stack packs
     (async () => {
-      const stackPacks = await getStackPacks();
+      const stackPacks = await getStackPacks(true);
       setApps(
         [...stackPacks.values()].filter(
-          (sp) => !currentProjectApps.includes(sp.id),
+          (sp) => sp.id !== "common" && !currentProjectApps.includes(sp.id),
         ),
       );
     })();
@@ -73,15 +72,6 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
       methods.unregister("selectedApps", {});
     };
   });
-
-  useEffect(() => {
-    const currentProjectApps = Object.keys(project?.stack_packs ?? {});
-    setApps(
-      [...stackPacks.values()].filter(
-        (sp) => !currentProjectApps.includes(sp.id),
-      ),
-    );
-  }, [project, stackPacks]);
 
   useEffect(() => {
     methods.setValue("selectedApps", selectedApps, {
@@ -131,7 +121,7 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
     } catch (e) {
       addError(
         new UIError({
-          message: "Stack creation failed.",
+          message: "Adding app failed.",
           cause: e,
         }),
       );

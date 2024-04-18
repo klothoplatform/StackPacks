@@ -75,10 +75,10 @@ function ProjectRootPage() {
   }, [getStackPacks, getProject, isAuthenticated, isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && !project?.id) {
+    if (isLoaded && isAuthenticated && !project?.id) {
       navigate("/onboarding");
     }
-  }, [isLoaded, navigate, project]);
+  }, [isAuthenticated, isLoaded, navigate, project]);
 
   return (
     <div

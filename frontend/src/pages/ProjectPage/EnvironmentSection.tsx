@@ -20,6 +20,7 @@ import useApplicationStore from "../store/ApplicationStore.ts";
 import { AiOutlineLoading } from "react-icons/ai";
 import { CostBreakdown } from "./CostBreakdown.tsx";
 import { PolicyViewer } from "../../components/PolicyViewer.tsx";
+import { AppStatusBadge } from "../../components/AppStatusBadge.tsx";
 
 export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
   const { mode } = useThemeMode();
@@ -41,6 +42,9 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
   }, [currentCost]);
 
   useEffect(() => {
+    if (!project) {
+      return;
+    }
     (async () => {
       setIsRefreshingCost(true);
       try {
@@ -82,6 +86,14 @@ export const EnvironmentSection: FC<{ project: Project }> = ({ project }) => {
               </div>
             </button>
           </EnvironmentItem>
+          {project?.stack_packs?.["common"]?.status && (
+            <EnvironmentItem label={"Common Infrastructure Status"}>
+              <AppStatusBadge
+                status={project.stack_packs["common"]?.status}
+                rtl
+              />
+            </EnvironmentItem>
+          )}
           <EnvironmentItem label={"Estimated Monthly Cost"}>
             {isRefreshingCost && currentCost === undefined ? (
               <span className={"text-gray-500"}>
