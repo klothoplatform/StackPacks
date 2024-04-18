@@ -144,7 +144,10 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
-        mock_get_stack_packs.return_value = {"app1": MagicMock(), "app2": MagicMock()}
+        mock_get_stack_packs.return_value = {
+            "app1": MagicMock(id="app1"),
+            "app2": MagicMock(id="app2"),
+        }
 
         project = MagicMock(
             spec=Project,
@@ -183,7 +186,7 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
             tmp_dir="/tmp",
         )
         project.run_common_pack.assert_called_once_with(
-            stack_packs=[mock_get_stack_packs.return_value["app2"]],
+            stack_packs=list(mock_get_stack_packs.return_value.values()),
             config={},
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",

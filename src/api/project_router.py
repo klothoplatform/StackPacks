@@ -241,10 +241,14 @@ async def add_app(
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
-        common_policy = await project.run_common_pack(
-            stack_packs=[
-                stack_packs[a] for a in configuration.keys() if a in stack_packs
-            ],
+        sps_in_project = [
+            stack_packs[a]
+            for a in set(configuration.keys()) | set(project.apps.keys())
+            if a in stack_packs
+        ]
+        sps_in_project.sort(key=lambda x: x.id)
+        await project.run_base(
+            stack_packs=sps_in_project,
             config=ConfigValues(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,

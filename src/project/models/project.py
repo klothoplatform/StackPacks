@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -172,12 +171,6 @@ class Project(Model):
                 common_stack, str(subdir.absolute()), binary_storage
             )
 
-            # Run the packs in parallel and only store the iac if we are incrementing the version
-            for pol in common_stack.additional_policies:
-                additional_policies = Policy(json.dumps(pol))
-                curr_policy = Policy(app.policy)
-                curr_policy.combine(additional_policies)
-                app.policy = str(curr_policy)
         if not dry_run:
             app.save()
             self.apps[Project.COMMON_APP_NAME] = app.version()
@@ -346,9 +339,7 @@ class Project(Model):
     def stack_packs(self) -> List[StackPack]:
         """Get the stack packs for the project app deployments associated with the project"""
         sps = get_stack_packs()
-        return [
-            sps[app_id] for app_id in self.apps.keys() if sps.get(app_id) is not None
-        ]
+        return [sps[app_id] for app_id in self.apps.keys() if app_id in sps]
 
     def get_app_deployments(self) -> Iterator[AppDeployment]:
         """Get the app deployments associated with the project using a batch get operation"""

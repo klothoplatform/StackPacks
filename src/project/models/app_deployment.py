@@ -200,39 +200,44 @@ class AppDeployment(Model):
                 break
 
         logger.debug(f"{self.app_id()} has empty config: {is_empty_config}")
+        policy = None
         if is_empty_config:
             policy_path = Path("policies") / f"{self.app_id()}.json"
             logger.debug(
                 f"Checking if policy exists: {policy_path}: {policy_path.exists()}"
             )
             if policy_path.exists():
-                self.policy = policy_path.read_text()
-                if not dry_run:
-                    self.save()
-                return
+                policy = Policy(policy_path.read_text())
 
-        constraints = stack_pack.to_constraints(cfg)
-        constraints.extend(imports)
-        if len(imports) == 0:
-            common_modules = CommonStack([stack_pack], [])
-            constraints.extend(common_modules.to_constraints({}))
+        if policy is None:
+            constraints = stack_pack.to_constraints(cfg)
+            constraints.extend(imports)
+            if len(imports) == 0:
+                common_modules = CommonStack([stack_pack], [])
+                constraints.extend(common_modules.to_constraints({}))
 
-        binary_storage.ensure_binary(Binary.ENGINE)
-        engine_result: RunEngineResult = await run_engine(
-            RunEngineRequest(
-                tag=self.global_tag(),
-                constraints=constraints,
-                tmp_dir=app_dir,
+            binary_storage.ensure_binary(Binary.ENGINE)
+            engine_result: RunEngineResult = await run_engine(
+                RunEngineRequest(
+                    tag=self.global_tag(),
+                    constraints=constraints,
+                    tmp_dir=app_dir,
+                )
             )
-        )
-        if is_empty_config:
-            policy_path = Path("policies") / f"{self.app_id()}.json"
-            if not policy_path.exists():
-                # Shouldn't happen if policies are precomputed via scripts/cli.py policy_gen generate_policies
-                policy_path.parent.mkdir(parents=True, exist_ok=True)
-                policy_path.write_text(engine_result.policy)
+            if is_empty_config:
+                policy_path = Path("policies") / f"{self.app_id()}.json"
+                if not policy_path.exists():
+                    # Shouldn't happen if policies are precomputed via scripts/cli.py policy_gen generate_policies
+                    policy_path.parent.mkdir(parents=True, exist_ok=True)
+                    policy_path.write_text(engine_result.policy)
 
-        self.policy = engine_result.policy
+            policy = Policy(engine_result.policy)
+            for pol in stack_pack.additional_policies:
+                additional_policies = Policy()
+                additional_policies.policy = pol
+                policy.combine(additional_policies)
+            self.policy = str(policy)
+
         if not dry_run:
             self.save()
 

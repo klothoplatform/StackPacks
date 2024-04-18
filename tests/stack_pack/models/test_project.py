@@ -1,14 +1,12 @@
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, call, patch
+from unittest.mock import MagicMock, call, patch
 
 import aiounittest
 from pynamodb.exceptions import DoesNotExist
 
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, Resources, StackParts
-from src.project import StackPack
-from src.project.common_stack import CommonStack
-from src.project.common_stack import Feature
+from src.project.common_stack import CommonStack, Feature
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
 from tests.test_utils.pynamo_test import PynamoTest
@@ -58,8 +56,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.mock_stack_packs["app2"].to_constraints.return_value = [
             {"scope": "application", "operator": "add", "node": "aws:B:app2"}
         ]
-        for key, mock in self.mock_stack_packs.items():
-            mock.return_value.name = PropertyMock(return_value=key)
         self.config: dict[str, ConfigValues] = {
             "app1": ConfigValues(),
             "app2": ConfigValues(),
@@ -105,18 +101,9 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.assertEqual({"common": 1}, self.project.apps)
         self.assertEqual({"id"}, common_app.deployments)
 
-    @patch.object(AppDeployment, "run_app")
-    async def test_run_common_pack_latest_not_deployed(self, mock_run_app):
+    @patch.object(AppDeployment, "update_policy")
+    async def test_run_common_pack_latest_not_deployed(self, mock_update_policy):
         # Arrange
-        common_app = AppDeployment(
-            project_id="id",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
-            created_by="created_by",
-            configuration=dict(self.config.get("common")),
-            status=AppLifecycleStatus.NEW.value,
-            deployments=None,
-        )
-        common_app.save()
 
         # Act
         await self.project.run_common_pack(
@@ -127,13 +114,13 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         )
 
         # Assert
-        mock_run_app.assert_called_once_with(
+        mock_update_policy.assert_called_once_with(
             self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
         self.assertEqual({"common": 2}, self.project.apps)
 
-    @patch.object(AppDeployment, "run_app")
-    async def test_run_common_pack_does_not_exist(self, mock_run_app):
+    @patch.object(AppDeployment, "update_policy")
+    async def test_run_common_pack_does_not_exist(self, mock_update_policy):
         # Arrange
         with self.assertRaises(DoesNotExist):
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
@@ -151,7 +138,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.assertIsNotNone(
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
         )
-        mock_run_app.assert_called_once_with(
+        mock_update_policy.assert_called_once_with(
             self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
 
@@ -255,9 +242,11 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.assertEqual({"app1": 1, "app2": 2}, self.project.apps)
         mock_run_app.assert_not_called()
 
-    @patch.object(AppDeployment, "run_app")
+    @patch.object(AppDeployment, "update_policy")
     @patch("src.project.models.project.CommonStack")
-    async def test_run_pack_app_doesnt_exist(self, mock_common_stack, mock_run_app):
+    async def test_run_pack_app_doesnt_exist(
+        self, mock_common_stack, mock_update_policy
+    ):
         # Arrange
         app2 = AppDeployment(
             project_id="id",
@@ -289,7 +278,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             {"app1": 1, "app2": 2},
             self.project.apps,
         )
-        mock_run_app.assert_has_calls(
+        mock_update_policy.assert_has_calls(
             [
                 call(
                     self.mock_stack_packs["app1"],
