@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiounittest
 from fastapi import HTTPException
@@ -183,7 +183,7 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
             tmp_dir="/tmp",
         )
         project.run_common_pack.assert_called_once_with(
-            stack_packs=list(mock_get_stack_packs.return_value.values()),
+            stack_packs=[mock_get_stack_packs.return_value["app2"]],
             config={},
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",
@@ -239,7 +239,7 @@ class TestProjectRoutes(aiounittest.AsyncTestCase):
             tmp_dir="/tmp",
         )
         project.run_common_pack.assert_called_once_with(
-            stack_packs=list(mock_get_stack_packs.return_value.values()),
+            stack_packs=[mock_get_stack_packs.return_value["app1"]],
             config={},
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",

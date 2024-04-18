@@ -249,6 +249,7 @@ async def add_app(
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
+        project.save()
         return StackResponse(
             stack=project.to_view_model(), policy=str(project.get_policy())
         )
