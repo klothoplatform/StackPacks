@@ -118,7 +118,6 @@ configuration:
     name: SMTP Host
     description: The SMTP host to use for sending emails. See https://docs.aws.amazon.com/general/latest/gr/ses.html
     type: string
-    default: email.<region>.amazonaws.com
     validation:
       minLength: 1
       maxLength: 63
@@ -155,6 +154,7 @@ configuration:
     description: The secret to use for authentication. Highly recommend using `openssl rand -base64 32` to generate a key.
     type: string
     secret: true
+    generate_default: true
     validation:
       minLength: 6
       maxLength: 128
@@ -164,6 +164,7 @@ configuration:
     description: Encryption key that will be used to encrypt CalDAV credentials, choose a random string, for example with `dd if=/dev/urandom bs=1K count=1 | md5sum`
     type: string
     secret: true
+    generate_default: true
     validation:
       minLength: 8
       maxLength: 128

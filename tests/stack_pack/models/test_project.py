@@ -5,11 +5,28 @@ import aiounittest
 from pynamodb.exceptions import DoesNotExist
 
 from src.engine_service.binaries.fetcher import BinaryStorage
-from src.project import ConfigValues, Resources, StackPack, StackParts
+from src.project import ConfigValues, Resources, StackParts
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
 from tests.test_utils.pynamo_test import PynamoTest
+
+
+def MockStackPack(app_id: str):
+    sp = MagicMock(
+        id=app_id,
+        version="1",
+        description=f"{app_id} desc",
+        requires=[],
+        base=MagicMock(spec=StackParts, resources=MagicMock(spec=Resources)),
+        configuration={},
+        outputs={},
+        to_constraints=MagicMock(),
+    )
+    # name is also a input parameter to MagicMock init, but it doesn't set the property
+    # so do it manually here
+    sp.name = app_id
+    return sp
 
 
 class TestProject(PynamoTest, aiounittest.AsyncTestCase):
@@ -30,16 +47,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.project.save()
 
         self.mock_stack_packs = {
-            "app1": MagicMock(
-                spec=StackPack.model_fields.keys(),
-                base=MagicMock(spec=StackParts, resources=MagicMock(spec=Resources)),
-                to_constraints=MagicMock(),
-            ),
-            "app2": MagicMock(
-                spec=StackPack.model_fields.keys(),
-                base=MagicMock(spec=StackParts, resources=MagicMock(spec=Resources)),
-                to_constraints=MagicMock(),
-            ),
+            "app1": MockStackPack("app1"),
+            "app2": MockStackPack("app2"),
         }
         self.mock_stack_packs["app1"].to_constraints.return_value = [
             {"scope": "application", "operator": "add", "node": "aws:A:app1"}
@@ -329,7 +338,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             assumed_role_arn="arn",
         )
         mock_stack_packs = {
-            "app1": MagicMock(spec=StackPack.__fields__.keys()),
+            "app1": MockStackPack("app1"),
         }
         config: dict[str, ConfigValues] = {
             "app1": ConfigValues(),

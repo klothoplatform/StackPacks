@@ -241,11 +241,7 @@ class Project(Model):
                     created_at=datetime.now(timezone.utc),
                     configuration=app_config,
                     status=AppLifecycleStatus.NEW.value,
-                    display_name=(
-                        stack_packs[app_id].name
-                        if stack_packs.get(app_id, None)
-                        else app_id
-                    ),
+                    display_name=stack_packs[app_id].name,
                 )
                 logger.debug(f"added app {app}")
             apps.append(app)

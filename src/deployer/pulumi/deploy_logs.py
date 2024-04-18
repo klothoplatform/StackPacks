@@ -108,7 +108,10 @@ class DeployLogHandler(PatternMatchingEventHandler):
 
     def close(self, interrupted=True):
         if self.watch is not None:
-            DeployLogHandler.OBSERVER.unschedule(self.watch)
+            try:
+                DeployLogHandler.OBSERVER.unschedule(self.watch)
+            except KeyError:
+                pass
             self.watch = None
         if self.file is not None:
             self.file.close()
