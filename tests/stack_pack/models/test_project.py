@@ -78,14 +78,16 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Arrange
         common_app = AppDeployment(
             project_id="id",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
+            range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
             status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         common_app.save()
-        self.project.apps[Project.COMMON_APP_NAME] = 1  # project already has the app
+        self.project.apps[CommonStack.COMMON_APP_NAME] = (
+            1  # project already has the app
+        )
 
         # Act
         await self.project.run_common_pack(
@@ -303,7 +305,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             owner="owner",
             created_by="created_by",
-            apps={"app1": 1, "app2": 1, Project.COMMON_APP_NAME: 1},
+            apps={"app1": 1, "app2": 1, CommonStack.COMMON_APP_NAME: 1},
             region="region",
             assumed_role_arn="arn",
         )
@@ -330,14 +332,14 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             owner="owner",
             created_by="created_by",
-            apps={"app1": 1, "app2": 2, Project.COMMON_APP_NAME: 1},
+            apps={"app1": 1, "app2": 2, CommonStack.COMMON_APP_NAME: 1},
             region="region",
             assumed_role_arn="arn",
         )
 
         common_app = AppDeployment(
             project_id="id",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
+            range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
             status=AppLifecycleStatus.NEW.value,
@@ -383,7 +385,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             owner="owner",
             created_by="created_by",
-            apps={"app1": 1, "app2": 1, Project.COMMON_APP_NAME: 1},
+            apps={"app1": 1, "app2": 1, CommonStack.COMMON_APP_NAME: 1},
             region="region",
             assumed_role_arn="arn",
         )

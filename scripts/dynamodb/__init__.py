@@ -120,6 +120,7 @@ async def list_user_apps():
         "Status",
         "Status Reason",
         "Configuration",
+        "Deployments",
     ]
 
     # Add the items to the table
@@ -134,6 +135,7 @@ async def list_user_apps():
                 item.get("status", None),
                 item.get("status_reason", None),
                 item["configuration"],
+                item.get("deployments", None),
             ]
         )
 
@@ -221,3 +223,27 @@ async def transition_user_app_status(pack_id, range_key, new_status):
     table.put_item(Item=item)
 
     print(f"Status of app '{range_key}' updated to '{new_status}'.")
+
+
+@dynamodb.command()
+@click.option("--table-name", prompt="Table name", help="The name of the table.")
+@click.option("--field-name", prompt="Field name", help="The name of the field.")
+async def transition_set_to_list(table_name, field_name):
+    # Create a DynamoDB resource
+    dynamodb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000")
+
+    # Get the table
+    table = dynamodb.Table(table_name)
+
+    def convert_set_to_list(item):
+        if field_name in item and isinstance(item[field_name], set):
+            item[field_name] = list(item[field_name])
+            return item
+
+    # Scan the table and update items
+    table = dynamodb.Table(table_name)
+    response = table.scan()
+    for item in response["Items"]:
+        updated_item = convert_set_to_list(item)
+        if updated_item:
+            table.put_item(Item=updated_item)

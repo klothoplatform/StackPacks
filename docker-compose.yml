@@ -43,5 +43,12 @@ services:
         /usr/bin/mc mb myminio/iac-store
         /usr/bin/mc anonymous set public myminio/iac-store
 
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+    ports:
+      - "8001:8001"
+
 volumes:
   minio_data:

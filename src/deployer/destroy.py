@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from aiomultiprocess import Pool
 from pulumi import automation as auto
@@ -23,6 +23,7 @@ from src.deployer.models.workflow_run import (
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
+from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
 from src.project.storage.iac_storage import IaCDoesNotExistError
@@ -236,7 +237,7 @@ async def destroy_applications(
 ) -> bool:
     deployment_stacks: list[StackDeploymentRequest] = []
     for job in destroy_jobs:
-        if job.modified_app_id == Project.COMMON_APP_NAME:
+        if job.modified_app_id == CommonStack.COMMON_APP_NAME:
             continue
         deployment_stacks.append(
             StackDeploymentRequest(
@@ -307,7 +308,7 @@ async def execute_destroy_single_workflow(run: WorkflowRun, destroy_common: bool
                         run_number=run.run_number(),
                     ),
                     job_type=WorkflowJobType.DESTROY,
-                    modified_app_id=Project.COMMON_APP_NAME,
+                    modified_app_id=CommonStack.COMMON_APP_NAME,
                     initiated_by=run.initiated_by,
                     dependencies=[destroy_app_job.composite_key()],
                 )
@@ -346,7 +347,7 @@ async def execute_destroy_all_workflow(
         logger.info(f"Destroying app stacks")
 
         with TempDir() as tmp_dir:
-            common_version = project.apps.get(Project.COMMON_APP_NAME, 0)
+            common_version = project.apps.get(CommonStack.COMMON_APP_NAME, 0)
             if common_version == 0:
                 raise ValueError("Common stack not found")
 
@@ -363,7 +364,7 @@ async def execute_destroy_all_workflow(
                     initiated_by=run.initiated_by,
                 )
                 for app_id in project.apps.keys()
-                if app_id != Project.COMMON_APP_NAME
+                if app_id != CommonStack.COMMON_APP_NAME
             ]
 
             destroy_common_job = WorkflowJob.create_job(
@@ -374,7 +375,7 @@ async def execute_destroy_all_workflow(
                     run_number=run.run_number(),
                 ),
                 job_type=WorkflowJobType.DESTROY,
-                modified_app_id=Project.COMMON_APP_NAME,
+                modified_app_id=CommonStack.COMMON_APP_NAME,
                 initiated_by=run.initiated_by,
                 dependencies=[job.composite_key() for job in destroy_app_jobs],
             )
@@ -394,7 +395,7 @@ async def execute_destroy_all_workflow(
             common_app = AppDeployment.get(
                 project_id,
                 AppDeployment.compose_range_key(
-                    Project.COMMON_APP_NAME, common_version
+                    CommonStack.COMMON_APP_NAME, common_version
                 ),
             )
             common_app.update(
@@ -425,3 +426,104 @@ async def execute_destroy_all_workflow(
         abort_workflow_run(run)
     finally:
         project.update(actions=[Project.destroy_in_progress.set(False)])
+
+
+def create_destroy_workflow_jobs(
+    run: WorkflowRun,
+    apps: List[str],
+    keep_common: bool = False,
+) -> WorkflowJob:
+    project_id = run.project_id
+    project = Project.get(project_id)
+
+    destroy_app_jobs = [
+        WorkflowJob.create_job(
+            partition_key=WorkflowJob.compose_partition_key(
+                project_id=project_id,
+                workflow_type=WorkflowType.DESTROY.value,
+                owning_app_id=None,
+                run_number=run.run_number(),
+            ),
+            job_type=WorkflowJobType.DESTROY,
+            modified_app_id=app_id,
+            initiated_by=run.initiated_by,
+        )
+        for app_id in apps
+        if app_id != CommonStack.COMMON_APP_NAME
+    ]
+    destroy_common = False
+    if not keep_common:
+        installed_apps = set()
+        for a in project.apps:
+            if a not in [CommonStack.COMMON_APP_NAME, *apps]:
+                app = AppDeployment.get_latest_deployed_version(project.id, a)
+                if app is not None:
+                    installed_apps.add(a)
+        logger.info(f"Installed apps: {installed_apps}")
+        if len(installed_apps) == 0:
+            project.update(actions=[Project.destroy_in_progress.set(True)])
+            destroy_common = True
+
+    if not destroy_common:
+        return None
+    destroy_common_job = WorkflowJob.create_job(
+        partition_key=WorkflowJob.compose_partition_key(
+            project_id=project_id,
+            workflow_type=WorkflowType.DESTROY.value,
+            owning_app_id=None,
+            run_number=run.run_number(),
+        ),
+        job_type=WorkflowJobType.DESTROY,
+        modified_app_id=CommonStack.COMMON_APP_NAME,
+        initiated_by=run.initiated_by,
+        dependencies=[job.composite_key() for job in destroy_app_jobs],
+    )
+    return destroy_common_job
+
+
+async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):
+    logger.info("GGEWWGEGWEG")
+    import anyio
+
+    from src.cli.destroy import destroy_workflow
+    from src.cli.workflow_management import (
+        abort_workflow,
+        complete_workflow,
+        get_app_workflows,
+        start_workflow,
+    )
+
+    try:
+        logger.info(f"Starting destroy workflow for {run.composite_key()}")
+        start_workflow(run.project_id, run.range_key)
+        logger.info(f"Getting app workflows for {run.composite_key()}")
+        app_flows = await get_app_workflows(run.project_id, run.range_key)
+        logger.info(f"App workflows: {app_flows}")
+        results = None
+        async with Pool() as pool:
+            tasks = []
+            for app_flow in app_flows:
+                task = pool.apply(
+                    destroy_workflow,
+                    kwds=dict(
+                        run_id=run.range_key,
+                        job_number=app_flow["range_key"],
+                    ),
+                )
+                tasks.append(task)
+
+            results = await asyncio.gather(*tasks)
+            logger.info(f"Tasks: {tasks}")
+        logger.info(results)
+        if all(result["status"] == "SUCCEEDED" for result in results):
+            logger.info(f"aborting destroy workflow for {run.composite_key()}")
+            abort_workflow(run.project_id, run.range_key)
+
+        if common_job is not None:
+            logger.info(f"destroying common stack for {run.composite_key()}")
+            await destroy_workflow(run.range_key, common_job.job_number)
+
+        logger.info(f"completing destroy workflow for {run.composite_key()}")
+        complete_workflow(run.project_id, run.range_key)
+    except Exception as e:
+        logger.error(f"Error destroying {run.composite_key()}: {e}", exc_info=True)

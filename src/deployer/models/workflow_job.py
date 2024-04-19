@@ -13,10 +13,7 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import PutError
 from pynamodb.models import Model
 
-from src.project import StackPack, get_app_name, get_stack_packs
-from src.project.common_stack import CommonStack
-from src.project.models.app_deployment import AppDeployment
-from src.project.models.project import Project
+from src.project import get_app_name
 from src.util.logging import logger
 
 
@@ -75,28 +72,10 @@ class WorkflowJob(Model):
     def run_number(self) -> int:
         return int(self.partition_key.split("#")[3])
 
-    def get_project_and_app(self) -> tuple[Project, AppDeployment]:
-        project = Project.get(self.project_id())
-        app = AppDeployment.get(
-            self.project_id(),
-            AppDeployment.compose_range_key(
-                app_id=self.modified_app_id, version=project.apps[self.modified_app_id]
-            ),
-        )
-        return project, app
-
-    def get_stack_pack(self) -> StackPack:
-        project = Project.get(self.project_id())
-        app_id = self.modified_app_id
-        stack_packs = get_stack_packs()
-        if app_id in stack_packs:
-            stack_pack = stack_packs[app_id]
-        else:
-            stack_pack = CommonStack(
-                stack_packs=[stack_packs[a] for a in project.apps if a in stack_packs],
-                features=project.features,
-            )
-        return stack_pack
+    @staticmethod
+    def get_latest_job(partition_key: str):
+        for job in WorkflowJob.query(partition_key, scan_index_forward=False, limit=1):
+            return job
 
     @staticmethod
     def compose_partition_key(
@@ -106,6 +85,11 @@ class WorkflowJob(Model):
 
     def composite_key(self) -> str:
         return f"{self.partition_key}#{self.job_number}"
+
+    @staticmethod
+    def composite_key_to_keys(composite_key: str) -> tuple[str, int]:
+        partition_key, job_number = composite_key.rsplit("#", 1)
+        return partition_key, int(job_number)
 
     def run_composite_key(self) -> str:
         return self.partition_key

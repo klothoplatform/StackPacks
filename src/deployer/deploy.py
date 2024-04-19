@@ -291,13 +291,13 @@ async def deploy_applications(
     common_app = AppDeployment.get(
         project.id,
         AppDeployment.compose_range_key(
-            app_id=Project.COMMON_APP_NAME,
-            version=project.apps[Project.COMMON_APP_NAME],
+            app_id=CommonStack.COMMON_APP_NAME,
+            version=project.apps[CommonStack.COMMON_APP_NAME],
         ),
     )
     for job in deployment_jobs:
         app_id = job.modified_app_id
-        if app_id == Project.COMMON_APP_NAME:
+        if app_id == CommonStack.COMMON_APP_NAME:
             continue  # Common stack is deployed separately
         app = AppDeployment.get_latest_version(
             project_id=job.project_id(), app_id=app_id
@@ -373,21 +373,21 @@ async def execute_deployment_workflow(
         if project.destroy_in_progress:
             raise ValueError("Pack is currently being torn down")
 
-        common_version = project.apps.get(Project.COMMON_APP_NAME, 0)
+        common_version = project.apps.get(CommonStack.COMMON_APP_NAME, 0)
         if common_version == 0:
             raise ValueError("Common stack not found")
 
         common_app = AppDeployment.get(
             project_id,
             AppDeployment.compose_range_key(
-                app_id=Project.COMMON_APP_NAME, version=common_version
+                app_id=CommonStack.COMMON_APP_NAME, version=common_version
             ),
         )
         common_stack = CommonStack(list(stack_packs.values()), project.features)
         apps: list[AppDeployment] = []
 
         for app_name, version in project.apps.items():
-            if app_name == Project.COMMON_APP_NAME:
+            if app_name == CommonStack.COMMON_APP_NAME:
                 continue
             app = AppDeployment.get(
                 project_id,
@@ -416,13 +416,13 @@ async def execute_deployment_workflow(
                     run_number=run.run_number(),
                 ),
                 job_type=WorkflowJobType.DEPLOY,
-                modified_app_id=Project.COMMON_APP_NAME,
+                modified_app_id=CommonStack.COMMON_APP_NAME,
                 initiated_by=run.initiated_by,
             )
 
             deploy_app_jobs = []
             for app_name, _ in project.apps.items():
-                if app_name == Project.COMMON_APP_NAME:
+                if app_name == CommonStack.COMMON_APP_NAME:
                     continue
                 deploy_app_jobs.append(
                     WorkflowJob.create_job(
@@ -452,7 +452,7 @@ async def execute_deployment_workflow(
                     actions=[
                         WorkflowRun.status.set(WorkflowRunStatus.FAILED.value),
                         WorkflowRun.status_reason.set(
-                            f"{get_app_name(Project.COMMON_APP_NAME)} failed to deploy: {result.reason}"
+                            f"{get_app_name(CommonStack.COMMON_APP_NAME)} failed to deploy: {result.reason}"
                         ),
                     ]
                 )
@@ -492,7 +492,7 @@ async def execute_deployment_workflow(
         except Exception as e:
             abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
             for app_name, version in project.apps.items():
-                if app_name == Project.COMMON_APP_NAME:
+                if app_name == CommonStack.COMMON_APP_NAME:
                     continue
                 app = AppDeployment.get(
                     project_id,
@@ -523,8 +523,8 @@ async def execute_deploy_single_workflow(
     common_app = AppDeployment.get(
         project_id,
         AppDeployment.compose_range_key(
-            app_id=Project.COMMON_APP_NAME,
-            version=project.apps[Project.COMMON_APP_NAME],
+            app_id=CommonStack.COMMON_APP_NAME,
+            version=project.apps[CommonStack.COMMON_APP_NAME],
         ),
     )
 
@@ -536,7 +536,7 @@ async def execute_deploy_single_workflow(
             run_number=run.run_number(),
         ),
         job_type=WorkflowJobType.DEPLOY,
-        modified_app_id=Project.COMMON_APP_NAME,
+        modified_app_id=CommonStack.COMMON_APP_NAME,
         initiated_by=run.initiated_by,
     )
     deploy_app_job = WorkflowJob.create_job(
@@ -620,3 +620,84 @@ async def execute_deploy_single_workflow(
             app.transition_status(
                 WorkflowJobStatus.FAILED, WorkflowJobType.DEPLOY, str(e)
             )
+
+
+def create_deploy_workflow_jobs(
+    run: WorkflowRun,
+    apps: List[str],
+) -> WorkflowJob:
+    project_id = run.project_id
+    app_id = run.app_id()
+    project = Project.get(project_id)
+
+    if project.destroy_in_progress:
+        raise ValueError("Pack is currently being torn down")
+
+    deploy_common_job = WorkflowJob.create_job(
+        WorkflowJob.compose_partition_key(
+            project_id=project_id,
+            workflow_type=WorkflowJobType.DEPLOY.value,
+            owning_app_id=app_id,
+            run_number=run.run_number(),
+        ),
+        job_type=WorkflowJobType.DEPLOY,
+        modified_app_id=CommonStack.COMMON_APP_NAME,
+        initiated_by=run.initiated_by,
+    )
+    deploy_app_jobs = []
+    for app_name in apps:
+        if app_name == CommonStack.COMMON_APP_NAME:
+            continue
+        deploy_app_jobs.append(
+            WorkflowJob.create_job(
+                WorkflowJob.compose_partition_key(
+                    project_id=project.id,
+                    workflow_type=WorkflowJobType.DEPLOY.value,
+                    run_number=run.run_number(),
+                    owning_app_id=None,
+                ),
+                job_type=WorkflowJobType.DEPLOY,
+                modified_app_id=app_name,
+                initiated_by=run.initiated_by,
+                dependencies=[deploy_common_job.composite_key()],
+            )
+        )
+    return deploy_common_job
+
+
+async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
+    from src.cli.deploy import deploy_workflow
+    from src.cli.workflow_management import (
+        abort_workflow,
+        complete_workflow,
+        get_app_workflows,
+        send_email,
+        start_workflow,
+    )
+
+    await start_workflow(run.project_id, run.range_key)
+    result = await deploy_workflow(run.range_key, common_job.job_number)
+    if result["status"] != "SUCCEEDED":
+        await abort_workflow(run.project_id, run.range_key)
+        return
+    app_flows = await get_app_workflows(run.project_id, run.range_key)
+    results = None
+    async with Pool() as pool:
+        tasks = []
+        for app_flow in app_flows:
+            task = pool.apply(
+                deploy_workflow,
+                kwds=dict(
+                    run_id=run.range_key,
+                    job_number=app_flow["range_key"],
+                ),
+            )
+            tasks.append(task)
+
+        results = await asyncio.gather(*tasks)
+        logger.info(f"Tasks: {tasks}")
+
+    if all(result["status"] == "SUCCEEDED" for result in results):
+        await send_email(run.project_id, run.range_key)
+
+    complete_workflow(run.project_id, run.range_key)

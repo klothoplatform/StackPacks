@@ -24,4 +24,4 @@ if __name__ == "__main__":
     cli.add_command(send_email)
     cli.add_command(start_workflow)
     cli.add_command(complete_workflow)
-    cli()
+    cli.main()

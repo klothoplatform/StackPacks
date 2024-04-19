@@ -38,7 +38,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             region="region",
             assumed_role_arn="arn",
             assumed_role_external_id="external_id",
-            apps={"app1": 1, Project.COMMON_APP_NAME: 1},
+            apps={"app1": 1, CommonStack.COMMON_APP_NAME: 1},
             created_by="user",
             owner="user",
         )
@@ -58,7 +58,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         self.common_app = AppDeployment(
             project_id="project",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
+            range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="user",
             status=AppLifecycleStatus.INSTALLED.value,
             status_reason="reason",
@@ -651,7 +651,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
                         AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
                     ]
                 )
-            elif destroy_job.modified_app_id == Project.COMMON_APP_NAME:
+            elif destroy_job.modified_app_id == CommonStack.COMMON_APP_NAME:
                 self.common_app.update(
                     actions=[
                         AppDeployment.status.set(AppLifecycleStatus.UNINSTALLED.value)
@@ -736,7 +736,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
         jobs = list(workflow_run.get_jobs())
         common_job = [
-            job for job in jobs if job.modified_app_id == Project.COMMON_APP_NAME
+            job for job in jobs if job.modified_app_id == CommonStack.COMMON_APP_NAME
         ][0]
         app1_job = [job for job in jobs if job.modified_app_id == "app1"][0]
         mock_destroy_app.assert_called_once_with(app1_job, Path("/tmp"))

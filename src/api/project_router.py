@@ -313,7 +313,7 @@ async def remove_app(
 
     if len(configuration) == 0 or (
         len(configuration) == 1
-        and configuration.get(Project.COMMON_APP_NAME, None) is not None
+        and configuration.get(CommonStack.COMMON_APP_NAME, None) is not None
     ):
         project.apps = {}
         project.save()

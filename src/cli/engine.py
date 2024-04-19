@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pulumi import automation as auto
 
+from src.cli.util import get_project_and_app
 from src.dependencies.injection import (
     get_binary_storage,
     get_iac_storage,
@@ -18,7 +19,7 @@ from src.deployer.pulumi.manager import AppManager
 from src.engine_service.binaries.fetcher import Binary
 from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
 from src.engine_service.engine_commands.run import RunEngineResult
-from src.project import get_stack_packs
+from src.project import get_stack_pack, get_stack_packs
 from src.project.common_stack import CommonStack
 from src.project.live_state import LiveState
 from src.project.models.app_deployment import AppDeployment
@@ -29,6 +30,7 @@ from src.util.tmp import TempDir
 
 
 async def read_live_state(project_id: str, app_id: str) -> LiveState:
+    logger.info(f"Reading live state for {project_id}/{app_id}")
     common_app = AppDeployment.get_latest_deployed_version(project_id, app_id)
     hash_key, range_key = PulumiStack.split_composite_key(
         common_app.iac_stack_composite_key
@@ -46,17 +48,18 @@ async def read_live_state(project_id: str, app_id: str) -> LiveState:
 def get_constraints_from_common_live_state(
     project: Project, live_state: LiveState
 ) -> list:
+    logger.info("Getting constraints from common live state")
     if live_state is None:
         return []
     stack_packs = get_stack_packs()
-    common_version = project.apps.get(Project.COMMON_APP_NAME, 0)
+    common_version = project.apps.get(CommonStack.COMMON_APP_NAME, 0)
     if common_version == 0:
         raise ValueError("Common stack not found")
 
     common_app = AppDeployment.get(
         project.id,
         AppDeployment.compose_range_key(
-            app_id=Project.COMMON_APP_NAME, version=common_version
+            app_id=CommonStack.COMMON_APP_NAME, version=common_version
         ),
     )
     common_stack = CommonStack(list(stack_packs.values()), project.features)
@@ -66,12 +69,13 @@ def get_constraints_from_common_live_state(
 async def build_app(
     deployment_job: WorkflowJob, tmp_dir: Path, live_state: LiveState = None
 ) -> RunEngineResult:
+    logger.info(f"Building app for deployment job {deployment_job.composite_key()}")
     job_composite_key = deployment_job.composite_key()
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
     binary_storage = get_binary_storage()
-    project, app = deployment_job.get_project_and_app()
-    stack_pack = deployment_job.get_stack_pack()
+    project, app = get_project_and_app(deployment_job)
+    stack_pack = get_stack_pack(deployment_job)
     logger.info(f"Running {project_id}/{app_id}, deployment id {job_composite_key}")
     engine_result = await app.run_app(
         stack_pack=stack_pack,
@@ -85,9 +89,10 @@ async def build_app(
 async def generate_iac(
     run_result: RunEngineResult, deployment_job: WorkflowJob, tmp_dir: Path
 ):
+    logger.info(f"Generating IAC for deployment job {deployment_job.composite_key()}")
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
-    _, app = deployment_job.get_project_and_app()
+    project, app = get_project_and_app(deployment_job)
     binary_storage = get_binary_storage()
     iac_storage = get_iac_storage()
     binary_storage.ensure_binary(Binary.IAC)
@@ -98,7 +103,7 @@ async def generate_iac(
             tmp_dir=tmp_dir,
         )
     )
-    stack_pack = deployment_job.get_stack_pack()
+    stack_pack = get_stack_pack(deployment_job)
     stack_pack.copy_files(app.get_configurations(), tmp_dir)
     iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
     logger.info(f"Writing IAC for {app_id} version {app.version()}")

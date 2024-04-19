@@ -605,7 +605,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             region="region",
             assumed_role_arn="arn",
-            apps={Project.COMMON_APP_NAME: 1, "app1": 1},
+            apps={CommonStack.COMMON_APP_NAME: 1, "app1": 1},
             created_by="user",
             owner="owner",
             features=["feature1", "feature2"],
@@ -614,7 +614,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         common_app = AppDeployment(
             project_id="id",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
+            range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="user",
             status=WorkflowJobStatus.PENDING.value,
             status_reason="Deployment in progress",
@@ -734,7 +734,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             id="id",
             region="region",
             assumed_role_arn="arn",
-            apps={Project.COMMON_APP_NAME: 1, "app1": 1},
+            apps={CommonStack.COMMON_APP_NAME: 1, "app1": 1},
             created_by="user",
             owner="owner",
             features=["feature1", "feature2"],
@@ -744,7 +744,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
 
         common_app = AppDeployment(
             project_id="id",
-            range_key=AppDeployment.compose_range_key(Project.COMMON_APP_NAME, 1),
+            range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="user",
             status=WorkflowJobStatus.PENDING.value,
             status_reason="Deployment in progress",

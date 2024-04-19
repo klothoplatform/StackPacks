@@ -298,13 +298,13 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id.return_value = "user_id"
         mock_get_email.return_value = "users_email"
         project = MagicMock(
-            spec=Project, apps={"app1": 1, Project.COMMON_APP_NAME: 1, "app2": 1}
+            spec=Project, apps={"app1": 1, CommonStack.COMMON_APP_NAME: 1, "app2": 1}
         )
         mock_get_project.return_value = project
         app = MagicMock(spec=AppDeployment)
 
         def get_latest(_project_id, app_id):
-            if app_id in [Project.COMMON_APP_NAME, "app2"]:
+            if app_id in [CommonStack.COMMON_APP_NAME, "app2"]:
                 return MagicMock()
             elif app_id == "app1":
                 return app

@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Optional, Set
+from typing import Any, ClassVar, List, Optional, Set
 
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
@@ -15,7 +15,6 @@ from src.project import (
     StackPack,
     StackParts,
 )
-from src.project.models.project import Project
 
 
 class Feature(Enum):
@@ -58,6 +57,7 @@ def get_stack_pack_base() -> CommonPack:
 
 
 class CommonStack(StackPack):
+    COMMON_APP_NAME: ClassVar[str] = "common"
 
     always_inject: Set[str] = Field(default_factory=set)
     never_inject: Set[str] = Field(default_factory=set)
@@ -112,8 +112,8 @@ class CommonStack(StackPack):
             always_inject=always_inject,
             never_inject=never_inject,
             additional_policies=additional_policies,
-            id=Project.COMMON_APP_NAME,
-            name=Project.COMMON_APP_NAME,
+            id=CommonStack.COMMON_APP_NAME,
+            name=CommonStack.COMMON_APP_NAME,
             version="0.0.1",
             requires=[],
             base=stack_base,

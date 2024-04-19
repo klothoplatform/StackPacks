@@ -8,17 +8,12 @@ from starlette.responses import Response, StreamingResponse
 
 from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
-from src.deployer.deploy import (
-    execute_deploy_single_workflow,
-    execute_deployment_workflow,
-)
-from src.deployer.destroy import (
-    execute_destroy_all_workflow,
-    execute_destroy_single_workflow,
-)
+from src.deployer.deploy import create_deploy_workflow_jobs, run_full_deploy_workflow
+from src.deployer.destroy import create_destroy_workflow_jobs, run_full_destroy_workflow
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.pulumi.deploy_logs import DeploymentDir
+from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project
 from src.util.logging import logger
@@ -39,13 +34,23 @@ async def install(
         initiated_by=user_id,
         notification_email=users_email,
     )
+    project = Project.get(user_id)
+    if project.destroy_in_progress:
+        return HTTPException(
+            status_code=400,
+            detail="Tear down in progress",
+        )
+    common_job = create_deploy_workflow_jobs(
+        run,
+        list(project.apps.keys()),
+    )
 
-    background_tasks.add_task(execute_deployment_workflow, run)
+    background_tasks.add_task(run_full_deploy_workflow, run, common_job)
 
     return Response(
         media_type="application/json",
         status_code=201,
-        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump()),
     )
 
 
@@ -78,12 +83,20 @@ async def install_app(
         notification_email=users_email,
     )
 
-    background_tasks.add_task(execute_deploy_single_workflow, run)
+    common_job = create_deploy_workflow_jobs(
+        run,
+        [app_id],
+    )
+    background_tasks.add_task(run_full_deploy_workflow, run, common_job)
 
     return Response(
         media_type="application/json",
         status_code=201,
-        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
+        content={
+            "workflow_run": jsons.dumps(
+                WorkflowRunSummary.from_workflow_run(run).model_dump()
+            ),
+        },
     )
 
 
@@ -94,15 +107,20 @@ async def uninstall_all_apps(
 ):
     user_id = await get_user_id(request)
     users_email = await get_email(request)
-
     run = WorkflowRun.create(
         project_id=user_id,
         workflow_type=WorkflowType.DESTROY,
         initiated_by=user_id,
         notification_email=users_email,
     )
-
-    background_tasks.add_task(execute_destroy_all_workflow, run)
+    logger.info(f"Uninstalling all apps for project {user_id}")
+    project = Project.get(user_id)
+    common_job = create_destroy_workflow_jobs(
+        run,
+        list(project.apps.keys()),
+    )
+    project.update(actions=[Project.destroy_in_progress.set(True)])
+    background_tasks.add_task(run_full_destroy_workflow, run, common_job)
 
     return Response(
         media_type="application/json",
@@ -121,7 +139,6 @@ async def uninstall_app(
     user_id = await get_user_id(request)
     users_email = await get_email(request)
     project = Project.get(user_id)
-    destroy_common = False
     run = WorkflowRun.create(
         project_id=project.id,
         workflow_type=WorkflowType.DESTROY,
@@ -129,19 +146,14 @@ async def uninstall_app(
         initiated_by=user_id,
         notification_email=users_email,
     )
-    if not keep_common:
-        installed_apps = set()
-        for a in project.apps:
-            if a not in [Project.COMMON_APP_NAME, app_id]:
-                app = AppDeployment.get_latest_deployed_version(project.id, a)
-                if app is not None:
-                    installed_apps.add(a)
-        logger.info(f"Installed apps: {installed_apps}")
-        if len(installed_apps) == 0:
-            project.update(actions=[Project.destroy_in_progress.set(True)])
-            destroy_common = True
-
-    background_tasks.add_task(execute_destroy_single_workflow, run, destroy_common)
+    logger.info(f"Uninstalling app {app_id} for project {project.id}")
+    common_job = create_destroy_workflow_jobs(
+        run,
+        [app_id],
+        keep_common,
+    )
+    logger.info(f"Common job: {common_job}")
+    background_tasks.add_task(run_full_destroy_workflow, run, common_job)
 
     return Response(
         media_type="application/json",
@@ -224,14 +236,18 @@ async def stream_deployment_logs(
                 project_id=user_id,
                 workflow_type=workflow_type,
                 app_id=(
-                    owning_app_id if owning_app_id != Project.COMMON_APP_NAME else None
+                    owning_app_id
+                    if owning_app_id != CommonStack.COMMON_APP_NAME
+                    else None
                 ),
             )
         run_composite_id = latest_run.composite_key()
     else:
         run_range_key = WorkflowRun.compose_range_key(
             workflow_type=workflow_type.value,
-            app_id=owning_app_id if owning_app_id != Project.COMMON_APP_NAME else None,
+            app_id=(
+                owning_app_id if owning_app_id != CommonStack.COMMON_APP_NAME else None
+            ),
             run_number=int(run_number),
         )
         run_composite_id = f"{project_id}#{run_range_key}"
