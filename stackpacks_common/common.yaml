@@ -1,210 +1,197 @@
-network:
-  always_inject:
-    - aws:region:region
-    - aws:availability_zone:region:az1
-    - aws:availability_zone:region:az2
-  resources:
-    aws:region:region:
-    aws:availability_zone:region:az1:
-      Region: aws:region:region
-      Index: 0
-    aws:availability_zone:region:az2:
-      Region: aws:region:region
-      Index: 1
-    aws:vpc:stackpacks-vpc:
-    aws:subnet:stackpacks-private-subnet-1:
-      Type: private
-      Vpc: aws:vpc:stackpacks-vpc
-      AvailabilityZone: aws:availability_zone:region:az1
-    aws:subnet:stackpacks-private-subnet-2:
-      Type: private
-      Vpc: aws:vpc:stackpacks-vpc
-      AvailabilityZone: aws:availability_zone:region:az2
-    aws:subnet:stackpacks-public-subnet-1:
-      Type: public
-      Vpc: aws:vpc:stackpacks-vpc
-      AvailabilityZone: aws:availability_zone:region:az1
-    aws:subnet:stackpacks-public-subnet-2:
-      Type: public
-      Vpc: aws:vpc:stackpacks-vpc
-      AvailabilityZone: aws:availability_zone:region:az2
-  edges:
-    # We need to connect the subnets to the region since normally they autogenerate one and ecs requires a downstream region for logs
-    # Because the engine wont modify anything about existing resources without explicit command this is our workaround
-    aws:subnet:stackpacks-public-subnet-1 -> aws:region:region:
-    aws:subnet:stackpacks-public-subnet-2 -> aws:region:region:
-    aws:subnet:stackpacks-private-subnet-1 -> aws:region:region:
-    aws:subnet:stackpacks-private-subnet-2 -> aws:region:region:
+id: common
+version: '1.0.0'
+docker_images:
+  postgres_manager:
+    Dockerfile: Dockerfile
+    Context: postgres_manager
+  mysql_manager:
+    Dockerfile: Dockerfile
+    Context: mysql_manager
+  health_monitor:
+    Dockerfile: Dockerfile
+    Context: health_monitor
 
-ecs:
-  depends_on:
-    - network
-  resources:
-    aws:ecs_cluster:stackpacks-ecs-cluster:
+base:
+  network:
+    always_inject:
+      - aws:region:region
+      - aws:availability_zone:region:az1
+      - aws:availability_zone:region:az2
+    resources:
+      aws:region:region:
+      aws:availability_zone:region:az1:
+        Region: aws:region:region
+        Index: 0
+      aws:availability_zone:region:az2:
+        Region: aws:region:region
+        Index: 1
+      aws:vpc:stackpacks-vpc:
+      aws:subnet:stackpacks-private-subnet-1:
+        Type: private
+        Vpc: aws:vpc:stackpacks-vpc
+        AvailabilityZone: aws:availability_zone:region:az1
+      aws:subnet:stackpacks-private-subnet-2:
+        Type: private
+        Vpc: aws:vpc:stackpacks-vpc
+        AvailabilityZone: aws:availability_zone:region:az2
+      aws:subnet:stackpacks-public-subnet-1:
+        Type: public
+        Vpc: aws:vpc:stackpacks-vpc
+        AvailabilityZone: aws:availability_zone:region:az1
+      aws:subnet:stackpacks-public-subnet-2:
+        Type: public
+        Vpc: aws:vpc:stackpacks-vpc
+        AvailabilityZone: aws:availability_zone:region:az2
+    edges:
+      # We need to connect the subnets to the region since normally they autogenerate one and ecs requires a downstream region for logs
+      # Because the engine wont modify anything about existing resources without explicit command this is our workaround
+      aws:subnet:stackpacks-public-subnet-1 -> aws:region:region:
+      aws:subnet:stackpacks-public-subnet-2 -> aws:region:region:
+      aws:subnet:stackpacks-private-subnet-1 -> aws:region:region:
+      aws:subnet:stackpacks-private-subnet-2 -> aws:region:region:
 
-health_monitor:
-  always_inject:
-    - aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic
-  never_inject:
-    - aws:ecr_image:health_monitor
-    - aws:lambda_function:health_monitor
-  resources:
-    aws:ecr_image:health_monitor:
-      BaseImage: public.ecr.aws/lambda/python:3.12
-      Dockerfile: health_monitor/Dockerfile
-      Context: health_monitor
-    aws:sns_topic:alarm_actions_topic:
-    aws:lambda_function:health_monitor:
-      Image: aws:ecr_image:health_monitor#ImageName
-      EnvironmentVariables:
-        # TODO: Find a way to know how to set constraints smarter or fix the engine
-        constraint_top_level:
-        PACK_ID: ${PackId}
-        HEALTH_ENDPOINT_URL: ${HealthEndpointUrl}
-  edges:
-    aws:sns_topic:alarm_actions_topic -> aws:lambda_function:health_monitor:
-    aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic:
-  files: 
-    health_monitor/main.py:
-    health_monitor/requirements.txt:
-    health_monitor/Dockerfile:
+  ecs:
+    depends_on:
+      - network
+    resources:
+      aws:ecs_cluster:stackpacks-ecs-cluster:
 
-  configuration:
-    PackId: 
-      name: PackId
-      description: The pack id that this health monitor is monitoring
-      type: string
-      hidden: true
+  postgres:
+    never_inject:
+      - aws:lambda_function:postgres_manager
+    resources:
+      aws:rds_instance:stacksnap-postgres:
+        AllocatedStorage: 100
+      aws:lambda_function:postgres_manager:
+        Image: ${docker_image:postgres_manager}
+        Tags:
+          STACKSNAP_FUNCTION: POSTGRES_MANAGER
+        EnvironmentVariables:
+          # TODO: Find a way to know how to set constraints smarter or fix the engine
+          constraint_top_level:
+          DB_HOST: aws:rds_instance:stacksnap-postgres#Host
+          DB_USER: aws:rds_instance:stacksnap-postgres#Username
+          DB_PASSWORD: aws:rds_instance:stacksnap-postgres#Password
+    edges:
+      aws:lambda_function:postgres_manager -> aws:rds_instance:stacksnap-postgres:
 
-    HealthEndpointUrl:
-      name: HealthEndpointUrl
-      description: The health endpoint url that this health monitor is monitoring
-      type: string
-      hidden: true
+    configuration:
+      PostgresDBUsername:
+        name: Postgres Database Username
+        description: The username to use for your project's Postgres database user
+        configurationDisabled: true
+        type: string
+        default: masterdbuser
+        pulumi_key: klo:stacksnap-postgres-username
+        validation:
+          minLength: 1
+          maxLength: 63
 
-postgres:
-  never_inject:
-    - aws:ecr_image:postgres_manager
-    - aws:lambda_function:postgres_manager
-  resources:
-    aws:rds_instance:stacksnap-postgres:
-      AllocatedStorage: 100
-    aws:ecr_image:postgres_manager:
-      BaseImage: public.ecr.aws/lambda/python:3.12
-      Dockerfile: postgres_manager/Dockerfile
-      Context: postgres_manager
-    aws:lambda_function:postgres_manager:
-      Image: aws:ecr_image:postgres_manager#ImageName
-      Tags:
-        STACKSNAP_FUNCTION: POSTGRES_MANAGER
-      EnvironmentVariables:
-        # TODO: Find a way to know how to set constraints smarter or fix the engine
-        constraint_top_level:
-        DB_HOST: aws:rds_instance:stacksnap-postgres#Host
-        DB_USER: aws:rds_instance:stacksnap-postgres#Username
-        DB_PASSWORD: aws:rds_instance:stacksnap-postgres#Password
-  edges:
-    aws:lambda_function:postgres_manager -> aws:rds_instance:stacksnap-postgres:
-  files:
-    postgres_manager/main.py:
-    postgres_manager/requirements.txt:
-    postgres_manager/Dockerfile:
+      PostgresDBPassword:
+        name: Postgres Database Password
+        description: The password to use for your project's Postgres database user
+        type: string
+        generate_default: true
+        pulumi_key: klo:stacksnap-postgres-password
+        secret: true
+        validation:
+          minLength: 8
+          maxLength: 128
 
-  configuration:
-    PostgresDBUsername:
-      name: Postgres Database Username
-      description: The username to use for your project's Postgres database user
-      configurationDisabled: true
-      type: string
-      default: masterdbuser
-      pulumi_key: klo:stacksnap-postgres-username
-      validation:
-        minLength: 1
-        maxLength: 63
+    additional_policy:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: "Allow"
+          Action:
+            - "lambda:invokeFunction"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:ResourceTag/STACKSNAP_FUNCTION: "POSTGRES_MANAGER"
 
-    PostgresDBPassword:
-      name: Postgres Database Password
-      description: The password to use for your project's Postgres database user
-      type: string
-      generate_default: true
-      pulumi_key: klo:stacksnap-postgres-password
-      secret: true
-      validation:
-        minLength: 8
-        maxLength: 128
+  mysql:
+    never_inject:
+      - aws:lambda_function:mysql_manager
+    resources:
+      aws:rds_instance:stacksnap-mysql:
+        Engine: mysql
+        EngineVersion: '8.0.36'
+        AllocatedStorage: 100
+      aws:lambda_function:mysql_manager:
+        Image: ${docker_image:mysql_manager}
+        Tags:
+          STACKSNAP_FUNCTION: MYSQL_MANAGER
+        EnvironmentVariables:
+          # TODO: Find a way to know how to set constraints smarter or fix the engine
+          constraint_top_level:
+          DB_HOST: aws:rds_instance:stacksnap-mysql#Host
+          DB_USER: aws:rds_instance:stacksnap-mysql#Username
+          DB_PASSWORD: aws:rds_instance:stacksnap-mysql#Password
+    edges:
+      aws:lambda_function:mysql_manager -> aws:rds_instance:stacksnap-mysql:
 
-  additional_policy:
-    Version: "2012-10-17"
-    Statement:
-      - Effect: "Allow"
-        Action:
-          - "lambda:invokeFunction"
-        Resource: "*"
-        Condition:
-          StringEquals:
-            aws:ResourceTag/STACKSNAP_FUNCTION: "POSTGRES_MANAGER"
+    configuration:
+      MySqlDBUsername:
+        name: MySQL Database Username
+        description: The username to use for your project's MySQL database user
+        type: string
+        default: masterdbuser
+        pulumi_key: klo:stacksnap-mysql-username
+        configurationDisabled: true
+        validation:
+          minLength: 1
+          maxLength: 63
 
-mysql:
-  never_inject:
-    - aws:ecr_image:mysql_manager
-    - aws:lambda_function:mysql_manager
-  resources:
-    aws:rds_instance:stacksnap-mysql:
-      Engine: mysql
-      EngineVersion: '8.0.36'
-      AllocatedStorage: 100
-    aws:ecr_image:mysql_manager:
-      BaseImage: public.ecr.aws/lambda/python:3.12
-      Dockerfile: mysql_manager/Dockerfile
-      Context: mysql_manager
-    aws:lambda_function:mysql_manager:
-      Image: aws:ecr_image:mysql_manager#ImageName
-      Tags:
-        STACKSNAP_FUNCTION: MYSQL_MANAGER
-      EnvironmentVariables:
-        # TODO: Find a way to know how to set constraints smarter or fix the engine
-        constraint_top_level:
-        DB_HOST: aws:rds_instance:stacksnap-mysql#Host
-        DB_USER: aws:rds_instance:stacksnap-mysql#Username
-        DB_PASSWORD: aws:rds_instance:stacksnap-mysql#Password
-  edges:
-    aws:lambda_function:mysql_manager -> aws:rds_instance:stacksnap-mysql:
-  files:
-    mysql_manager/main.py:
-    mysql_manager/requirements.txt:
-    mysql_manager/Dockerfile:
+      MySqlDBPassword:
+        name: MySQL Database Password
+        description: The password to use for your project's MySQL database user
+        type: string
+        generate_default: true
+        pulumi_key: klo:stacksnap-mysql-password
+        secret: true
+        validation:
+          minLength: 8
+          maxLength: 128
 
-  configuration:
-    MySqlDBUsername:
-      name: MySQL Database Username
-      description: The username to use for your project's MySQL database user
-      type: string
-      default: masterdbuser
-      pulumi_key: klo:stacksnap-mysql-username
-      configurationDisabled: true
-      validation:
-        minLength: 1
-        maxLength: 63
+    additional_policy:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: "Allow"
+          Action:
+            - "lambda:invokeFunction"
+          Resource: "*"
+          Condition:
+            StringEquals:
+              aws:ResourceTag/STACKSNAP_FUNCTION: "MYSQL_MANAGER"
 
-    MySqlDBPassword:
-      name: MySQL Database Password
-      description: The password to use for your project's MySQL database user
-      type: string
-      generate_default: true
-      pulumi_key: klo:stacksnap-mysql-password
-      secret: true
-      validation:
-        minLength: 8
-        maxLength: 128
+  health_monitor:
+    always_inject:
+      - aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic
+    never_inject:
+      - aws:ecr_image:health_monitor
+      - aws:lambda_function:health_monitor
+    resources:
+      aws:sns_topic:alarm_actions_topic:
+      aws:lambda_function:health_monitor:
+        Image: ${docker_image:health_monitor}
+        EnvironmentVariables:
+          # TODO: Find a way to know how to set constraints smarter or fix the engine
+          constraint_top_level:
+          PACK_ID: ${PackId}
+          HEALTH_ENDPOINT_URL: ${HealthEndpointUrl}
+    edges:
+      aws:sns_topic:alarm_actions_topic -> aws:lambda_function:health_monitor:
+      aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic:
 
-  additional_policy:
-    Version: "2012-10-17"
-    Statement:
-      - Effect: "Allow"
-        Action:
-          - "lambda:invokeFunction"
-        Resource: "*"
-        Condition:
-          StringEquals:
-            aws:ResourceTag/STACKSNAP_FUNCTION: "MYSQL_MANAGER"
+    configuration:
+      PackId:
+        name: PackId
+        description: The pack id that this health monitor is monitoring
+        type: string
+        hidden: true
 
+      HealthEndpointUrl:
+        name: HealthEndpointUrl
+        description: The health endpoint url that this health monitor is monitoring
+        type: string
+        hidden: true

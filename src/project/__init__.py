@@ -1,4 +1,5 @@
 import glob
+import os
 import secrets
 import string
 from enum import Enum
@@ -10,6 +11,10 @@ from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
 
 from src.util.logging import logger
+
+
+ECR_REGISTRY = os.environ.get("ECR_REGISTRY")
+ECR_SUFFIX = os.environ.get("ECR_SUFFIX", "")
 
 
 class BaseRequirements(Enum):
@@ -51,6 +56,11 @@ class Properties(dict[str, Any]):
                 # Do a first pass to see if we're expanding a config value
                 # verbatim, which can handle complext object values
                 for cfg, cfgV in config.items():
+                    # if the value is a docker image reference, substitute the image name
+                    if v.startswith("${docker_image:") and "$docker_images" in config:
+                        return config["$docker_images"].get(v.split(":")[1][:-1])
+
+                    # If the value is a config value, return the config value
                     if v == f"${{{cfg}}}":
                         return cfgV
 
@@ -222,6 +232,11 @@ class StackConfig(BaseModel):
     configurationDisabled: Optional[bool] = Field(default=False)
 
 
+class DockerImage(BaseModel):
+    Dockerfile: str = Field(default="Dockerfile")
+    Context: str = Field(default="")
+
+
 class StackPack(BaseModel):
     id: str
     name: str
@@ -231,6 +246,7 @@ class StackPack(BaseModel):
     base: StackParts = Field(default_factory=StackParts)
     configuration: dict[str, StackConfig] = Field(default_factory=dict)
     outputs: dict[str, Output] = Field(default_factory=dict)
+    docker_images: dict[str, DockerImage | None] = Field(default_factory=dict)
 
     def final_config(self, user_config: ConfigValues):
         final_cfg = ConfigValues()
@@ -248,6 +264,8 @@ class StackPack(BaseModel):
 
     def to_constraints(self, user_config: ConfigValues):
         config = self.final_config(user_config)
+        config["$docker_images"] = self.get_docker_images()
+
         constraints = self.base.to_constraints(config)
 
         for k, v in config.items():
@@ -258,6 +276,12 @@ class StackPack(BaseModel):
             if v in cfg.values:
                 constraints.extend(cfg.values[v].to_constraints(config))
         return constraints
+
+    def get_docker_images(self) -> dict[str, str]:
+        return {
+            k: f"{ECR_REGISTRY}/{k if k == self.id else self.id + '-' + k }{ECR_SUFFIX}:{self.version}"
+            for k in self.docker_images.keys()
+        }
 
     def copy_files(
         self, user_config: ConfigValues, out_dir: Path, root: Path | None = None

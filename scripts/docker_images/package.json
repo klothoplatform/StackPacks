@@ -1,0 +1,12 @@
+{
+    "name": "stacksnap-docker-images",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^20"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^5.37.0",
+        "@pulumi/docker": "^4.1.2",
+        "@pulumi/pulumi": "^3.69.0"
+    }
+}

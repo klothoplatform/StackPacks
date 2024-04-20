@@ -1,8 +1,9 @@
+from dataclasses import field
 from enum import Enum
 from pathlib import Path
 from typing import Any, ClassVar, List, Optional, Set
 
-from pydantic import BaseModel, Field, GetCoreSchemaHandler
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, ConfigDict
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
 
@@ -14,6 +15,7 @@ from src.project import (
     StackConfig,
     StackPack,
     StackParts,
+    DockerImage,
 )
 
 
@@ -32,7 +34,11 @@ class CommonPart(BaseModel):
     additional_policy: dict = Field(default_factory=dict)
 
 
-class CommonPack(dict[BaseRequirements | Feature, CommonPart]):
+class CommonBase(dict[BaseRequirements | Feature, CommonPart]):
+    model_config = ConfigDict(
+        extra="allow",  # required to allow non-BaseRequirements or Feature keys
+    )
+
     @classmethod
     def __get_pydantic_core_schema__(
         cls, source: Any, handler: GetCoreSchemaHandler
@@ -44,16 +50,23 @@ class CommonPack(dict[BaseRequirements | Feature, CommonPart]):
         )
 
         non_instance_schema = core_schema.no_info_after_validator_function(
-            CommonPack, sequence_t_schema
+            CommonBase, sequence_t_schema
         )
         return core_schema.union_schema([instance_schema, non_instance_schema])
 
 
-def get_stack_pack_base() -> CommonPack:
+class CommonPack(BaseModel):
+    id: str
+    version: str
+    docker_images: dict[str, DockerImage | None] = field(default_factory=dict)
+    base: CommonBase
+
+
+def get_stack_pack_base() -> CommonBase:
     root = Path("stackpacks_common")
     f = root / "common.yaml"
-    base = parse_yaml_file_as(CommonPack, f)
-    return base
+    pack = parse_yaml_file_as(CommonPack, f)
+    return pack.base
 
 
 class CommonStack(StackPack):

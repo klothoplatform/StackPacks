@@ -1,5 +1,6 @@
 import asyncclick as click
 
+from scripts.docker_images import docker_images
 from scripts.dynamodb import dynamodb
 from scripts.iac_generator import iac
 from scripts.policy_generator import policy_gen
@@ -13,5 +14,6 @@ async def cli():
 if __name__ == "__main__":
     cli.add_command(dynamodb)
     cli.add_command(iac)
+    cli.add_command(docker_images)
     cli.add_command(policy_gen)
     cli(_anyio_backend="asyncio")

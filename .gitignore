@@ -177,3 +177,4 @@ node_modules/
 
 /tmp
 /stackpack_input.yaml
+./docker_images/local/
