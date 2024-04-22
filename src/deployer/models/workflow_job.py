@@ -43,7 +43,6 @@ class WorkflowJob(Model):
     # composite key: project_id#workflow_type#app_id#run_number
     partition_key: str = UnicodeAttribute(hash_key=True)
     job_number: int = NumberAttribute(range_key=True)
-    iac_stack_composite_key: str = UnicodeAttribute(null=True)
     job_type: str = UnicodeAttribute()
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute()
@@ -100,7 +99,6 @@ class WorkflowJob(Model):
         return (
             self.partition_key == __value.partition_key
             and self.job_number == __value.job_number
-            and self.iac_stack_composite_key == __value.iac_stack_composite_key
             and self.job_type == __value.job_type
             and self.status == __value.status
             and self.status_reason == __value.status_reason

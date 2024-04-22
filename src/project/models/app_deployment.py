@@ -56,13 +56,10 @@ class AppDeployment(Model):
     project_id: str = UnicodeAttribute(hash_key=True)
     # composite key: app_id#version
     range_key: str = UnicodeAttribute(range_key=True)
-    iac_stack_composite_key: str = UnicodeAttribute(null=True)
     created_by: str = UnicodeAttribute()
     created_at: datetime = UTCDateTimeAttribute(default=datetime.utcnow)
     outputs: dict[str, str] = JSONAttribute(null=True)
     deployments: list[str] = ListAttribute(null=True)
-    status: str = UnicodeAttribute()
-    status_reason: str = UnicodeAttribute(null=True)
     configuration: dict = JSONAttribute()
     display_name: str = UnicodeAttribute(null=True)
     policy: str = UnicodeAttribute(null=True)
@@ -74,7 +71,9 @@ class AppDeployment(Model):
         return int(self.range_key.split("#")[1]) if "#" in self.range_key else None
 
     def to_view_model(self):
-        latest_deployed, status, reason = AppDeployment.get_status(self.project_id, self.app_id())
+        latest_deployed, status, reason = AppDeployment.get_status(
+            self.project_id, self.app_id()
+        )
         return AppDeploymentView(
             app_id=self.app_id(),
             version=self.version(),
@@ -87,20 +86,17 @@ class AppDeployment(Model):
                 latest_deployed.version() if latest_deployed else None
             ),
             status=status,
-            status_reason=reason
+            status_reason=reason,
         )
 
     def __eq__(self, other):
         return (
             self.project_id == other.project_id
             and self.range_key == other.range_key
-            and self.iac_stack_composite_key == other.iac_stack_composite_key
             and self.created_by == other.created_by
             and self.created_at == other.created_at
             and self.outputs == other.outputs
             and self.deployments == other.deployments
-            and self.status == other.status
-            and self.status_reason == other.status_reason
             and self.configuration == other.configuration
             and self.display_name == other.display_name
         )
@@ -262,23 +258,35 @@ class AppDeployment(Model):
                 except WorkflowJob.DoesNotExist:
                     logger.error(f"Job {hk} # {rk} not found")
                     return app, AppLifecycleStatus.INSTALLED, None
-                    
+
                 if local_state:
                     if job.job_type == WorkflowJobType.DESTROY.value:
                         if job.status == WorkflowJobStatus.SUCCEEDED.value:
                             return local_state
                     if local_state[1] == AppLifecycleStatus.INSTALLING:
-                        return local_state[0], AppLifecycleStatus.UPDATING, job.status_reason
+                        return (
+                            local_state[0],
+                            AppLifecycleStatus.UPDATING,
+                            job.status_reason,
+                        )
                     elif local_state[1] == AppLifecycleStatus.INSTALL_FAILED:
                         return app, AppLifecycleStatus.UPDATE_FAILED, job.status_reason
 
                 if job.job_type == WorkflowJobType.DEPLOY.value:
                     if job.status == WorkflowJobStatus.FAILED.value:
-                        local_state = (app, AppLifecycleStatus.INSTALL_FAILED, job.status_reason)
+                        local_state = (
+                            app,
+                            AppLifecycleStatus.INSTALL_FAILED,
+                            job.status_reason,
+                        )
                     elif job.status == WorkflowJobStatus.SUCCEEDED.value:
                         return app, AppLifecycleStatus.INSTALLED, job.status_reason
                     elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
-                        local_state = (app, AppLifecycleStatus.INSTALLING, job.status_reason)
+                        local_state = (
+                            app,
+                            AppLifecycleStatus.INSTALLING,
+                            job.status_reason,
+                        )
                     elif (
                         job.status == WorkflowJobStatus.NEW.value
                         or job.status == WorkflowJobStatus.PENDING.value
@@ -293,7 +301,11 @@ class AppDeployment(Model):
                         return app, AppLifecycleStatus.UNKNOWN, job.status_reason
                 elif job.job_type == WorkflowJobType.DESTROY.value:
                     if job.status == WorkflowJobStatus.FAILED.value:
-                        return app, AppLifecycleStatus.UNINSTALL_FAILED, job.status_reason
+                        return (
+                            app,
+                            AppLifecycleStatus.UNINSTALL_FAILED,
+                            job.status_reason,
+                        )
                     elif job.status == WorkflowJobStatus.SUCCEEDED.value:
                         return None, AppLifecycleStatus.UNINSTALLED, job.status_reason
                     elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
@@ -324,7 +336,6 @@ class AppDeployment(Model):
 class AppDeploymentView(BaseModel):
     app_id: str
     version: int
-    iac_stack_composite_key: Optional[str] = None
     created_by: str
     created_at: datetime
     configuration: ConfigValues = Field(default_factory=dict)

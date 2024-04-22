@@ -67,7 +67,9 @@ async def deploy_workflow(job_id: str, job_number: int):
             )
             return {"status": deploy_status.value, "message": deploy_message}
     except Exception as e:
-        logger.error(f"Error deploying {workflow_job.composite_key()}: {e}", exc_info=True)
+        logger.error(
+            f"Error deploying {workflow_job.composite_key()}: {e}", exc_info=True
+        )
         workflow_job.update(
             actions=[
                 WorkflowJob.status.set(WorkflowJobStatus.FAILED.value),
@@ -80,7 +82,6 @@ async def deploy_workflow(job_id: str, job_number: int):
 def run_pre_deploy_hooks(deployment_job: WorkflowJob, live_state: LiveState):
     logger.info(f"Running pre-deploy hooks for {deployment_job.composite_key()}")
     project, app = get_project_and_app(deployment_job)
-    print(app)
     run_actions(app, project, live_state)
     return
 
@@ -105,9 +106,7 @@ def get_pulumi_config(deployment_job: WorkflowJob) -> dict[str, str]:
     return pulumi_config
 
 
-def deploy(
-    deployment_job: WorkflowJob, tmp_dir: Path
-) -> tuple[WorkflowJobStatus, str]:
+def deploy(deployment_job: WorkflowJob, tmp_dir: Path) -> tuple[WorkflowJobStatus, str]:
     logger.info(f"Deploying app for deployment job {deployment_job.composite_key()}")
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
@@ -189,16 +188,16 @@ async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
         async with Pool() as pool:
             tasks = []
             task = pool.apply(
-                    deploy_workflow,
-                    kwds=dict(
-                        job_id=run.composite_key(),
-                        job_number=common_job.job_number,
-                    ),
-                )
+                deploy_workflow,
+                kwds=dict(
+                    job_id=run.composite_key(),
+                    job_number=common_job.job_number,
+                ),
+            )
             tasks.append(task)
             results = await asyncio.gather(*tasks)
             logger.info(f"Tasks: {tasks}")
-            
+
         if results[0]["status"] != "SUCCEEDED":
             abort_workflow_run(run)
             return
@@ -230,4 +229,3 @@ async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
     except Exception as e:
         logger.error(f"Error deploying {run.composite_key()}: {e}")
         complete_workflow_run(run)
-    

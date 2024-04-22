@@ -63,14 +63,16 @@ async def destroy_workflow(job_id: str, job_number: int):
 def can_destroy(project_id: str, app_id: str):
     logger.info(f"Checking if {app_id} can be destroyed in project {project_id}")
     project = Project.get(project_id)
-    WorkflowRun.get_latest_run(project_id)
     if app_id != CommonStack.COMMON_APP_NAME:
         return True
     for app_name in project.apps.keys():
         if app_name != CommonStack.COMMON_APP_NAME:
             continue
-        _, status = AppDeployment.get_status(project_id, app_name)
-        if status != AppLifecycleStatus.UNINSTALLED or status != AppLifecycleStatus.NEW:
+        _, status, _ = AppDeployment.get_status(project_id, app_name)
+        if (
+            status != AppLifecycleStatus.UNINSTALLED
+            and status != AppLifecycleStatus.NEW
+        ):
             return False
     return True
 
@@ -197,12 +199,12 @@ async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):
             async with Pool() as pool:
                 tasks = []
                 task = pool.apply(
-                        destroy_workflow,
-                        kwds=dict(
-                            job_id=run.composite_key(),
-                            job_number=common_job.job_number,
-                        ),
-                    )
+                    destroy_workflow,
+                    kwds=dict(
+                        job_id=run.composite_key(),
+                        job_number=common_job.job_number,
+                    ),
+                )
                 tasks.append(task)
                 results = await asyncio.gather(*tasks)
                 logger.info(f"Tasks: {tasks}")

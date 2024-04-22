@@ -1,3 +1,4 @@
+import datetime
 from unittest.mock import MagicMock, patch
 
 import aiounittest
@@ -11,14 +12,8 @@ from src.api.workflow_router import (
     uninstall_all_apps,
     uninstall_app,
 )
-from src.deployer.deploy import (
-    execute_deploy_single_workflow,
-    execute_deployment_workflow,
-)
-from src.deployer.destroy import (
-    execute_destroy_all_workflow,
-    execute_destroy_single_workflow,
-)
+from src.deployer.deploy import run_full_deploy_workflow
+from src.deployer.destroy import run_full_destroy_workflow
 from src.deployer.models.workflow_run import (
     WorkflowRun,
     WorkflowRunStatus,
@@ -27,11 +22,32 @@ from src.deployer.models.workflow_run import (
 from src.project import StackPack
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project
+from tests.test_utils.pynamo_test import PynamoTest
 
 
-class TestWorkflowRouter(aiounittest.AsyncTestCase):
+class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
+    models = [Project]
 
-    @patch("src.api.workflow_router.WorkflowRunSummary")
+    def setUp(self):
+        super().setUp()
+        t = datetime.datetime.now(datetime.timezone.utc)
+        self.project = Project(
+            owner="google-oauth2",
+            assumed_role_external_id="a696fb6e-75a2-47a8-ba4d-1a89e1aa2e0e",
+            destroy_in_progress=False,
+            features=["health_monitor"],
+            assumed_role_arn="arn:aws:iam:::role/TestRole",
+            id="project_id",
+            region="us-east-1",
+            created_by="google-oauth2",
+            created_at=t,
+            apps={"common": 1, "metabase": 1},
+        )
+        self.project.save()
+        return
+
+    @patch("src.api.workflow_router.create_deploy_workflow_jobs")
+    @patch.object(WorkflowRunSummary, "from_workflow_run")
     @patch("src.api.workflow_router.WorkflowRun")
     @patch("src.api.workflow_router.get_email")
     @patch("src.api.workflow_router.get_user_id")
@@ -44,11 +60,12 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_email,
         mock_workflow_run,
-        mock_wf_run_summary,
+        mock_from_workflow_run,
+        mock_create_deploy_workflow_jobs,
     ):
         # Setup mock objects
         mock_uuid.uuid4.return_value = "deployment_id"
-        mock_get_user_id.return_value = "user_id"
+        mock_get_user_id.return_value = "project_id"
         mock_get_email.return_value = "users_email"
 
         mock_wf_run_instance = MagicMock(
@@ -58,9 +75,11 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         )
         mock_workflow_run.create.return_value = mock_wf_run_instance
 
-        mock_wf_run_summary.from_workflow_run.return_value = MagicMock(
-            spec=WorkflowRunSummary, dict=lambda: {"id": "deployment_id"}
+        mock_from_workflow_run.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
+        common_job = MagicMock()
+        mock_create_deploy_workflow_jobs.return_value = common_job
 
         sp = MagicMock(spec=StackPack)
 
@@ -73,9 +92,13 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id.assert_called_once()
         mock_get_email.assert_called_once()
         mock_bg.add_task.assert_called_once_with(
-            execute_deployment_workflow,
-            mock_wf_run_instance,
+            run_full_deploy_workflow, mock_wf_run_instance, common_job
         )
+        mock_create_deploy_workflow_jobs.assert_called_once_with(
+            mock_wf_run_instance,
+            list(self.project.apps.keys()),
+        )
+        mock_from_workflow_run.assert_called_once_with(mock_wf_run_instance)
 
         # Assert response
         self.assertEqual(response.status_code, 201)
@@ -84,7 +107,8 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
             response.body,
         )
 
-    @patch("src.api.workflow_router.WorkflowRunSummary")
+    @patch("src.api.workflow_router.create_deploy_workflow_jobs")
+    @patch.object(WorkflowRunSummary, "from_workflow_run")
     @patch("src.api.workflow_router.WorkflowRun")
     @patch("src.api.workflow_router.get_email")
     @patch("src.api.workflow_router.get_user_id")
@@ -99,7 +123,8 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_email,
         mock_workflow_run,
-        mock_wf_run_summary,
+        mock_from_workflow_run,
+        mock_create_deploy_workflow_jobs,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -116,9 +141,11 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         )
         mock_workflow_run.create.return_value = mock_wf_run_instance
 
-        mock_wf_run_summary.from_workflow_run.return_value = MagicMock(
-            spec=WorkflowRunSummary, dict=lambda: {"id": "deployment_id"}
+        mock_from_workflow_run.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
+        common_job = MagicMock()
+        mock_create_deploy_workflow_jobs.return_value = common_job
 
         # Act
         response = await install_app(
@@ -133,9 +160,13 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_project.assert_called_once_with("user_id")
         mock_get_latest_app.assert_called_once_with(project_id="user_id", app_id="app1")
         mock_bg.add_task.assert_called_once_with(
-            execute_deploy_single_workflow,
-            mock_wf_run_instance,
+            run_full_deploy_workflow, mock_wf_run_instance, common_job
         )
+        mock_create_deploy_workflow_jobs.assert_called_once_with(
+            mock_wf_run_instance,
+            ["app1"],
+        )
+        mock_from_workflow_run.assert_called_once_with(mock_wf_run_instance)
 
         # Assert response
         self.assertEqual(201, response.status_code)
@@ -180,7 +211,8 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
             "Tear down in progress",
         )
 
-    @patch("src.api.workflow_router.WorkflowRunSummary")
+    @patch("src.api.workflow_router.create_destroy_workflow_jobs")
+    @patch.object(WorkflowRunSummary, "from_workflow_run")
     @patch("src.api.workflow_router.WorkflowRun")
     @patch("src.api.workflow_router.get_email")
     @patch("src.api.workflow_router.get_user_id")
@@ -191,10 +223,11 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_email,
         mock_workflow_run,
-        mock_wf_run_summary,
+        mock_from_workflow_run,
+        mock_create_destroy_workflow_jobs,
     ):
         # Setup mock objects
-        mock_get_user_id.return_value = "user_id"
+        mock_get_user_id.return_value = "project_id"
         mock_get_email.return_value = "users_email"
         mock_wf_run_instance = MagicMock(
             spec=WorkflowRun,
@@ -202,9 +235,11 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
             status=WorkflowRunStatus.NEW.value,
         )
         mock_workflow_run.create.return_value = mock_wf_run_instance
-        mock_wf_run_summary.from_workflow_run.return_value = MagicMock(
-            spec=WorkflowRunSummary, dict=lambda: {"id": "deployment_id"}
+        mock_from_workflow_run.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
+        common_job = MagicMock()
+        mock_create_destroy_workflow_jobs.return_value = common_job
 
         # Act
         response = await uninstall_all_apps(MagicMock(), mock_bg)
@@ -212,14 +247,19 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         # Assert calls
         mock_get_user_id.assert_called_once()
         mock_bg.add_task.assert_called_once_with(
-            execute_destroy_all_workflow, mock_wf_run_instance
+            run_full_destroy_workflow, mock_wf_run_instance, common_job
         )
+        mock_create_destroy_workflow_jobs.assert_called_once_with(
+            mock_wf_run_instance, list(self.project.apps.keys())
+        )
+        mock_from_workflow_run.assert_called_once_with(mock_wf_run_instance)
 
         # Assert response
         self.assertEqual(201, response.status_code)
         self.assertEqual(b'{"id": "deployment_id"}', response.body)
 
-    @patch("src.api.workflow_router.WorkflowRunSummary")
+    @patch("src.api.workflow_router.create_destroy_workflow_jobs")
+    @patch.object(WorkflowRunSummary, "from_workflow_run")
     @patch("src.api.workflow_router.WorkflowRun")
     @patch("src.api.workflow_router.get_email")
     @patch("src.api.workflow_router.get_user_id")
@@ -234,7 +274,8 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id,
         mock_get_email,
         mock_workflow_run,
-        mock_wf_run_summary,
+        mock_from_workflow_run,
+        mock_create_destroy_workflow_jobs,
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
@@ -251,9 +292,11 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         )
         mock_workflow_run.create.return_value = mock_wf_run_instance
 
-        mock_wf_run_summary.from_workflow_run.return_value = MagicMock(
-            spec=WorkflowRunSummary, dict=lambda: {"id": "deployment_id"}
+        mock_from_workflow_run.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
+        common_job = MagicMock()
+        mock_create_destroy_workflow_jobs.return_value = common_job
 
         # Act
         response = await uninstall_app(
@@ -266,78 +309,14 @@ class TestWorkflowRouter(aiounittest.AsyncTestCase):
         mock_get_user_id.assert_called_once()
         mock_get_project.assert_called_once_with("user_id")
         mock_bg.add_task.assert_called_once_with(
-            execute_destroy_single_workflow,
+            run_full_destroy_workflow,
             mock_wf_run_instance,
-            True,
+            common_job,
         )
-        project.update.assert_called_once_with(
-            actions=[Project.destroy_in_progress.set(True)]
+        mock_create_destroy_workflow_jobs.assert_called_once_with(
+            mock_wf_run_instance, ["app1"], False
         )
-
-        # Assert response
-        self.assertEqual(201, response.status_code)
-        self.assertEqual(b'{"id": "deployment_id"}', response.body)
-
-    @patch("src.api.workflow_router.WorkflowRunSummary")
-    @patch("src.api.workflow_router.WorkflowRun")
-    @patch("src.api.workflow_router.get_email")
-    @patch("src.api.workflow_router.get_user_id")
-    @patch("src.api.workflow_router.BackgroundTasks")
-    @patch.object(Project, "get")
-    @patch.object(AppDeployment, "get_latest_deployed_version")
-    async def test_uninstall_app_wont_destroy_common(
-        self,
-        mock_get_latest_app,
-        mock_get_project,
-        mock_bg,
-        mock_get_user_id,
-        mock_get_email,
-        mock_workflow_run,
-        mock_wf_run_summary,
-    ):
-        mock_get_user_id.return_value = "user_id"
-        mock_get_email.return_value = "users_email"
-        project = MagicMock(
-            spec=Project, apps={"app1": 1, CommonStack.COMMON_APP_NAME: 1, "app2": 1}
-        )
-        mock_get_project.return_value = project
-        app = MagicMock(spec=AppDeployment)
-
-        def get_latest(_project_id, app_id):
-            if app_id in [CommonStack.COMMON_APP_NAME, "app2"]:
-                return MagicMock()
-            elif app_id == "app1":
-                return app
-            return None
-
-        mock_get_latest_app.side_effect = get_latest
-
-        mock_wf_run_instance = MagicMock(
-            spec=WorkflowRun,
-            type=WorkflowType.DEPLOY.value,
-            status=WorkflowRunStatus.NEW.value,
-        )
-        mock_workflow_run.create.return_value = mock_wf_run_instance
-
-        mock_wf_run_summary.from_workflow_run.return_value = MagicMock(
-            spec=WorkflowRunSummary, dict=lambda: {"id": "deployment_id"}
-        )
-
-        # Act
-        response = await uninstall_app(
-            MagicMock(),
-            mock_bg,
-            "app1",
-        )
-
-        # Assert calls
-        mock_get_user_id.assert_called_once()
-        mock_get_email.assert_called_once()
-        mock_get_project.assert_called_once_with("user_id")
-        mock_bg.add_task.assert_called_once_with(
-            execute_destroy_single_workflow, mock_wf_run_instance, False
-        )
-        project.update.assert_not_called()
+        mock_from_workflow_run.assert_called_once_with(mock_wf_run_instance)
 
         # Assert response
         self.assertEqual(201, response.status_code)

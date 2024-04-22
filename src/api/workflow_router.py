@@ -91,7 +91,7 @@ async def install_app(
     return Response(
         media_type="application/json",
         status_code=201,
-        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump())
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump()),
     )
 
 
@@ -120,7 +120,7 @@ async def uninstall_all_apps(
     return Response(
         media_type="application/json",
         status_code=201,
-        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump()),
     )
 
 
@@ -153,7 +153,7 @@ async def uninstall_app(
     return Response(
         media_type="application/json",
         status_code=201,
-        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).dict()),
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump()),
     )
 
 

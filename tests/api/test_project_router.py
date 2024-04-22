@@ -15,6 +15,7 @@ from src.api.project_router import (
     update_app,
     update_stack,
 )
+from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
 from src.util.aws.iam import Policy

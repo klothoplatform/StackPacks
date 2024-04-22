@@ -21,7 +21,6 @@ from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import (
     AppDeployment,
     AppDeploymentView,
-    AppLifecycleStatus,
     get_resources,
 )
 from src.util.aws.iam import Policy
@@ -47,6 +46,20 @@ class Project(Model):
         default=lambda: datetime.now(timezone.utc)
     )
     destroy_in_progress: bool = BooleanAttribute(default=False)
+
+    def __eq__(self, other):
+        return (
+            self.id == other.id
+            and self.owner == other.owner
+            and self.region == other.region
+            and self.assumed_role_arn == other.assumed_role_arn
+            and self.assumed_role_external_id == other.assumed_role_external_id
+            and self.features == other.features
+            and self.apps == other.apps
+            and self.created_by == other.created_by
+            and self.created_at == other.created_at
+            and self.destroy_in_progress == other.destroy_in_progress
+        )
 
     def get_policy(self) -> Policy:
         p = Policy()
@@ -112,7 +125,6 @@ class Project(Model):
                 created_by=self.created_by,
                 created_at=datetime.now(timezone.utc),
                 configuration=config,
-                status=AppLifecycleStatus.NEW.value,
             )
 
         # Set the configuration for the common app (including hardcoded values for the pack id and health endpoint)
@@ -219,7 +231,6 @@ class Project(Model):
                     created_by=self.created_by,
                     created_at=datetime.now(timezone.utc),
                     configuration=app_config,
-                    status=AppLifecycleStatus.NEW.value,
                     display_name=stack_packs[app_id].name,
                 )
                 logger.debug(f"added app {app}")

@@ -7,7 +7,7 @@ from pynamodb.exceptions import DoesNotExist
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, Resources, StackParts
 from src.project.common_stack import CommonStack, Feature
-from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
+from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project
 from tests.test_utils.pynamo_test import PynamoTest
 
@@ -81,7 +81,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         common_app.save()
@@ -153,7 +152,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app1", 1),
             created_by="created_by",
             configuration=self.config.get("app1"),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         app1.save()
@@ -163,7 +161,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app2", 2),
             created_by="created_by",
             configuration=self.config.get("app2"),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         app2.save()
@@ -203,7 +200,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app1", 1),
             created_by="created_by",
             configuration=self.config.get("app1"),
-            status=AppLifecycleStatus.NEW.value,
         )
         app1.save()
 
@@ -212,7 +208,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app2", 2),
             created_by="created_by",
             configuration=self.config.get("app2"),
-            status=AppLifecycleStatus.NEW.value,
         )
         app2.save()
 
@@ -255,7 +250,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app2", 2),
             created_by="created_by",
             configuration=self.config.get("app2"),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         app2.save()
@@ -342,7 +336,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         common_app.save()
@@ -352,7 +345,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app1", 1),
             created_by="created_by",
             configuration=self.config.get("app1"),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         app1.save()
@@ -362,7 +354,6 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app2", 2),
             created_by="created_by",
             configuration=self.config.get("app2"),
-            status=AppLifecycleStatus.NEW.value,
             deployments={"id"},
         )
         app2.save()

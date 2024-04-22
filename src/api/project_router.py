@@ -9,7 +9,7 @@ from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
 from src.project import ConfigValues, get_stack_packs
-from src.project.common_stack import Feature
+from src.project.common_stack import CommonStack, Feature
 from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
