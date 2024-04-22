@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,7 +8,7 @@ from src.auth.token import get_user_id
 from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
-from src.project import ConfigValues, get_stack_packs, StackPack
+from src.project import ConfigValues, get_stack_packs
 from src.project.common_stack import Feature
 from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
@@ -149,17 +149,15 @@ async def update_stack(
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
-
-            current_apps = [*project.apps.keys()]
-            project_stack_packs = []
-            if current_apps != [*initial_apps.keys()]:
-                for app_id in current_apps:
-                    if app_id in stack_packs:
-                        project_stack_packs.append(stack_packs[app_id])
-
+            sps_in_project = [
+                stack_packs[a]
+                for a in set(configuration.keys()) | set(project.apps.keys())
+                if a in stack_packs
+            ]
+            sps_in_project.sort(key=lambda x: x.id)
             await project.run_common_pack(
-                stack_packs=project_stack_packs,
-                config=configuration.get("common", {}),
+                stack_packs=sps_in_project,
+                config=configuration.get("base", {}),
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
@@ -226,18 +224,26 @@ async def add_app(
         configuration[user_app.app_id()] = user_app.get_configurations()
 
     with TempDir() as tmp_dir:
+        stack_packs = get_stack_packs()
         await project.run_packs(
-            stack_packs=get_stack_packs(),
+            stack_packs=stack_packs,
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
+        sps_in_project = [
+            stack_packs[a]
+            for a in set(configuration.keys()) | set(project.apps.keys())
+            if a in stack_packs
+        ]
+        sps_in_project.sort(key=lambda x: x.id)
         await project.run_common_pack(
-            stack_packs=project.stack_packs(),
+            stack_packs=sps_in_project,
             config=ConfigValues(),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
+        project.save()
         return StackResponse(
             stack=project.to_view_model(), policy=str(project.get_policy())
         )

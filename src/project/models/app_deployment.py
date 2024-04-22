@@ -2,6 +2,7 @@ import os
 import re
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,7 @@ from src.engine_service.engine_commands.run import (
 from src.project import ConfigValues, StackPack
 from src.project.common_stack import CommonStack
 from src.util.aws.iam import Policy
+from src.util.logging import logger
 
 
 class AppLifecycleStatus(Enum):
@@ -178,6 +180,67 @@ class AppDeployment(Model):
     def get_policy(self) -> Policy:
         return Policy(self.policy)
 
+    async def update_policy(
+        self,
+        stack_pack: StackPack,
+        app_dir: str,
+        binary_storage: BinaryStorage,
+        imports: list[any] = [],
+        dry_run: bool = False,
+    ):
+        cfg = self.get_configurations()
+        is_empty_config = True
+        if len(self.configuration) > 0:
+            for k, v in self.configuration.items():
+                cfg = stack_pack.configuration[k]
+                if cfg.default is None or v == cfg.default:
+                    continue
+
+                is_empty_config = False
+                break
+
+        logger.debug(f"{self.app_id()} has empty config: {is_empty_config}")
+        policy = None
+        if is_empty_config:
+            policy_path = Path("policies") / f"{self.app_id()}.json"
+            logger.debug(
+                f"Checking if policy exists: {policy_path}: {policy_path.exists()}"
+            )
+            if policy_path.exists():
+                policy = Policy(policy_path.read_text())
+
+        if policy is None:
+            constraints = stack_pack.to_constraints(cfg)
+            constraints.extend(imports)
+            if len(imports) == 0:
+                common_modules = CommonStack([stack_pack], [])
+                constraints.extend(common_modules.to_constraints({}))
+
+            binary_storage.ensure_binary(Binary.ENGINE)
+            engine_result: RunEngineResult = await run_engine(
+                RunEngineRequest(
+                    tag=self.global_tag(),
+                    constraints=constraints,
+                    tmp_dir=app_dir,
+                )
+            )
+            if is_empty_config:
+                policy_path = Path("policies") / f"{self.app_id()}.json"
+                if not policy_path.exists():
+                    # Shouldn't happen if policies are precomputed via scripts/cli.py policy_gen generate_policies
+                    policy_path.parent.mkdir(parents=True, exist_ok=True)
+                    policy_path.write_text(engine_result.policy)
+
+            policy = Policy(engine_result.policy)
+            for pol in stack_pack.additional_policies:
+                additional_policies = Policy()
+                additional_policies.policy = pol
+                policy.combine(additional_policies)
+            self.policy = str(policy)
+
+        if not dry_run:
+            self.save()
+
     async def run_app(
         self,
         stack_pack: StackPack,
@@ -200,6 +263,7 @@ class AppDeployment(Model):
                 tmp_dir=app_dir,
             )
         )
+
         self.policy = engine_result.policy
         if not dry_run:
             self.save()
