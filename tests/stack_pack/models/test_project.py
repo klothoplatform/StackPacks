@@ -73,20 +73,24 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.mock_binary_storage.reset_mock()
         return super().tearDown()
 
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch.object(AppDeployment, "run_app")
-    async def test_run_common_pack(self, mock_run_app):
+    async def test_run_common_pack(
+        self, mock_run_app, mock_get_latest_deployed_version
+    ):
         # Arrange
         common_app = AppDeployment(
             project_id="id",
             range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
-            deployments={"id"},
+            deployments={"id#1"},
         )
         common_app.save()
         self.project.apps[CommonStack.COMMON_APP_NAME] = (
             1  # project already has the app
         )
+        mock_get_latest_deployed_version.return_value = common_app
 
         # Act
         await self.project.run_common_pack(
@@ -98,9 +102,12 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         common_app.run_app.assert_not_called()
+        mock_get_latest_deployed_version.assert_called_once_with(
+            "id", CommonStack.COMMON_APP_NAME
+        )
 
-        self.assertEqual({"common": 1}, self.project.apps)
-        self.assertEqual({"id"}, common_app.deployments)
+        self.assertEqual({"common": 2}, self.project.apps)
+        self.assertEqual({"id#1"}, common_app.deployments)
 
     @patch.object(AppDeployment, "update_policy")
     async def test_run_common_pack_latest_not_deployed(self, mock_update_policy):
@@ -143,9 +150,12 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
         )
 
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack", autospec=True)
-    async def test_run_pack(self, mock_common_stack, run_app):
+    async def test_run_pack(
+        self, mock_common_stack, run_app, mock_get_latest_deployed_version
+    ):
         # Arrange
         app1 = AppDeployment(
             project_id="id",
@@ -164,6 +174,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             deployments={"id"},
         )
         app2.save()
+        mock_get_latest_deployed_version.side_effect = [app1, app2]
 
         self.project.apps = {"app1": app1.version(), "app2": app2.version()}
 
@@ -172,6 +183,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             base=StackParts(resources=Resources({"test": {}})),
         )
         mock_common_stack.return_value = common_stack
+        mock_common_stack.COMMON_APP_NAME = "common"
 
         # Act
         await self.project.run_packs(
@@ -184,12 +196,15 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         # Assert
 
         self.assertEqual(
-            {"app1": 1, "app2": 2},
+            {"app1": 2, "app2": 3},
             self.project.apps,
         )
         self.assertEqual({"id"}, app1.deployments)
         self.assertEqual({"id"}, app2.deployments)
         run_app.assert_not_called()
+        mock_get_latest_deployed_version.assert_has_calls(
+            [call("id", "app1"), call("id", "app2")]
+        )
 
     @patch.object(AppDeployment, "run_app")
     @patch("src.project.models.project.CommonStack")
@@ -218,6 +233,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             base=StackParts(resources=Resources({"test": {}})),
         )
         mock_common_stack.return_value = common_stack
+        mock_common_stack.COMMON_APP_NAME = "common"
 
         imports = [
             {
@@ -239,10 +255,11 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.assertEqual({"app1": 1, "app2": 2}, self.project.apps)
         mock_run_app.assert_not_called()
 
+    @patch.object(AppDeployment, "get_latest_deployed_version")
     @patch.object(AppDeployment, "update_policy")
     @patch("src.project.models.project.CommonStack")
     async def test_run_pack_app_doesnt_exist(
-        self, mock_common_stack, mock_update_policy
+        self, mock_common_stack, mock_update_policy, mock_get_latest_deployed_version
     ):
         # Arrange
         app2 = AppDeployment(
@@ -260,6 +277,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             base=StackParts(resources=Resources({"test": {}})),
         )
         mock_common_stack.return_value = common_stack
+        mock_common_stack.COMMON_APP_NAME = "common"
+        mock_get_latest_deployed_version.side_effect = [None, app2]
 
         # Act
         await self.project.run_packs(
@@ -320,7 +339,8 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
                 mock_binary_storage,
             )
 
-    def test_view_model(self):
+    @patch.object(AppDeployment, "get_status")
+    def test_view_model(self, mock_get_latest_deployed_version):
         # Arrange
         project = Project(
             id="id",
@@ -336,7 +356,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key(CommonStack.COMMON_APP_NAME, 1),
             created_by="created_by",
             configuration=dict(self.config.get("common")),
-            deployments={"id"},
+            deployments={"id#1"},
         )
         common_app.save()
 
@@ -345,7 +365,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app1", 1),
             created_by="created_by",
             configuration=self.config.get("app1"),
-            deployments={"id"},
+            deployments={"id#1"},
         )
         app1.save()
 
@@ -354,9 +374,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             range_key=AppDeployment.compose_range_key("app2", 2),
             created_by="created_by",
             configuration=self.config.get("app2"),
-            deployments={"id"},
+            deployments={"id#1"},
         )
         app2.save()
+        mock_get_latest_deployed_version.return_value = (app1, "INSTALLED", "INSTALLED")
 
         # Act
         project_view = project.to_view_model()

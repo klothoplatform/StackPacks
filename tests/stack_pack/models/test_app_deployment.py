@@ -12,7 +12,8 @@ from tests.test_utils.pynamo_test import PynamoTest
 class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
     models = [AppDeployment]
 
-    def test_to_view_model(self):
+    @patch.object(AppDeployment, "get_status")
+    def test_to_view_model(self, mock_get_status):
         # Arrange
         app = AppDeployment(
             project_id="project_id",
@@ -22,7 +23,11 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             display_name="My App",
         )
         app.save()
-
+        mock_get_status.return_value = (
+            app,
+            AppLifecycleStatus.NEW.value,
+            "status_reason",
+        )
         # Act
         app_deployment_view = app.to_view_model()
 

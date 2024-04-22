@@ -17,7 +17,7 @@ class AppBuilder:
     def __init__(self, output_dir: Path, state_bucket_name: str):
         self.state_bucket_name = state_bucket_name
         self.output_dir = output_dir
-        
+
     @staticmethod
     def sanitize_stack_name(name: str) -> str:
         return re.sub(r"[^a-zA-Z0-9\-_.]", "_", name)
@@ -90,9 +90,7 @@ class AppBuilder:
         log.info(f"Selecting stack for {project_id} {app_id}")
         s3_opts = auto.LocalWorkspaceOptions(
             project_settings=auto.ProjectSettings(
-                name=AppBuilder.sanitize_stack_name(
-                    f"{project_id}/{app_id}"
-                ),
+                name=AppBuilder.sanitize_stack_name(f"{project_id}/{app_id}"),
                 runtime="nodejs",
                 backend=auto.ProjectBackend(f"s3://{self.state_bucket_name}"),
             ),
@@ -108,7 +106,5 @@ class AppBuilder:
             work_dir=str(self.output_dir),
             opts=s3_opts if self.state_bucket_name else None,
         )
-        log.info(
-            f"Successfully selected stack for {project_id} {app_id}"
-        )
+        log.info(f"Successfully selected stack for {project_id} {app_id}")
         return stack

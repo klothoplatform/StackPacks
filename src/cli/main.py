@@ -17,6 +17,7 @@ from src.util.logging import logger
 async def cli():
     pass
 
+
 @click.command("deploy")
 @click.option(
     "--run-id",
@@ -31,8 +32,8 @@ async def cli():
 )
 async def deploy(job_id: str, job_number: int):
     deploy_workflow(job_id, job_number)
-    
-    
+
+
 @click.command("destroy")
 @click.option(
     "--run-id",
@@ -110,6 +111,7 @@ def start_workflow(project_id: str, run_id: str):
     start_workflow_run(run)
     return {"status": "success", "message": "Workflow run started"}
 
+
 @click.command("complete-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
@@ -124,6 +126,7 @@ def complete_workflow(project_id: str, run_id: str):
     run = WorkflowRun.get(project_id, run_id)
     complete_workflow_run(run)
     return {"status": "success", "message": "Workflow run completed"}
+
 
 if __name__ == "__main__":
     cli.add_command(deploy_workflow)

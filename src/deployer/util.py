@@ -1,5 +1,3 @@
-
-
 from pydantic import BaseModel
 
 from src.dependencies.injection import get_ses_client
@@ -37,9 +35,11 @@ def get_stack_pack_by_job(job: WorkflowJob) -> StackPack:
         )
     return stack_pack
 
+
 class JobKeys(BaseModel):
     id: str
     job_number: int
+
 
 def get_app_workflows(workflow_run: WorkflowRun) -> list[JobKeys]:
     jobs = workflow_run.get_jobs()
@@ -48,7 +48,8 @@ def get_app_workflows(workflow_run: WorkflowRun) -> list[JobKeys]:
         for job in jobs
         if job.modified_app_id != CommonStack.COMMON_APP_NAME
     ]
-    
+
+
 def send_email(run: WorkflowRun):
     logger.info(f"Sending email for {run.composite_key()}")
     if run.notification_email is not None:

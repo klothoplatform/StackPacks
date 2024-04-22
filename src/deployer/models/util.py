@@ -87,7 +87,6 @@ def abort_workflow_run(
         )
 
 
-
 def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
     try:
         logger.info(f"Completing workflow run {run.composite_key()}")
@@ -151,6 +150,7 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
             ],
         )
 
+
 def start_workflow_run(run: WorkflowRun):
     try:
         logger.info(f"Starting workflow run {run.composite_key()}")
@@ -173,7 +173,8 @@ def start_workflow_run(run: WorkflowRun):
             app = AppDeployment.get(
                 project.id,
                 AppDeployment.compose_range_key(
-                    app_id=job.modified_app_id, version=project.apps[job.modified_app_id]
+                    app_id=job.modified_app_id,
+                    version=project.apps[job.modified_app_id],
                 ),
             )
             app.update(
@@ -181,7 +182,7 @@ def start_workflow_run(run: WorkflowRun):
                     AppDeployment.deployments.set(
                         AppDeployment.deployments.append([job.composite_key()]),
                     ),
-                ]    
+                ]
             )
     except Exception as e:
         logger.error(f"Error starting workflow run {run.composite_key()}: {e}")

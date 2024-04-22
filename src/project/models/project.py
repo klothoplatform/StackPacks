@@ -76,7 +76,7 @@ class Project(Model):
         dry_run: bool = False,
     ):
         common_stack = CommonStack(stack_packs, self.features)
-        common_version = self.apps.get(Project.COMMON_APP_NAME, None)
+        common_version = self.apps.get(CommonStack.COMMON_APP_NAME, None)
         app: AppDeployment | None = None
         old_config: ConfigValues | None = None
         config = config if config is not None else ConfigValues({})
@@ -85,7 +85,7 @@ class Project(Model):
                 app = AppDeployment.get(
                     self.id,
                     AppDeployment.compose_range_key(
-                        app_id=Project.COMMON_APP_NAME, version=common_version
+                        app_id=CommonStack.COMMON_APP_NAME, version=common_version
                     ),
                 )
                 old_config = app.get_configurations()
@@ -93,7 +93,7 @@ class Project(Model):
 
                 # Only increment version if there has been an attempted deploy on the current version
                 latest_version = AppDeployment.get_latest_deployed_version(
-                    project_id=self.id, app_id=CommonStack.COMMON_APP_NAME
+                    self.id, CommonStack.COMMON_APP_NAME
                 )
                 if (
                     latest_version is not None
@@ -111,7 +111,7 @@ class Project(Model):
         if app is None:
             try:
                 latest = AppDeployment.get_latest_version(
-                    project_id=self.id, app_id=Project.COMMON_APP_NAME
+                    project_id=self.id, app_id=CommonStack.COMMON_APP_NAME
                 )
             except DoesNotExist:
                 latest = None
@@ -119,7 +119,7 @@ class Project(Model):
                 # This has to be a composite key so we can correlate the app with the pack
                 project_id=self.id,
                 range_key=AppDeployment.compose_range_key(
-                    app_id=Project.COMMON_APP_NAME,
+                    app_id=CommonStack.COMMON_APP_NAME,
                     version=latest.version() + 1 if latest else 1,
                 ),
                 created_by=self.created_by,
@@ -155,7 +155,7 @@ class Project(Model):
 
         if not dry_run:
             app.save()
-            self.apps[Project.COMMON_APP_NAME] = app.version()
+            self.apps[CommonStack.COMMON_APP_NAME] = app.version()
             self.save()
 
     async def run_packs(
@@ -199,7 +199,7 @@ class Project(Model):
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
                         latest_version = AppDeployment.get_latest_deployed_version(
-                            project_id=self.id, app_id=app_id
+                            self.id, app_id
                         )
                         if (
                             latest_version is not None

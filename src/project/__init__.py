@@ -64,7 +64,7 @@ class Properties(dict[str, Any]):
                 return [convert_value(i) for i in v]
             else:
                 return v
-        
+
         def to_c(p: str, v: Any) -> List[dict]:
             if isinstance(v, dict):
                 # TODO: Find a way to know how to set constraints smarter or fix the engine

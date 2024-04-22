@@ -259,7 +259,7 @@ async def update_app(
     project = Project.get(user_id)
     configuration: dict[str, ConfigValues] = {app_id: body.configuration}
     for app, version in project.apps.items():
-        if app == Project.COMMON_APP_NAME:
+        if app == CommonStack.COMMON_APP_NAME:
             continue
         user_app = AppDeployment.get(
             project.id, AppDeployment.compose_range_key(app_id=app, version=version)
@@ -304,7 +304,7 @@ async def remove_app(
     project_stack_packs = {}
     for app in project.get_app_deployments():
         app_id = app.app_id()
-        if app_id == Project.COMMON_APP_NAME:
+        if app_id == CommonStack.COMMON_APP_NAME:
             common_app_config = app.get_configurations()
             continue
         configuration[app_id] = app.get_configurations()

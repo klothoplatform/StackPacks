@@ -28,7 +28,7 @@ async def calculate_costs(
         case _:
             raise ValueError(f"Invalid operation: {operation}")
 
-    app_ids = [a for a in app_ids if a != Project.COMMON_APP_NAME]
+    app_ids = [a for a in app_ids if a != CommonStack.COMMON_APP_NAME]
 
     sps = get_stack_packs()
 
@@ -42,7 +42,7 @@ async def calculate_costs(
         )
         if app_id in sps:
             spec = sps[app_id]
-        elif app_id == Project.COMMON_APP_NAME:
+        elif app_id == CommonStack.COMMON_APP_NAME:
             spec = CommonStack(
                 stack_packs=[sps[a] for a in app_ids if a in sps],
                 features=project.features,

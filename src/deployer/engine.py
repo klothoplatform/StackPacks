@@ -32,14 +32,12 @@ async def read_live_state(project_id: str, app_id: str) -> LiveState:
     logger.info(f"Reading live state for {project_id}/{app_id}")
     iac_storage = get_iac_storage()
     latest_deployed = AppDeployment.get_latest_deployed_version(project_id, app_id)
-    
+
     with TempDir() as tmp_dir:
         iac = iac_storage.get_iac(project_id, app_id, latest_deployed.version())
         write_zip_to_directory(iac, tmp_dir)
         builder = AppBuilder(tmp_dir, get_pulumi_state_bucket_name())
-        stack: auto.Stack = builder.select_stack(
-            project_id, app_id
-        )
+        stack: auto.Stack = builder.select_stack(project_id, app_id)
         manager = AppManager(stack)
         live_state = await manager.read_deployed_state(tmp_dir)
         return live_state
