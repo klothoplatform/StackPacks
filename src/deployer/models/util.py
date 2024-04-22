@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 from src.deployer.models.workflow_job import WorkflowJob, WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
+from src.project.models.app_deployment import AppDeployment
+from src.project.models.project import Project
 from src.util.logging import logger
 
 
@@ -12,6 +14,12 @@ def abort_workflow_run(
     cancel_in_progress_jobs: bool = False,
     default_run_status: WorkflowRunStatus = None,
 ):
+    project = Project.get(run.project_id)
+    project.update(
+        actions=[
+            Project.destroy_in_progress.set(False),
+        ],
+    )
     if default_run_status is None:
         default_run_status = WorkflowRunStatus.CANCELED
     logger.info(f"Aborting workflow run {run.composite_key()}")
@@ -79,6 +87,7 @@ def abort_workflow_run(
         )
 
 
+
 def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
     try:
         logger.info(f"Completing workflow run {run.composite_key()}")
@@ -134,7 +143,13 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
     except Exception as e:
         logger.error(f"Error completing workflow run {run.composite_key()}: {e}")
         return None
-
+    finally:
+        project = Project.get(run.project_id)
+        project.update(
+            actions=[
+                Project.destroy_in_progress.set(False),
+            ],
+        )
 
 def start_workflow_run(run: WorkflowRun):
     try:
@@ -147,12 +162,26 @@ def start_workflow_run(run: WorkflowRun):
                 WorkflowRun.initiated_at.set(datetime.now(timezone.utc)),
             ]
         )
+        project = Project.get(run.project_id)
         for job in jobs:
             job.update(
                 actions=[
                     WorkflowJob.status.set(WorkflowJobStatus.PENDING.value),
                     WorkflowJob.status_reason.set("Workflow job pending"),
                 ]
+            )
+            app = AppDeployment.get(
+                project.id,
+                AppDeployment.compose_range_key(
+                    app_id=job.modified_app_id, version=project.apps[job.modified_app_id]
+                ),
+            )
+            app.update(
+                actions=[
+                    AppDeployment.deployments.set(
+                        AppDeployment.deployments.append([job.composite_key()]),
+                    ),
+                ]    
             )
     except Exception as e:
         logger.error(f"Error starting workflow run {run.composite_key()}: {e}")

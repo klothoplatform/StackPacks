@@ -88,15 +88,10 @@ async def install_app(
         [app_id],
     )
     background_tasks.add_task(run_full_deploy_workflow, run, common_job)
-
     return Response(
         media_type="application/json",
         status_code=201,
-        content={
-            "workflow_run": jsons.dumps(
-                WorkflowRunSummary.from_workflow_run(run).model_dump()
-            ),
-        },
+        content=jsons.dumps(WorkflowRunSummary.from_workflow_run(run).model_dump())
     )
 
 

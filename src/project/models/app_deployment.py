@@ -74,9 +74,7 @@ class AppDeployment(Model):
         return int(self.range_key.split("#")[1]) if "#" in self.range_key else None
 
     def to_view_model(self):
-        latest_deployed_version = AppDeployment.get_latest_deployed_version(
-            self.project_id, self.app_id()
-        )
+        latest_deployed, status, reason = AppDeployment.get_status(self.project_id, self.app_id())
         return AppDeploymentView(
             app_id=self.app_id(),
             version=self.version(),
@@ -86,18 +84,10 @@ class AppDeployment(Model):
             display_name=self.display_name if self.display_name else self.app_id(),
             outputs=self.outputs,
             last_deployed_version=(
-                latest_deployed_version.version() if latest_deployed_version else None
+                latest_deployed.version() if latest_deployed else None
             ),
-            status=self.status if self.status else latest_deployed_version.status,
-            status_reason=(
-                self.status_reason
-                if self.status_reason
-                else (
-                    latest_deployed_version.status_reason
-                    if latest_deployed_version
-                    else None
-                )
-            ),
+            status=status,
+            status_reason=reason
         )
 
     def __eq__(self, other):
@@ -254,12 +244,12 @@ class AppDeployment(Model):
     @classmethod
     def get_status(
         cls, project_id: str, app_id: str
-    ) -> tuple["AppDeployment", "AppLifecycleStatus"]:
+    ) -> tuple["AppDeployment", "AppLifecycleStatus", str]:
         results = cls.query(
             project_id,
             AppDeployment.range_key.startswith(f"{app_id}#"),
             filter_condition=AppDeployment.deployments.exists(),  # Only include items where status is not null
-            scan_index_forward=False,  # Sort in descending order
+            scan_index_forward=True,  # Sort in descending order
             page_size=10,  # Only check the ten most recent versions
         )
         local_state = None
@@ -267,57 +257,64 @@ class AppDeployment(Model):
             for i in range(len(app.deployments), 0, -1):
                 deployment = app.deployments[i - 1]
                 hk, rk = WorkflowJob.composite_key_to_keys(deployment)
-                job = WorkflowJob.get(hk, rk)
-
-                if not job:
-                    raise ValueError(f"Job not found for deployment {deployment}")
+                try:
+                    job = WorkflowJob.get(hk, rk)
+                except WorkflowJob.DoesNotExist:
+                    logger.error(f"Job {hk} # {rk} not found")
+                    return app, AppLifecycleStatus.INSTALLED, None
+                    
+                if local_state:
+                    if job.job_type == WorkflowJobType.DESTROY.value:
+                        if job.status == WorkflowJobStatus.SUCCEEDED.value:
+                            return local_state
+                    if local_state[1] == AppLifecycleStatus.INSTALLING:
+                        return local_state[0], AppLifecycleStatus.UPDATING, job.status_reason
+                    elif local_state[1] == AppLifecycleStatus.INSTALL_FAILED:
+                        return app, AppLifecycleStatus.UPDATE_FAILED, job.status_reason
 
                 if job.job_type == WorkflowJobType.DEPLOY.value:
                     if job.status == WorkflowJobStatus.FAILED.value:
-                        if local_state:
-                            return app, AppLifecycleStatus.UPDATE_FAILED
-                        local_state = tuple(app, AppLifecycleStatus.INSTALL_FAILED)
+                        local_state = (app, AppLifecycleStatus.INSTALL_FAILED, job.status_reason)
                     elif job.status == WorkflowJobStatus.SUCCEEDED.value:
-                        return app, AppLifecycleStatus.INSTALLED
+                        return app, AppLifecycleStatus.INSTALLED, job.status_reason
                     elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
-                        if local_state:
-                            return app, AppLifecycleStatus.UPDATING
-                        local_state = tuple(app, AppLifecycleStatus.INSTALLING)
+                        local_state = (app, AppLifecycleStatus.INSTALLING, job.status_reason)
                     elif (
                         job.status == WorkflowJobStatus.NEW.value
                         or job.status == WorkflowJobStatus.PENDING.value
                     ):
-                        return app, AppLifecycleStatus.PENDING
+                        return app, AppLifecycleStatus.PENDING, job.status_reason
                     elif (
                         job.status == WorkflowJobStatus.CANCELED.value
                         or job.status == WorkflowJobStatus.SKIPPED.value
                     ):
                         continue
                     else:
-                        return app, AppLifecycleStatus.UNKNOWN
-                    return
+                        return app, AppLifecycleStatus.UNKNOWN, job.status_reason
                 elif job.job_type == WorkflowJobType.DESTROY.value:
                     if job.status == WorkflowJobStatus.FAILED.value:
-                        return app, AppLifecycleStatus.UNINSTALL_FAILED
+                        return app, AppLifecycleStatus.UNINSTALL_FAILED, job.status_reason
                     elif job.status == WorkflowJobStatus.SUCCEEDED.value:
-                        return None, AppLifecycleStatus.UNINSTALLED
+                        return None, AppLifecycleStatus.UNINSTALLED, job.status_reason
                     elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
-                        return app, AppLifecycleStatus.UNINSTALLING
+                        return app, AppLifecycleStatus.UNINSTALLING, job.status_reason
                     elif (
                         job.status == WorkflowJobStatus.NEW.value
                         or job.status == WorkflowJobStatus.PENDING.value
                     ):
-                        return app, AppLifecycleStatus.PENDING
+                        return app, AppLifecycleStatus.PENDING, job.status_reason
                     elif (
                         job.status == WorkflowJobStatus.CANCELED.value
                         or job.status == WorkflowJobStatus.SKIPPED.value
                     ):
                         continue
                     else:
-                        return app, AppLifecycleStatus.UNKNOWN
+                        return app, AppLifecycleStatus.UNKNOWN, job.status_reason
                 else:
                     raise ValueError(f"Unknown job type {job.job_type}")
-        return None, AppLifecycleStatus.NEW
+        if local_state:
+            return local_state
+        return None, AppLifecycleStatus.NEW, None
 
     @staticmethod
     def compose_range_key(app_id, version):

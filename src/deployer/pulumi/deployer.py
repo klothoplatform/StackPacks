@@ -14,9 +14,10 @@ class AppDeployer:
         self.deploy_log = deploy_dir.get_log(stack.name)
         self.deploy_dir.update_latest()
 
-    async def deploy(self) -> Tuple[WorkflowJobStatus, str]:
+    def deploy(self) -> Tuple[WorkflowJobStatus, str]:
         with self.deploy_log.on_output() as on_output:
             try:
+                logger.info(f"refreshing and previewing stack {self.stack.name}")
                 self.stack.refresh(on_output=on_output, color="always")
                 preview_result = self.stack.preview(on_output=on_output, color="always")
             except Exception as e:
@@ -34,7 +35,7 @@ class AppDeployer:
                 self.stack.refresh(on_output=on_output, color="always")
                 return WorkflowJobStatus.FAILED, str(e)
 
-    async def destroy_and_remove_stack(self) -> Tuple[WorkflowJobStatus, str]:
+    def destroy_and_remove_stack(self) -> Tuple[WorkflowJobStatus, str]:
         with self.deploy_log.on_output() as on_output:
             try:
                 self.stack.refresh(on_output=on_output, color="always")

@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import zipfile
 from io import BytesIO
@@ -7,7 +8,6 @@ from typing import Optional
 
 from pulumi import automation as auto
 
-from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.workflow_job import WorkflowJob
 from src.util.compress import zip_directory_recurse
 from src.util.logging import logger as log
@@ -17,6 +17,10 @@ class AppBuilder:
     def __init__(self, output_dir: Path, state_bucket_name: str):
         self.state_bucket_name = state_bucket_name
         self.output_dir = output_dir
+        
+    @staticmethod
+    def sanitize_stack_name(name: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9\-_.]", "_", name)
 
     def prepare_stack(self, job: WorkflowJob) -> auto.Stack:
         self.install_npm_deps()
@@ -34,7 +38,7 @@ class AppBuilder:
         log.info(f"Creating stack for {job.project_id()} {job.modified_app_id}")
         s3_opts = auto.LocalWorkspaceOptions(
             project_settings=auto.ProjectSettings(
-                name=PulumiStack.sanitize_stack_name(
+                name=AppBuilder.sanitize_stack_name(
                     f"{job.project_id()}/{job.modified_app_id}"
                 ),
                 runtime="nodejs",
@@ -45,9 +49,11 @@ class AppBuilder:
                 "PULUMI_CONFIG_PASSPHRASE_FILE": "",
             },
         )
+        os.environ["PULUMI_CONFIG_PASSPHRASE"] = ""
+        os.environ["PULUMI_CONFIG_PASSPHRASE_FILE"] = ""
         os.environ["PULUMI_DEBUG"] = "true"
         stack = auto.create_or_select_stack(
-            stack_name=PulumiStack.sanitize_stack_name(job.modified_app_id),
+            stack_name=AppBuilder.sanitize_stack_name(job.modified_app_id),
             project_name=job.project_id(),
             work_dir=str(self.output_dir),
             opts=s3_opts if self.state_bucket_name else None,
@@ -80,16 +86,15 @@ class AppBuilder:
         )
         result.check_returncode()
 
-    @classmethod
-    def select_stack(job: WorkflowJob, state_bucket_name: str) -> auto.Stack:
-        log.info(f"Selecting stack for {job.project_id()} {job.modified_app_id}")
+    def select_stack(self, project_id: str, app_id: str) -> auto.Stack:
+        log.info(f"Selecting stack for {project_id} {app_id}")
         s3_opts = auto.LocalWorkspaceOptions(
             project_settings=auto.ProjectSettings(
-                name=PulumiStack.sanitize_stack_name(
-                    f"{job.project_id()}/{job.modified_app_id}"
+                name=AppBuilder.sanitize_stack_name(
+                    f"{project_id}/{app_id}"
                 ),
                 runtime="nodejs",
-                backend=auto.ProjectBackend(f"s3://{state_bucket_name}"),
+                backend=auto.ProjectBackend(f"s3://{self.state_bucket_name}"),
             ),
             env_vars={
                 "PULUMI_CONFIG_PASSPHRASE": "",
@@ -97,12 +102,13 @@ class AppBuilder:
             },
         )
         os.environ["PULUMI_DEBUG"] = "true"
-        stack = auto.create_or_select_stack(
-            stack_name=PulumiStack.sanitize_stack_name(job.modified_app_id),
-            project_name=job.project_id(),
-            opts=s3_opts if state_bucket_name else None,
+        stack = auto.select_stack(
+            stack_name=AppBuilder.sanitize_stack_name(app_id),
+            project_name=project_id,
+            work_dir=str(self.output_dir),
+            opts=s3_opts if self.state_bucket_name else None,
         )
         log.info(
-            f"Successfully selected stack for {job.project_id()} {job.modified_app_id}"
+            f"Successfully selected stack for {project_id} {app_id}"
         )
         return stack

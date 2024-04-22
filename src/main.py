@@ -9,7 +9,6 @@ from src.api.project_router import router as projects_router
 from src.api.stackpacks_router import router as stackpacks_router
 from src.api.workflow_router import router as workflow_router
 from src.auth.token import AuthError
-from src.deployer.models.pulumi_stack import PulumiStack
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun
 from src.project.models.app_deployment import AppDeployment
@@ -22,7 +21,6 @@ async def lifespan(app: FastAPI):
     if os.environ.get("DYNAMODB_HOST", None) is not None:
         WorkflowRun.create_table(wait=True)
         WorkflowJob.create_table(wait=True)
-        PulumiStack.create_table(wait=True)
         Project.create_table(wait=True)
         AppDeployment.create_table(wait=True)
     yield
