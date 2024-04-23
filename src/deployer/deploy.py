@@ -39,7 +39,9 @@ from src.util.tmp import TempDir
 
 async def deploy_workflow(job_id: str, job_number: int):
     workflow_job = WorkflowJob.get(job_id, job_number)
-    metrics_logger = MetricsLogger(workflow_job.project_id(), workflow_job.modified_app_id)
+    metrics_logger = MetricsLogger(
+        workflow_job.project_id(), workflow_job.modified_app_id
+    )
     project, app = get_project_and_app(workflow_job)
     logger.info(
         f"Deploying {project.id}/{app.app_id} for deployment job {job_id}/{job_number}"
