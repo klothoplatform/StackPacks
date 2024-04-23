@@ -24,13 +24,14 @@ from src.deployer.util import get_app_workflows, get_project_and_app
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment, AppLifecycleStatus
 from src.project.models.project import Project
-from src.util.logging import logger
+from src.util.logging import MetricNames, MetricsLogger, logger
 from src.util.tmp import TempDir
 
 
 async def destroy_workflow(job_id: str, job_number: int):
     logger.info(f"Received destroy request for {job_id}/{job_number}")
     workflow_job = WorkflowJob.get(job_id, job_number)
+    metrics_logger = MetricsLogger(workflow_job.project_id(), workflow_job.modified_app_id)
     project, app = get_project_and_app(workflow_job)
     logger.info(
         f"Destroying {project.id}/{app.app_id()} for deployment job {job_id}/{job_number}"
@@ -41,6 +42,10 @@ async def destroy_workflow(job_id: str, job_number: int):
         )
         with TempDir() as tmp_dir:
             destroy_status, destroy_message = destroy(workflow_job, tmp_dir)
+            metrics_logger.log_metric(
+                MetricNames.PULUMI_TEAR_DOWN_FAILURE,
+                1 if destroy_status == WorkflowJobStatus.FAILED else 0,
+            )
             workflow_job.update(
                 actions=[
                     WorkflowJob.status.set(destroy_status.value),
