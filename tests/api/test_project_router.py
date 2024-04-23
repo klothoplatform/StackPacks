@@ -15,6 +15,7 @@ from src.api.project_router import (
     update_app,
     update_stack,
 )
+from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
 from src.util.aws.iam import Policy
@@ -167,7 +168,6 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
             project_id=mock_project_instance.id,
             range_key=AppDeployment.compose_range_key("app1", 1),
             created_by="user_id",
-            status="",
             configuration={"config1": "value0"},
         )
         app.save()
@@ -222,7 +222,7 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         project = MagicMock(
             spec=Project,
             id="user_id",
-            apps={"app2": 1, Project.COMMON_APP_NAME: 1},
+            apps={"app2": 1, CommonStack.COMMON_APP_NAME: 1},
             save=MagicMock(),
             to_view_model=MagicMock(return_value=MagicMock(spec=ProjectView)),
             stack_packs=MagicMock(
@@ -343,7 +343,7 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         user_pack = MagicMock(
             spec=Project,
             id="user_id",
-            apps={"app1": 1, "app2": 1, Project.COMMON_APP_NAME: 1},
+            apps={"app1": 1, "app2": 1, CommonStack.COMMON_APP_NAME: 1},
             run_packs=AsyncMock(),
             run_common_pack=AsyncMock(),
             save=MagicMock(),

@@ -4,11 +4,11 @@ from enum import Enum
 from typing import Optional
 
 from pynamodb.attributes import (
+    JSONAttribute,
+    ListAttribute,
+    NumberAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
-    NumberAttribute,
-    ListAttribute,
-    JSONAttribute,
 )
 from pynamodb.exceptions import PutError
 from pynamodb.models import Model
@@ -33,6 +33,7 @@ class WorkflowJobType(Enum):
 
 
 class WorkflowJob(Model):
+
     class Meta:
         table_name = os.environ.get("WORKFLOW_JOBS_TABLE_NAME", "WorkflowJobs")
         billing_mode = "PAY_PER_REQUEST"
@@ -42,7 +43,6 @@ class WorkflowJob(Model):
     # composite key: project_id#workflow_type#app_id#run_number
     partition_key: str = UnicodeAttribute(hash_key=True)
     job_number: int = NumberAttribute(range_key=True)
-    iac_stack_composite_key: str = UnicodeAttribute(null=True)
     job_type: str = UnicodeAttribute()
     status: str = UnicodeAttribute()
     status_reason: str = UnicodeAttribute()
@@ -72,6 +72,11 @@ class WorkflowJob(Model):
         return int(self.partition_key.split("#")[3])
 
     @staticmethod
+    def get_latest_job(partition_key: str):
+        for job in WorkflowJob.query(partition_key, scan_index_forward=False, limit=1):
+            return job
+
+    @staticmethod
     def compose_partition_key(
         project_id: str, workflow_type: str, owning_app_id: str | None, run_number: int
     ) -> str:
@@ -79,6 +84,11 @@ class WorkflowJob(Model):
 
     def composite_key(self) -> str:
         return f"{self.partition_key}#{self.job_number}"
+
+    @staticmethod
+    def composite_key_to_keys(composite_key: str) -> tuple[str, int]:
+        partition_key, job_number = composite_key.rsplit("#", 1)
+        return partition_key, int(job_number)
 
     def run_composite_key(self) -> str:
         return self.partition_key
@@ -89,7 +99,6 @@ class WorkflowJob(Model):
         return (
             self.partition_key == __value.partition_key
             and self.job_number == __value.job_number
-            and self.iac_stack_composite_key == __value.iac_stack_composite_key
             and self.job_type == __value.job_type
             and self.status == __value.status
             and self.status_reason == __value.status_reason

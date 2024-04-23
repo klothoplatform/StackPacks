@@ -1,0 +1,85 @@
+name: NocoDB
+id: nocodb
+version: '1.0.0'
+description: Enterprise communication platform for developers
+requires:
+  - network
+  - ecs
+  - postgres
+base:
+  resources:
+    aws:ecr_image:nocodb:
+      BaseImage: nocodb/nocodb:latest
+      Dockerfile: Dockerfile
+    aws:ecs_service:nocodb-service:
+      LoadBalancers[0].ContainerPort: 8080
+      TaskDefinition: aws:ecs_task_definition:nocodb-task
+    aws:ecs_task_definition:nocodb-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: aws:ecr_image:nocodb
+        Name: nocodb
+        PortMappings[0]:
+          ContainerPort: 8080
+          HostPort: 8080
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        Environment:
+        - Name: POSTGRES_USER
+          Value: aws:rds_instance:stacksnap-postgres#Username
+        - Name: POSTGRES_PASSWORD
+          Value: aws:rds_instance:stacksnap-postgres#Password
+        - Name: POSTGRES_DATABASE_NAME
+          Value: ${DatabaseName}
+        - Name: POSTGRES_HOST
+          Value: aws:rds_instance:stacksnap-postgres#Host
+        - Name: POSTGRES_PORT
+          Value: aws:rds_instance:stacksnap-postgres#Port
+        - Name: REDIS_HOST
+          Value: aws:elasticache_cluster:nocodb-redis#CacheNodeAddress
+        - Name: REDIS_PORT
+          Value: "6379"
+    aws:load_balancer:nocodb-lb:
+      Scheme: internet-facing
+    aws:cloudfront_distribution:nocodb-cf:
+    aws:elasticache_cluster:nocodb-redis:
+  edges:
+    aws:cloudfront_distribution:nocodb-cf -> aws:load_balancer:nocodb-lb:
+    aws:load_balancer:nocodb-lb -> aws:ecs_service:nocodb-service:
+    aws:ecs_service:nocodb-service -> aws:rds_instance:stacksnap-postgres:
+    aws:ecs_service:nocodb-service -> aws:elasticache_cluster:nocodb-redis:
+  files:
+    Dockerfile:
+    container_start.sh:
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the nocodb service
+    type: number
+    default: 512
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the nocodb service
+    type: number
+    default: 2048
+    validation:
+      minValue: 256
+      maxValue: 4096
+
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store nocodb data on the instance
+    type: string
+    default: nocodb
+    action: create_database
+
+outputs:
+  URL:
+    description: The URL of the nocodb service
+    value: aws:cloudfront_distribution:nocodb-cf#Domain

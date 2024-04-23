@@ -9,7 +9,7 @@ from src.dependencies.injection import get_binary_storage
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.engine_service.binaries.fetcher import Binary
 from src.project import ConfigValues, get_stack_packs
-from src.project.common_stack import Feature
+from src.project.common_stack import CommonStack, Feature
 from src.project.cost import CostElement, calculate_costs
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project, ProjectView
@@ -259,7 +259,7 @@ async def update_app(
     project = Project.get(user_id)
     configuration: dict[str, ConfigValues] = {app_id: body.configuration}
     for app, version in project.apps.items():
-        if app == Project.COMMON_APP_NAME:
+        if app == CommonStack.COMMON_APP_NAME:
             continue
         user_app = AppDeployment.get(
             project.id, AppDeployment.compose_range_key(app_id=app, version=version)
@@ -304,7 +304,7 @@ async def remove_app(
     project_stack_packs = {}
     for app in project.get_app_deployments():
         app_id = app.app_id()
-        if app_id == Project.COMMON_APP_NAME:
+        if app_id == CommonStack.COMMON_APP_NAME:
             common_app_config = app.get_configurations()
             continue
         configuration[app_id] = app.get_configurations()
@@ -313,7 +313,7 @@ async def remove_app(
 
     if len(configuration) == 0 or (
         len(configuration) == 1
-        and configuration.get(Project.COMMON_APP_NAME, None) is not None
+        and configuration.get(CommonStack.COMMON_APP_NAME, None) is not None
     ):
         project.apps = {}
         project.save()

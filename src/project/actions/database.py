@@ -14,9 +14,6 @@ def create_database(
 ):
     logger.info(f"Creating database {database_name}")
     db_manager = None
-    print(sp.requires)
-    print(BaseRequirements.POSTGRES in sp.requires)
-    print(BaseRequirements.MYSQL in sp.requires)
     if BaseRequirements.POSTGRES in sp.requires:
         db_manager = live_state.resources.get("aws:lambda_function:postgres_manager")
     elif BaseRequirements.MYSQL in sp.requires:

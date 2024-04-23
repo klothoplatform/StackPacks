@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
 import os
+from datetime import datetime, timezone
 from enum import Enum
-from typing import NamedTuple, Optional, Iterable
+from typing import Iterable, NamedTuple, Optional
 
 from pynamodb.attributes import UnicodeAttribute, UTCDateTimeAttribute
 from pynamodb.exceptions import PutError
@@ -124,6 +124,30 @@ class WorkflowRun(Model):
     @staticmethod
     def compose_range_key(workflow_type: str, app_id: str | None, run_number: int):
         return f"{workflow_type}#{app_id if app_id else ''}#{run_number:08}"
+
+    @staticmethod
+    def get_workflow_runs(
+        porject_id: str,
+        *,
+        workflow_type: Optional[WorkflowType],
+        status: Optional[WorkflowRunStatus],
+        app_id: Optional[str],
+    ) -> Iterable["WorkflowRun"]:
+        range_key_condition = WorkflowRun.range_key.startswith(
+            f"{workflow_type.value}#{app_id if app_id is not None else ''}"
+        )
+        filter_condition = (
+            WorkflowRun.status == status.value if status is not None else None
+        )
+        results = WorkflowRun.query(
+            hash_key=porject_id,
+            range_key_condition=(
+                range_key_condition if workflow_type is not None else None
+            ),
+            filter_condition=filter_condition,
+        )
+        if workflow_type is None and app_id:
+            return filter(lambda x: x.app_id() == app_id, results)
 
     @classmethod
     def create(

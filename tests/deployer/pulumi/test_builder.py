@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import aiounittest
 
-from src.deployer.models.pulumi_stack import PulumiStack
+from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.pulumi.builder import AppBuilder
 from src.util.tmp import TempDir
 
@@ -65,11 +65,14 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Setup mock objects
         mock_stack = MagicMock()
         mock_create_or_select_stack.return_value = mock_stack
-        mock_pulumi_stack = MagicMock(spec=PulumiStack)
+        mock_job = MagicMock(
+            spec=WorkflowJob,
+            modified_app_id="app_id",
+        )
         # Call the method
         with TempDir() as tmp_dir:
             builder = AppBuilder(tmp_dir, "test_bucket")
-            stack = builder.create_pulumi_stack(mock_pulumi_stack)
+            stack = builder.create_pulumi_stack(mock_job)
 
         # Assert call
         mock_create_or_select_stack.assert_called_once()
@@ -88,11 +91,14 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         # Setup mock objects
         mock_stack = MagicMock()
         mock_create_or_select_stack.return_value = mock_stack
-        mock_pulumi_stack = MagicMock(spec=PulumiStack)
+        mock_job = MagicMock(
+            spec=WorkflowJob,
+            modified_app_id="app_id",
+        )
         # Call the method
         with TempDir() as tmp_dir:
             builder = AppBuilder(tmp_dir, None)
-            stack = builder.create_pulumi_stack(mock_pulumi_stack)
+            stack = builder.create_pulumi_stack(mock_job)
 
         # Assert call
         mock_create_or_select_stack.assert_called_once()

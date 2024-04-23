@@ -2,7 +2,7 @@ import asyncio
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional
+from typing import Iterator, List, Optional
 
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
@@ -15,18 +15,12 @@ from pynamodb.attributes import (
 from pynamodb.exceptions import DoesNotExist
 from pynamodb.models import Model
 
-from src.deployer.models.workflow_run import (
-    WorkflowRun,
-    WorkflowRunStatus,
-    WorkflowType,
-)
 from src.engine_service.binaries.fetcher import BinaryStorage
 from src.project import ConfigValues, StackPack, get_stack_packs
 from src.project.common_stack import CommonStack
 from src.project.models.app_deployment import (
     AppDeployment,
     AppDeploymentView,
-    AppLifecycleStatus,
     get_resources,
 )
 from src.util.aws.iam import Policy
@@ -34,8 +28,6 @@ from src.util.logging import logger
 
 
 class Project(Model):
-    COMMON_APP_NAME = "common"
-
     class Meta:
         table_name = os.environ.get("PROJECTS_TABLE_NAME", "Projects")
         billing_mode = "PAY_PER_REQUEST"
@@ -55,28 +47,19 @@ class Project(Model):
     )
     destroy_in_progress: bool = BooleanAttribute(default=False)
 
-    def get_workflow_runs(
-        self,
-        *,
-        workflow_type: Optional[WorkflowType],
-        status: Optional[WorkflowRunStatus],
-        app_id: Optional[str],
-    ) -> Iterable[WorkflowRun]:
-        range_key_condition = WorkflowRun.range_key.startswith(
-            f"{workflow_type.value}#{app_id if app_id is not None else ''}"
+    def __eq__(self, other):
+        return (
+            self.id == other.id
+            and self.owner == other.owner
+            and self.region == other.region
+            and self.assumed_role_arn == other.assumed_role_arn
+            and self.assumed_role_external_id == other.assumed_role_external_id
+            and self.features == other.features
+            and self.apps == other.apps
+            and self.created_by == other.created_by
+            and self.created_at == other.created_at
+            and self.destroy_in_progress == other.destroy_in_progress
         )
-        filter_condition = (
-            WorkflowRun.status == status.value if status is not None else None
-        )
-        results = WorkflowRun.query(
-            hash_key=self.id,
-            range_key_condition=(
-                range_key_condition if workflow_type is not None else None
-            ),
-            filter_condition=filter_condition,
-        )
-        if workflow_type is None and app_id:
-            return filter(lambda x: x.app_id() == app_id, results)
 
     def get_policy(self) -> Policy:
         p = Policy()
@@ -93,7 +76,7 @@ class Project(Model):
         dry_run: bool = False,
     ):
         common_stack = CommonStack(stack_packs, self.features)
-        common_version = self.apps.get(Project.COMMON_APP_NAME, None)
+        common_version = self.apps.get(CommonStack.COMMON_APP_NAME, None)
         app: AppDeployment | None = None
         old_config: ConfigValues | None = None
         config = config if config is not None else ConfigValues({})
@@ -102,7 +85,7 @@ class Project(Model):
                 app = AppDeployment.get(
                     self.id,
                     AppDeployment.compose_range_key(
-                        app_id=Project.COMMON_APP_NAME, version=common_version
+                        app_id=CommonStack.COMMON_APP_NAME, version=common_version
                     ),
                 )
                 old_config = app.get_configurations()
@@ -110,7 +93,7 @@ class Project(Model):
 
                 # Only increment version if there has been an attempted deploy on the current version
                 latest_version = AppDeployment.get_latest_deployed_version(
-                    project_id=self.id, app_id=Project.COMMON_APP_NAME
+                    self.id, CommonStack.COMMON_APP_NAME
                 )
                 if (
                     latest_version is not None
@@ -123,12 +106,12 @@ class Project(Model):
                     app.deployments = {}
             except DoesNotExist as e:
                 logger.info(
-                    f"App {Project.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
+                    f"App {CommonStack.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
                 )
         if app is None:
             try:
                 latest = AppDeployment.get_latest_version(
-                    project_id=self.id, app_id=Project.COMMON_APP_NAME
+                    project_id=self.id, app_id=CommonStack.COMMON_APP_NAME
                 )
             except DoesNotExist:
                 latest = None
@@ -136,13 +119,12 @@ class Project(Model):
                 # This has to be a composite key so we can correlate the app with the pack
                 project_id=self.id,
                 range_key=AppDeployment.compose_range_key(
-                    app_id=Project.COMMON_APP_NAME,
+                    app_id=CommonStack.COMMON_APP_NAME,
                     version=latest.version() + 1 if latest else 1,
                 ),
                 created_by=self.created_by,
                 created_at=datetime.now(timezone.utc),
                 configuration=config,
-                status=AppLifecycleStatus.NEW.value,
             )
 
         # Set the configuration for the common app (including hardcoded values for the pack id and health endpoint)
@@ -173,7 +155,7 @@ class Project(Model):
 
         if not dry_run:
             app.save()
-            self.apps[Project.COMMON_APP_NAME] = app.version()
+            self.apps[CommonStack.COMMON_APP_NAME] = app.version()
             self.save()
 
     async def run_packs(
@@ -200,7 +182,7 @@ class Project(Model):
         apps: List[AppDeployment] = []
         invalid_stacks = []
         for app_id, app_config in config.items():
-            if app_id == Project.COMMON_APP_NAME:
+            if app_id == CommonStack.COMMON_APP_NAME:
                 continue
             if app_id not in stack_packs:
                 invalid_stacks.append(app_id)
@@ -217,7 +199,7 @@ class Project(Model):
                     if increment_versions:
                         # Only increment version if there has been an attempted deploy on the current version, otherwise we can overwrite the state
                         latest_version = AppDeployment.get_latest_deployed_version(
-                            project_id=self.id, app_id=app_id
+                            self.id, app_id
                         )
                         if (
                             latest_version is not None
@@ -249,7 +231,6 @@ class Project(Model):
                     created_by=self.created_by,
                     created_at=datetime.now(timezone.utc),
                     configuration=app_config,
-                    status=AppLifecycleStatus.NEW.value,
                     display_name=stack_packs[app_id].name,
                 )
                 logger.debug(f"added app {app}")

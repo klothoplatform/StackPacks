@@ -46,6 +46,12 @@ base:
           Value: postgres
         - Name: MM_DB_NAME
           Value: ${DatabaseName}
+        - Name: MATTERMOST_DB_RDS_USERNAME
+          Value: aws:rds_instance:stacksnap-postgres#Username
+        - Name: MATTERMOST_DB_RDS_PASSWORD
+          Value: aws:rds_instance:stacksnap-postgres#Password
+        - Name: MATTERMOST_DB_RDS_ENDPOINT
+          Value: aws:rds_instance:stacksnap-postgres#Endpoint
     aws:load_balancer:mattermost-lb:
       Scheme: internet-facing
     aws:efs_file_system:mattermost-efs:

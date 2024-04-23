@@ -12,7 +12,8 @@ from tests.test_utils.pynamo_test import PynamoTest
 class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
     models = [AppDeployment]
 
-    def test_to_view_model(self):
+    @patch.object(AppDeployment, "get_status")
+    def test_to_view_model(self, mock_get_status):
         # Arrange
         app = AppDeployment(
             project_id="project_id",
@@ -20,11 +21,13 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         app.save()
-
+        mock_get_status.return_value = (
+            app,
+            AppLifecycleStatus.NEW.value,
+            "status_reason",
+        )
         # Act
         app_deployment_view = app.to_view_model()
 
@@ -49,8 +52,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         app.save()
 
@@ -68,8 +69,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         app.save()
 
@@ -87,8 +86,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
 
         # Act
@@ -105,8 +102,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         app.save()
         new_config = {"new_config": "new_value"}
@@ -128,8 +123,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         mock_stack_pack = MagicMock(
             spec=StackPack, to_constraints=MagicMock(return_value=["constraint1"])
@@ -167,8 +160,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         appv1.save()
         appv2 = AppDeployment(
@@ -177,8 +168,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             created_by="created_by",
             configuration={"config": "value"},
             display_name="My App",
-            status=AppLifecycleStatus.NEW.value,
-            status_reason="status_reason",
         )
         appv2.save()
         appv2 = AppDeployment.get(
@@ -190,57 +179,6 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         self.assertEqual(appv2, latest_version)
-
-    def test_get_latest_deployed_version(self):
-        # Arrange
-        appv1 = AppDeployment(
-            project_id="project_id",
-            range_key=AppDeployment.compose_range_key("app", 1),
-            created_by="created_by",
-            configuration={"config": "value"},
-            display_name="My App",
-            status=AppLifecycleStatus.INSTALLED.value,
-            status_reason="status_reason",
-            deployments=["deployment1"],
-        )
-        appv1.save()
-        appv2 = AppDeployment(
-            project_id="project_id",
-            range_key=AppDeployment.compose_range_key("app", 2),
-            created_by="created_by",
-            configuration={"config": "value"},
-            display_name="My App",
-            status=AppLifecycleStatus.INSTALLED.value,
-            status_reason="status_reason",
-        )
-        appv2.save()
-
-        # Act
-        latest_version = AppDeployment.get_latest_deployed_version("project_id", "app")
-
-        # Assert
-        appv1.refresh()
-        self.assertEqual(appv1, latest_version)
-
-    def test_get_latest_deployed_version_ignores_uninstalled_apps(self):
-        # Arrange
-        app = AppDeployment(
-            project_id="project_id",
-            range_key=AppDeployment.compose_range_key("app", 1),
-            created_by="created_by",
-            configuration={"config": "value"},
-            display_name="My App",
-            status=AppLifecycleStatus.UNINSTALLED.value,
-            status_reason="status_reason",
-            deployments=["deployment1"],
-        )
-        app.save()
-
-        # Act
-        latest_version = AppDeployment.get_latest_deployed_version("project_id", "app")
-
-        # Assert
-        self.assertIsNone(latest_version)
 
     def test_compose_range_key(self):
         # Act

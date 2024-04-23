@@ -22,7 +22,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack, mock_deploy_dir)
-        result_status, reason = await deployer.deploy()
+        result_status, reason = deployer.deploy()
 
         # Assert calls
         mock_stack.preview.assert_called_once()
@@ -47,7 +47,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack, mock_deploy_dir)
-        result_status, reason = await deployer.deploy()
+        result_status, reason = deployer.deploy()
 
         # Assert calls and return value
         mock_stack.preview.assert_called_once()
@@ -69,7 +69,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack, mock_deploy_dir)
-        result_status, reason = await deployer.destroy_and_remove_stack()
+        result_status, reason = deployer.destroy_and_remove_stack()
 
         # Assert calls
         mock_stack.destroy.assert_called_once()
@@ -93,7 +93,7 @@ class TestAppDeployer(aiounittest.AsyncTestCase):
 
         # Call the method
         deployer = AppDeployer(mock_stack, mock_deploy_dir)
-        result_status, reason = await deployer.destroy_and_remove_stack()
+        result_status, reason = deployer.destroy_and_remove_stack()
 
         # Assert calls and return value
         mock_stack.destroy.assert_called_once()

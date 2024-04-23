@@ -8,14 +8,18 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from pynamodb.attributes import (
     JSONAttribute,
+    ListAttribute,
     UnicodeAttribute,
-    UnicodeSetAttribute,
     UTCDateTimeAttribute,
 )
 from pynamodb.models import Model
 from typing_extensions import deprecated
 
-from src.deployer.models.workflow_job import WorkflowJobStatus, WorkflowJobType
+from src.deployer.models.workflow_job import (
+    WorkflowJob,
+    WorkflowJobStatus,
+    WorkflowJobType,
+)
 from src.engine_service.binaries.fetcher import Binary, BinaryStorage
 from src.engine_service.engine_commands.run import (
     RunEngineRequest,
@@ -52,13 +56,10 @@ class AppDeployment(Model):
     project_id: str = UnicodeAttribute(hash_key=True)
     # composite key: app_id#version
     range_key: str = UnicodeAttribute(range_key=True)
-    iac_stack_composite_key: str = UnicodeAttribute(null=True)
     created_by: str = UnicodeAttribute()
     created_at: datetime = UTCDateTimeAttribute(default=datetime.utcnow)
     outputs: dict[str, str] = JSONAttribute(null=True)
-    deployments: list[str] = UnicodeSetAttribute(null=True)
-    status: str = UnicodeAttribute()
-    status_reason: str = UnicodeAttribute(null=True)
+    deployments: list[str] = ListAttribute(null=True)
     configuration: dict = JSONAttribute()
     display_name: str = UnicodeAttribute(null=True)
     policy: str = UnicodeAttribute(null=True)
@@ -70,7 +71,7 @@ class AppDeployment(Model):
         return int(self.range_key.split("#")[1]) if "#" in self.range_key else None
 
     def to_view_model(self):
-        latest_deployed_version = AppDeployment.get_latest_deployed_version(
+        latest_deployed, status, reason = AppDeployment.get_status(
             self.project_id, self.app_id()
         )
         return AppDeploymentView(
@@ -82,75 +83,22 @@ class AppDeployment(Model):
             display_name=self.display_name if self.display_name else self.app_id(),
             outputs=self.outputs,
             last_deployed_version=(
-                latest_deployed_version.version() if latest_deployed_version else None
+                latest_deployed.version() if latest_deployed else None
             ),
-            status=self.status if self.status else latest_deployed_version.status,
-            status_reason=(
-                self.status_reason
-                if self.status_reason
-                else (
-                    latest_deployed_version.status_reason
-                    if latest_deployed_version
-                    else None
-                )
-            ),
+            status=status,
+            status_reason=reason,
         )
 
     def __eq__(self, other):
         return (
             self.project_id == other.project_id
             and self.range_key == other.range_key
-            and self.iac_stack_composite_key == other.iac_stack_composite_key
             and self.created_by == other.created_by
             and self.created_at == other.created_at
             and self.outputs == other.outputs
             and self.deployments == other.deployments
-            and self.status == other.status
-            and self.status_reason == other.status_reason
             and self.configuration == other.configuration
             and self.display_name == other.display_name
-        )
-
-    def transition_status(
-        self, status: WorkflowJobStatus, action: WorkflowJobType, reason: str
-    ):
-        new_status = None
-        match action:
-            case WorkflowJobType.DEPLOY:
-                match status:
-                    case WorkflowJobStatus.IN_PROGRESS:
-                        if (
-                            self.get_latest_deployed_version(
-                                project_id=self.project_id, app_id=self.app_id()
-                            )
-                            is None
-                        ):
-                            new_status = AppLifecycleStatus.INSTALLING.value
-                        else:
-                            new_status = AppLifecycleStatus.UPDATING.value
-                    case WorkflowJobStatus.SUCCEEDED:
-                        new_status = AppLifecycleStatus.INSTALLED.value
-                    case WorkflowJobStatus.FAILED:
-                        if self.status == AppLifecycleStatus.NEW.value:
-                            new_status = AppLifecycleStatus.INSTALL_FAILED.value
-                        else:
-                            new_status = AppLifecycleStatus.UPDATE_FAILED.value
-            case WorkflowJobType.DESTROY:
-                match status:
-                    case WorkflowJobStatus.IN_PROGRESS:
-                        new_status = AppLifecycleStatus.UNINSTALLING.value
-                    case WorkflowJobStatus.SUCCEEDED:
-                        new_status = AppLifecycleStatus.UNINSTALLED.value
-                    case WorkflowJobStatus.FAILED:
-                        new_status = AppLifecycleStatus.UNINSTALL_FAILED.value
-
-        if new_status is None:
-            raise ValueError(f"Invalid status transition: {self.status} -> {status}")
-        self.update(
-            actions=[
-                AppDeployment.status.set(new_status),
-                AppDeployment.status_reason.set(reason),
-            ]
         )
 
     @deprecated("Use app_id() instead")
@@ -287,26 +235,98 @@ class AppDeployment(Model):
     def get_latest_deployed_version(
         cls, project_id: str, app_id: str
     ) -> Optional["AppDeployment"]:
+        return cls.get_status(project_id, app_id)[0]
+
+    @classmethod
+    def get_status(
+        cls, project_id: str, app_id: str
+    ) -> tuple["AppDeployment", "AppLifecycleStatus", str]:
         results = cls.query(
             project_id,
             AppDeployment.range_key.startswith(f"{app_id}#"),
             filter_condition=AppDeployment.deployments.exists(),  # Only include items where status is not null
-            scan_index_forward=False,  # Sort in descending order
+            scan_index_forward=True,  # Sort in descending order
             page_size=10,  # Only check the ten most recent versions
         )
-        result = next(
-            iter(results), None
-        )  # Return the first item or None if there are no items
-        if result:
-            return (
-                result
-                if result.status
-                not in [
-                    AppLifecycleStatus.UNINSTALLED.value,
-                    AppLifecycleStatus.NEW.value,
-                ]
-                else None
-            )
+        local_state = None
+        for app in results:
+            for i in range(len(app.deployments), 0, -1):
+                deployment = app.deployments[i - 1]
+                hk, rk = WorkflowJob.composite_key_to_keys(deployment)
+                try:
+                    job = WorkflowJob.get(hk, rk)
+                except WorkflowJob.DoesNotExist:
+                    logger.error(f"Job {hk} # {rk} not found")
+                    return app, AppLifecycleStatus.INSTALLED, None
+
+                if local_state:
+                    if job.job_type == WorkflowJobType.DESTROY.value:
+                        if job.status == WorkflowJobStatus.SUCCEEDED.value:
+                            return local_state
+                    if local_state[1] == AppLifecycleStatus.INSTALLING:
+                        return (
+                            local_state[0],
+                            AppLifecycleStatus.UPDATING,
+                            job.status_reason,
+                        )
+                    elif local_state[1] == AppLifecycleStatus.INSTALL_FAILED:
+                        return app, AppLifecycleStatus.UPDATE_FAILED, job.status_reason
+
+                if job.job_type == WorkflowJobType.DEPLOY.value:
+                    if job.status == WorkflowJobStatus.FAILED.value:
+                        local_state = (
+                            app,
+                            AppLifecycleStatus.INSTALL_FAILED,
+                            job.status_reason,
+                        )
+                    elif job.status == WorkflowJobStatus.SUCCEEDED.value:
+                        return app, AppLifecycleStatus.INSTALLED, job.status_reason
+                    elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
+                        local_state = (
+                            app,
+                            AppLifecycleStatus.INSTALLING,
+                            job.status_reason,
+                        )
+                    elif (
+                        job.status == WorkflowJobStatus.NEW.value
+                        or job.status == WorkflowJobStatus.PENDING.value
+                    ):
+                        return app, AppLifecycleStatus.PENDING, job.status_reason
+                    elif (
+                        job.status == WorkflowJobStatus.CANCELED.value
+                        or job.status == WorkflowJobStatus.SKIPPED.value
+                    ):
+                        continue
+                    else:
+                        return app, AppLifecycleStatus.UNKNOWN, job.status_reason
+                elif job.job_type == WorkflowJobType.DESTROY.value:
+                    if job.status == WorkflowJobStatus.FAILED.value:
+                        return (
+                            app,
+                            AppLifecycleStatus.UNINSTALL_FAILED,
+                            job.status_reason,
+                        )
+                    elif job.status == WorkflowJobStatus.SUCCEEDED.value:
+                        return None, AppLifecycleStatus.UNINSTALLED, job.status_reason
+                    elif job.status == WorkflowJobStatus.IN_PROGRESS.value:
+                        return app, AppLifecycleStatus.UNINSTALLING, job.status_reason
+                    elif (
+                        job.status == WorkflowJobStatus.NEW.value
+                        or job.status == WorkflowJobStatus.PENDING.value
+                    ):
+                        return app, AppLifecycleStatus.PENDING, job.status_reason
+                    elif (
+                        job.status == WorkflowJobStatus.CANCELED.value
+                        or job.status == WorkflowJobStatus.SKIPPED.value
+                    ):
+                        continue
+                    else:
+                        return app, AppLifecycleStatus.UNKNOWN, job.status_reason
+                else:
+                    raise ValueError(f"Unknown job type {job.job_type}")
+        if local_state:
+            return local_state
+        return None, AppLifecycleStatus.NEW, None
 
     @staticmethod
     def compose_range_key(app_id, version):
@@ -316,7 +336,6 @@ class AppDeployment(Model):
 class AppDeploymentView(BaseModel):
     app_id: str
     version: int
-    iac_stack_composite_key: Optional[str] = None
     created_by: str
     created_at: datetime
     configuration: ConfigValues = Field(default_factory=dict)
