@@ -55,7 +55,7 @@ health_monitor:
       Context: health_monitor
     aws:sns_topic:alarm_actions_topic:
     aws:lambda_function:health_monitor:
-      Image: aws:ecr_image:health_monitor
+      Image: aws:ecr_image:health_monitor#ImageName
       EnvironmentVariables:
         # TODO: Find a way to know how to set constraints smarter or fix the engine
         constraint_top_level:
@@ -94,7 +94,7 @@ postgres:
       Dockerfile: postgres_manager/Dockerfile
       Context: postgres_manager
     aws:lambda_function:postgres_manager:
-      Image: aws:ecr_image:postgres_manager
+      Image: aws:ecr_image:postgres_manager#ImageName
       Tags:
         STACKSNAP_FUNCTION: POSTGRES_MANAGER
       EnvironmentVariables:
@@ -158,7 +158,7 @@ mysql:
       Dockerfile: mysql_manager/Dockerfile
       Context: mysql_manager
     aws:lambda_function:mysql_manager:
-      Image: aws:ecr_image:mysql_manager
+      Image: aws:ecr_image:mysql_manager#ImageName
       Tags:
         STACKSNAP_FUNCTION: MYSQL_MANAGER
       EnvironmentVariables:

@@ -42,9 +42,13 @@ async def read_live_state(project_id: str, app_id: str) -> LiveState:
             stack: auto.Stack = builder.select_stack(project_id, app_id)
             manager = AppManager(stack)
             live_state = await manager.read_deployed_state(tmp_dir)
+            metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE.value, 0)
             return live_state
     except Exception as e:
-        metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE, 1)
+        logger.error(
+            f"Error reading live state for {project_id}/{app_id}: {e}", exc_info=True
+        )
+        metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE.value, 1)
         raise e
 
 
@@ -72,43 +76,65 @@ def get_constraints_from_common_live_state(
 async def build_app(
     deployment_job: WorkflowJob, tmp_dir: Path, live_state: LiveState = None
 ) -> RunEngineResult:
-    logger.info(f"Building app for deployment job {deployment_job.composite_key()}")
-    job_composite_key = deployment_job.composite_key()
-    project_id = deployment_job.project_id()
-    app_id = deployment_job.modified_app_id
-    binary_storage = get_binary_storage()
-    project, app = get_project_and_app(deployment_job)
-    stack_pack = get_stack_pack_by_job(deployment_job)
-    logger.info(f"Running {project_id}/{app_id}, deployment id {job_composite_key}")
-    engine_result = await app.run_app(
-        stack_pack=stack_pack,
-        app_dir=tmp_dir,
-        binary_storage=binary_storage,
-        imports=get_constraints_from_common_live_state(project, live_state),
+    metrics_logger = MetricsLogger(
+        deployment_job.project_id(), deployment_job.modified_app_id
     )
-    return engine_result
+    logger.info(f"Building app for deployment job {deployment_job.composite_key()}")
+    try:
+        job_composite_key = deployment_job.composite_key()
+        project_id = deployment_job.project_id()
+        app_id = deployment_job.modified_app_id
+        binary_storage = get_binary_storage()
+        project, app = get_project_and_app(deployment_job)
+        stack_pack = get_stack_pack_by_job(deployment_job)
+        logger.info(f"Running {project_id}/{app_id}, deployment id {job_composite_key}")
+        engine_result = await app.run_app(
+            stack_pack=stack_pack,
+            app_dir=tmp_dir,
+            binary_storage=binary_storage,
+            imports=get_constraints_from_common_live_state(project, live_state),
+        )
+        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE.value, 0)
+        return engine_result
+    except Exception as e:
+        logger.error(
+            f"Error running engine for {project_id}/{app_id}: {e}", exc_info=True
+        )
+        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE.value, 1)
+        raise e
 
 
 async def generate_iac(
     run_result: RunEngineResult, deployment_job: WorkflowJob, tmp_dir: Path
 ):
-    logger.info(f"Generating IAC for deployment job {deployment_job.composite_key()}")
-    project_id = deployment_job.project_id()
-    app_id = deployment_job.modified_app_id
-    project, app = get_project_and_app(deployment_job)
-    binary_storage = get_binary_storage()
-    iac_storage = get_iac_storage()
-    binary_storage.ensure_binary(Binary.IAC)
-    await export_iac(
-        ExportIacRequest(
-            input_graph=run_result.resources_yaml,
-            name=project_id,
-            tmp_dir=tmp_dir,
-        )
+    metrics_logger = MetricsLogger(
+        deployment_job.project_id(), deployment_job.modified_app_id
     )
-    stack_pack = get_stack_pack_by_job(deployment_job)
-    stack_pack.copy_files(app.get_configurations(), tmp_dir)
-    iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
-    logger.info(f"Writing IAC for {app_id} version {app.version()}")
-    iac_storage.write_iac(project_id, app_id, app.version(), iac_bytes)
-    return
+    logger.info(f"Generating IAC for deployment job {deployment_job.composite_key()}")
+    try:
+        project_id = deployment_job.project_id()
+        app_id = deployment_job.modified_app_id
+        project, app = get_project_and_app(deployment_job)
+        binary_storage = get_binary_storage()
+        iac_storage = get_iac_storage()
+        binary_storage.ensure_binary(Binary.IAC)
+        await export_iac(
+            ExportIacRequest(
+                input_graph=run_result.resources_yaml,
+                name=project_id,
+                tmp_dir=tmp_dir,
+            )
+        )
+        stack_pack = get_stack_pack_by_job(deployment_job)
+        stack_pack.copy_files(app.get_configurations(), tmp_dir)
+        iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
+        logger.info(f"Writing IAC for {app_id} version {app.version()}")
+        iac_storage.write_iac(project_id, app_id, app.version(), iac_bytes)
+        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE.value, 0)
+        return
+    except Exception as e:
+        logger.error(
+            f"Error generating iac for {project_id}/{app_id}: {e}", exc_info=True
+        )
+        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE.value, 1)
+        raise e

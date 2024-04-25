@@ -14,7 +14,6 @@ const awsProfile = awsConfig.get("profile");
 const accountId = pulumi.output(aws.getCallerIdentity({}));
 const region = pulumi.output(aws.getRegion({}));
 
-console.log(kloConfig.get("Alias"))
 
 const cloudfront_origin_access_identity_0 =
   new aws.cloudfront.OriginAccessIdentity(

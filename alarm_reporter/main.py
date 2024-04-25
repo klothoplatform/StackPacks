@@ -32,7 +32,7 @@ class CloudWatchAlarmParser:
             "text": "<!here|here>",
             "attachments": [
                 {
-                    "title": ":aws: AWS CloudWatch Notification :alarm:",
+                    "title": "AWS CloudWatch Notification",
                     "ts": datetime.strptime(
                         self.msg["StateChangeTime"], self.timestamp_format
                     ).timestamp(),

@@ -64,7 +64,7 @@ async def deploy_workflow(job_id: str, job_number: int):
                     raise ValueError("Error running pre-deploy hooks")
             deploy_status, deploy_message = deploy(workflow_job, tmp_dir)
             metrics_logger.log_metric(
-                MetricNames.PULUMI_DEPLOYMENT_FAILURE,
+                MetricNames.PULUMI_DEPLOYMENT_FAILURE.value,
                 1 if deploy_status == WorkflowJobStatus.FAILED else 0,
             )
             workflow_job.update(
@@ -74,8 +74,16 @@ async def deploy_workflow(job_id: str, job_number: int):
                     WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
                 ]
             )
+            metrics_logger.log_metric(
+                MetricNames.DEPLOYMENT_WORKFLOW_FAILURE.value,
+                0,
+            )
             return {"status": deploy_status.value, "message": deploy_message}
     except Exception as e:
+        metrics_logger.log_metric(
+            MetricNames.DEPLOYMENT_WORKFLOW_FAILURE.value,
+            1,
+        )
         logger.error(
             f"Error deploying {workflow_job.composite_key()}: {e}", exc_info=True
         )
@@ -91,8 +99,7 @@ async def deploy_workflow(job_id: str, job_number: int):
 def run_pre_deploy_hooks(deployment_job: WorkflowJob, live_state: LiveState):
     logger.info(f"Running pre-deploy hooks for {deployment_job.composite_key()}")
     project, app = get_project_and_app(deployment_job)
-    run_actions(app, project, live_state)
-    return
+    return run_actions(app, project, live_state)
 
 
 def get_pulumi_config(deployment_job: WorkflowJob) -> dict[str, str]:
