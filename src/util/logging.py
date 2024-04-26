@@ -65,7 +65,7 @@ class MetricsLogger:
         :param value: The value of the metric.
         :param dimensions: A dictionary of dimensions for the metric (optional).
         """
-        metric_data = {"metric_name": metric_name.value, "value": value}
+        metric_data = {"metric": metric_name.value, "value": value}
         metric_data.update(self.dimensions)
         if dimensions:
             metric_data.update(dimensions)

@@ -9,7 +9,9 @@ export function createCustomAlarms(logGroup: aws.cloudwatch.LogGroup, snsTopic: 
         "DeploymentFailure", 
         "TeardownFailure", 
         "ReadLiveStateFailure", 
-        "PreDeployActionsFailure"
+        "PreDeployActionsFailure",
+        "DestroyWorkflowFailure",
+        "DeploymentWorkflowFailure"
     ]
     const namespace = "Stacksnap"
 
