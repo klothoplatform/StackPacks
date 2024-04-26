@@ -15,6 +15,7 @@ from src.deployer.models.workflow_job import WorkflowJob, WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deployer import AppDeployer
+from src.deployer.pulumi.manager import AppManager
 from src.engine_service.engine_commands.run import RunEngineResult
 from src.project import StackPack
 from src.project.common_stack import CommonStack
@@ -85,6 +86,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         self.job.save()
         return
 
+    @patch("src.deployer.deploy.get_expected_outputs_for_job")
     @patch("src.deployer.deploy.deploy")
     @patch("src.deployer.deploy.run_pre_deploy_hooks")
     @patch("src.deployer.deploy.generate_iac")
@@ -97,6 +99,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_generate_iac,
         mock_run_pre_deploy_hooks,
         mock_deploy,
+        mock_get_expected_outputs_for_job,
     ):
         mock_live_state = MagicMock(spec=LiveState)
         mock_read_live_state.return_value = mock_live_state
@@ -107,7 +110,16 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         )
         mock_build_app.return_value = run_engine_result
         mock_generate_iac.return_value = b"bytes"
-        mock_deploy.return_value = (WorkflowJobStatus.SUCCEEDED, "Deployed")
+        mock_manager = MagicMock(
+            spec=AppManager,
+            get_outputs=MagicMock(return_value={"key": "value"}),
+        )
+        mock_get_expected_outputs_for_job.return_value = {"key": "value"}
+        mock_deploy.return_value = (
+            mock_manager,
+            WorkflowJobStatus.SUCCEEDED,
+            "Deployed",
+        )
 
         result = await deploy_workflow(self.job.partition_key, self.job.job_number)
 
@@ -118,6 +130,11 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_generate_iac.assert_called_once_with(run_engine_result, mock.ANY, mock.ANY)
         mock_run_pre_deploy_hooks.assert_called_once_with(mock.ANY, mock_live_state)
         mock_deploy.assert_called_once()
+        mock_get_expected_outputs_for_job.assert_called_once_with(mock.ANY)
+        mock_manager.get_outputs.assert_called_once_with({"key": "value"})
+
+        updated_app = AppDeployment.get("project_id", "metabase#00000001")
+        self.assertEqual(updated_app.outputs, {"key": "value"})
 
         update_job = WorkflowJob.get(self.job.partition_key, self.job.job_number)
         self.assertEqual(update_job.status, WorkflowJobStatus.SUCCEEDED.value)
@@ -169,6 +186,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             self.app.get_configurations()
         )
 
+    @patch("src.deployer.deploy.AppManager")
     @patch("src.deployer.deploy.AppDeployer")
     @patch("src.deployer.deploy.AppBuilder")
     @patch("src.deployer.deploy.get_pulumi_config")
@@ -177,6 +195,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_pulumi_config,
         mock_app_builder,
         mock_app_deployer,
+        mock_app_manager,
     ):
         mock_stack = MagicMock(
             set_config=MagicMock(),
@@ -193,10 +212,12 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         mock_get_pulumi_config.return_value = {"key": "value"}
         mock_app_builder.return_value = app_builder
         mock_app_deployer.return_value = app_deployer
+        app_manger = MagicMock(spec=AppManager)
+        mock_app_manager.return_value = app_manger
 
         result = deploy(self.job, Path("/tmp"))
 
-        self.assertEqual(result, (WorkflowJobStatus.SUCCEEDED, "Deployed"))
+        self.assertEqual(result, (app_manger, WorkflowJobStatus.SUCCEEDED, "Deployed"))
         mock_get_pulumi_config.assert_called_once_with(self.job)
         app_builder.prepare_stack.assert_called_once_with(self.job)
         app_builder.configure_aws.assert_called_once_with(

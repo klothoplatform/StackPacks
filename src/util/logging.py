@@ -57,7 +57,7 @@ class MetricsLogger:
         pass
 
     def log_metric(
-        self, metric_name: str, value: int, dimensions: Dict[str, str] = None
+        self, metric_name: MetricNames, value: int, dimensions: Dict[str, str] = None
     ):
         """
         Logs a metric to stdout.
@@ -65,9 +65,8 @@ class MetricsLogger:
         :param value: The value of the metric.
         :param dimensions: A dictionary of dimensions for the metric (optional).
         """
-        metric_data = {"metric_name": metric_name, "value": value}
-        metric_dimensions = self.dimensions.copy()
+        metric_data = {"metric_name": metric_name.value, "value": value}
+        metric_data.update(self.dimensions)
         if dimensions:
-            metric_dimensions.update(dimensions)
-        metric_data.update(metric_dimensions)
+            metric_data.update(dimensions)
         print(json.dumps(metric_data))

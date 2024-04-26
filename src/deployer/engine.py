@@ -42,13 +42,13 @@ async def read_live_state(project_id: str, app_id: str) -> LiveState:
             stack: auto.Stack = builder.select_stack(project_id, app_id)
             manager = AppManager(stack)
             live_state = await manager.read_deployed_state(tmp_dir)
-            metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE.value, 0)
+            metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE, 0)
             return live_state
     except Exception as e:
         logger.error(
             f"Error reading live state for {project_id}/{app_id}: {e}", exc_info=True
         )
-        metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE.value, 1)
+        metrics_logger.log_metric(MetricNames.READ_LIVE_STATE_FAILURE, 1)
         raise e
 
 
@@ -94,13 +94,13 @@ async def build_app(
             binary_storage=binary_storage,
             imports=get_constraints_from_common_live_state(project, live_state),
         )
-        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE.value, 0)
+        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE, 0)
         return engine_result
     except Exception as e:
         logger.error(
             f"Error running engine for {project_id}/{app_id}: {e}", exc_info=True
         )
-        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE.value, 1)
+        metrics_logger.log_metric(MetricNames.ENGINE_FAILURE, 1)
         raise e
 
 
@@ -130,11 +130,11 @@ async def generate_iac(
         iac_bytes = zip_directory_recurse(BytesIO(), tmp_dir)
         logger.info(f"Writing IAC for {app_id} version {app.version()}")
         iac_storage.write_iac(project_id, app_id, app.version(), iac_bytes)
-        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE.value, 0)
+        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE, 0)
         return
     except Exception as e:
         logger.error(
             f"Error generating iac for {project_id}/{app_id}: {e}", exc_info=True
         )
-        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE.value, 1)
+        metrics_logger.log_metric(MetricNames.IAC_GENERATION_FAILURE, 1)
         raise e

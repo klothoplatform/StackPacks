@@ -45,7 +45,7 @@ async def destroy_workflow(job_id: str, job_number: int):
         with TempDir() as tmp_dir:
             destroy_status, destroy_message = destroy(workflow_job, tmp_dir)
             metrics_logger.log_metric(
-                MetricNames.PULUMI_TEAR_DOWN_FAILURE.value,
+                MetricNames.PULUMI_TEAR_DOWN_FAILURE,
                 1 if destroy_status == WorkflowJobStatus.FAILED else 0,
             )
             workflow_job.update(
@@ -56,13 +56,13 @@ async def destroy_workflow(job_id: str, job_number: int):
                 ]
             )
             metrics_logger.log_metric(
-                MetricNames.DESTROY_WORKFLOW_FAILURE.value,
+                MetricNames.DESTROY_WORKFLOW_FAILURE,
                 0,
             )
             return {"status": destroy_status.value, "message": destroy_message}
     except Exception as e:
         metrics_logger.log_metric(
-            MetricNames.DESTROY_WORKFLOW_FAILURE.value,
+            MetricNames.DESTROY_WORKFLOW_FAILURE,
             1,
         )
         logger.error(f"Error destroying {job_id}/{job_number}: {e}", exc_info=True)

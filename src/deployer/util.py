@@ -36,6 +36,12 @@ def get_stack_pack_by_job(job: WorkflowJob) -> StackPack:
     return stack_pack
 
 
+def get_expected_outputs_for_job(job: WorkflowJob) -> dict:
+    stack_pack = get_stack_pack_by_job(job)
+    outputs = {k: v.value_string() for k, v in stack_pack.outputs.items()}
+    return outputs
+
+
 class JobKeys(BaseModel):
     id: str
     job_number: int
