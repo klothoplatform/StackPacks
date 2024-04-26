@@ -21,7 +21,7 @@ base:
           Host:
             SourcePath: /var/run/docker.sock
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:stacksnap-task-image
+        Image: aws:ecr_image:stacksnap-task-image#ImageName
         Name: stacksnap-backend
         Cpu: 2048
         Memory: 3200
@@ -68,7 +68,7 @@ base:
             Value: aws:s3_bucket:stacksnap-pulumi-state-bucket#BucketName
     aws:ecr_image:stacksnap-task-image:
       BaseImage: python:3.11-slim-bookworm
-      Context: ../.. # from deploy/<env> to root
+      Context: ".."
       Dockerfile: Dockerfile
     # Compute Infrastructure
     aws:ecs_cluster:stacksnap-ecs-cluster:
@@ -176,7 +176,20 @@ base:
             Values:
               - "/api/*"
 
+    aws:ecr_image:alarm_reporter:
+      BaseImage: public.ecr.aws/lambda/python:3.12
+      Context: ".."
+      Dockerfile: Dockerfile.AlarmReporter
+      Dockerfile: alarm_reporter/Dockerfile
+      Context: alarm_reporter
+    aws:sns_topic:alarm_actions_topic:
+    aws:lambda_function:alarm_reporter:
+      Image: aws:ecr_image:alarm_reporter#ImageName
+
   edges:
+    # Monitoring
+    aws:sns_topic:alarm_actions_topic -> aws:lambda_function:alarm_reporter:
+    aws:cloudwatch_alarm -> aws:sns_topic:alarm_actions_topic:
     # Networking
     aws:cloudfront_distribution:stacksnap-distribution -> aws:s3_bucket:stacksnap-ui:
     aws:cloudfront_distribution:stacksnap-distribution -> aws:load_balancer:stacksnap-alb:
@@ -204,6 +217,7 @@ base:
   files:
     Dockerfile: {}
     container_start.sh: {}
+    Dockerfile.AlarmReporter: {}
 
 configuration:
   Alias:

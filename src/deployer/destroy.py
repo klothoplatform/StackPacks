@@ -55,8 +55,16 @@ async def destroy_workflow(job_id: str, job_number: int):
                     WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
                 ]
             )
+            metrics_logger.log_metric(
+                MetricNames.DESTROY_WORKFLOW_FAILURE,
+                0,
+            )
             return {"status": destroy_status.value, "message": destroy_message}
     except Exception as e:
+        metrics_logger.log_metric(
+            MetricNames.DESTROY_WORKFLOW_FAILURE,
+            1,
+        )
         logger.error(f"Error destroying {job_id}/{job_number}: {e}", exc_info=True)
         workflow_job.update(
             actions=[

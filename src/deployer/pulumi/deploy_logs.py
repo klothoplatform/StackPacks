@@ -108,7 +108,7 @@ class DeployLogHandler(PatternMatchingEventHandler):
 
     def close(self, interrupted=True):
         if self.watch is not None:
-            DeployLogHandler.OBSERVER.cleanup_watch(self.watch)
+            cleanup_watch(DeployLogHandler.OBSERVER, self.watch)
             self.watch = None
         if self.file is not None:
             self.file.close()
@@ -193,16 +193,11 @@ class DeployLogHandler(PatternMatchingEventHandler):
             raise
 
 
-def cleanup_watch(self, watch):
+def cleanup_watch(observer, watch):
     """
     Unschedules the watch if there are no more handlers for it. This implementation
     only uses properties on the BaseObserver so it is safe for all implementations.
     """
-    with self._lock:
-        if len(self._handlers[watch]) == 0:
-            self.unschedule(watch)
-
-
-# Monkey patch our cleanup_watch function into the Observer class
-# so that we can properly clean up the watches when there are no more handlers.
-DeployLogHandler.OBSERVER.cleanup_watch = cleanup_watch
+    with observer._lock:
+        if len(observer._handlers[watch]) == 0:
+            observer.unschedule(watch)

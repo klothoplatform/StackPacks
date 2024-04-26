@@ -27,7 +27,7 @@ def get_action(action: Action) -> Callable:
 
 
 def run_actions(app: AppDeployment, project: Project, live_state: LiveState) -> bool:
-    metrics_logger = MetricsLogger(project.id(), app.app_id())
+    metrics_logger = MetricsLogger(project.id, app.app_id())
     success = True
     sp = get_stack_pack(app.app_id())
     actions = sp.get_actions(app.get_configurations())

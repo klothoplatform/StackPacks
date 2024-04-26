@@ -22,8 +22,10 @@ from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
+from src.deployer.pulumi.manager import AppManager
 from src.deployer.util import (
     get_app_workflows,
+    get_expected_outputs_for_job,
     get_project_and_app,
     get_stack_pack_by_job,
     send_email,
@@ -62,10 +64,17 @@ async def deploy_workflow(job_id: str, job_number: int):
                 success = run_pre_deploy_hooks(workflow_job, live_state)
                 if not success:
                     raise ValueError("Error running pre-deploy hooks")
-            deploy_status, deploy_message = deploy(workflow_job, tmp_dir)
+            manager, deploy_status, deploy_message = deploy(workflow_job, tmp_dir)
+            outputs = get_expected_outputs_for_job(workflow_job)
+            stack_outputs = manager.get_outputs(outputs)
             metrics_logger.log_metric(
                 MetricNames.PULUMI_DEPLOYMENT_FAILURE,
                 1 if deploy_status == WorkflowJobStatus.FAILED else 0,
+            )
+            app.update(
+                actions=[
+                    AppDeployment.outputs.set(stack_outputs),
+                ],
             )
             workflow_job.update(
                 actions=[
@@ -74,8 +83,16 @@ async def deploy_workflow(job_id: str, job_number: int):
                     WorkflowJob.completed_at.set(datetime.now(timezone.utc)),
                 ]
             )
+            metrics_logger.log_metric(
+                MetricNames.DEPLOYMENT_WORKFLOW_FAILURE,
+                0,
+            )
             return {"status": deploy_status.value, "message": deploy_message}
     except Exception as e:
+        metrics_logger.log_metric(
+            MetricNames.DEPLOYMENT_WORKFLOW_FAILURE,
+            1,
+        )
         logger.error(
             f"Error deploying {workflow_job.composite_key()}: {e}", exc_info=True
         )
@@ -91,8 +108,7 @@ async def deploy_workflow(job_id: str, job_number: int):
 def run_pre_deploy_hooks(deployment_job: WorkflowJob, live_state: LiveState):
     logger.info(f"Running pre-deploy hooks for {deployment_job.composite_key()}")
     project, app = get_project_and_app(deployment_job)
-    run_actions(app, project, live_state)
-    return
+    return run_actions(app, project, live_state)
 
 
 def get_pulumi_config(deployment_job: WorkflowJob) -> dict[str, str]:
@@ -115,7 +131,9 @@ def get_pulumi_config(deployment_job: WorkflowJob) -> dict[str, str]:
     return pulumi_config
 
 
-def deploy(deployment_job: WorkflowJob, tmp_dir: Path) -> tuple[WorkflowJobStatus, str]:
+def deploy(
+    deployment_job: WorkflowJob, tmp_dir: Path
+) -> tuple[AppManager, WorkflowJobStatus, str]:
     logger.info(f"Deploying app for deployment job {deployment_job.composite_key()}")
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
@@ -144,7 +162,9 @@ def deploy(deployment_job: WorkflowJob, tmp_dir: Path) -> tuple[WorkflowJobStatu
     logger.info(
         f"Deploying {project_id}/{app_id}, deployment id {deployment_job.composite_key()}"
     )
-    return deployer.deploy()
+    manager = AppManager(stack)
+    deploy_result = deployer.deploy()
+    return manager, deploy_result[0], deploy_result[1]
 
 
 def create_deploy_workflow_jobs(

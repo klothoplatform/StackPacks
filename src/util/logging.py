@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -33,16 +34,16 @@ class MetricNames(Enum):
     ENGINE_FAILURE = "EngineFailure"
     IAC_GENERATION_FAILURE = "IacGenerationFailure"
     READ_LIVE_STATE_FAILURE = "ReadLiveStateFailure"
+    DEPLOYMENT_WORKFLOW_FAILURE = "DeploymentWorkflowFailure"
+    DESTROY_WORKFLOW_FAILURE = "DestroyWorkflowFailure"
     PULUMI_DEPLOYMENT_FAILURE = "DeploymentFailure"
     PULUMI_TEAR_DOWN_FAILURE = "TeardownFailure"
     PRE_DEPLOY_ACTIONS_FAILURE = "PreDeployActionsFailure"
-    pass
 
 
 class MetricDimensions(Enum):
     PROJECT_ID = "ProjectId"
     APP_ID = "AppId"
-    pass
 
 
 class MetricsLogger:
@@ -56,7 +57,7 @@ class MetricsLogger:
         pass
 
     def log_metric(
-        self, metric_name: str, value: int, dimensions: Dict[str, str] = None
+        self, metric_name: MetricNames, value: int, dimensions: Dict[str, str] = None
     ):
         """
         Logs a metric to stdout.
@@ -64,8 +65,8 @@ class MetricsLogger:
         :param value: The value of the metric.
         :param dimensions: A dictionary of dimensions for the metric (optional).
         """
-        metric_data = {"metric_name": metric_name, "value": value}
-        if dimensions:
-            self.dimensions.update(dimensions)
+        metric_data = {"metric": metric_name.value, "value": value}
         metric_data.update(self.dimensions)
-        print(metric_data)
+        if dimensions:
+            metric_data.update(dimensions)
+        print(json.dumps(metric_data))

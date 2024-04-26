@@ -180,7 +180,11 @@ def start_workflow_run(run: WorkflowRun):
             app.update(
                 actions=[
                     AppDeployment.deployments.set(
-                        AppDeployment.deployments.append([job.composite_key()]),
+                        (
+                            AppDeployment.deployments.append([job.composite_key()])
+                            if app.deployments
+                            else [job.composite_key()]
+                        ),
                     ),
                 ]
             )
