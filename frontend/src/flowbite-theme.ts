@@ -130,7 +130,7 @@ const flowbiteTheme: CustomFlowbiteTheme = {
       hidden: "invisible opacity-0",
       item: {
         container: "",
-        base: "flex w-full cursor-pointer items-center justify-start px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:bg-gray-600 dark:focus:text-white",
+        base: "flex w-full cursor-pointer items-center justify-start px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-200 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:bg-gray-600 dark:focus:text-white disabled:text-gray-400 disabled:dark:text-gray-500 disabled:italic",
         icon: "mr-2 h-4 w-4",
       },
       style: {
