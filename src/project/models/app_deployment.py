@@ -184,7 +184,7 @@ class AppDeployment(Model):
                 additional_policies = Policy()
                 additional_policies.policy = pol
                 policy.combine(additional_policies)
-            self.policy = str(policy)
+        self.policy = str(policy)
 
         if not dry_run:
             self.save()
