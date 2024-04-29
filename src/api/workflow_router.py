@@ -40,6 +40,16 @@ async def install(
             status_code=400,
             detail="Tear down in progress",
         )
+    elif project.region is None:
+        return HTTPException(
+            status_code=400,
+            detail="Region not set",
+        )
+    elif project.assumed_role_arn is None:
+        return HTTPException(
+            status_code=400,
+            detail="Role not set",
+        )
     common_job = create_deploy_workflow_jobs(
         run,
         list(project.apps.keys()),
@@ -68,6 +78,16 @@ async def install_app(
         return HTTPException(
             status_code=400,
             detail="Tear down in progress",
+        )
+    elif project.region is None:
+        return HTTPException(
+            status_code=400,
+            detail="Region not set",
+        )
+    elif project.assumed_role_arn is None:
+        return HTTPException(
+            status_code=400,
+            detail="Role not set",
         )
     app = AppDeployment.get_latest_version(project_id=project.id, app_id=app_id)
     if app is None:
