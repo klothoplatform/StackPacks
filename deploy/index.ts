@@ -314,6 +314,9 @@ const stacksnap_pulumi_state_bucket = new aws.s3.Bucket(
         bucketKeyEnabled: true,
       },
     },
+    versioning: {
+      enabled: true,
+    },
     tags: {
       GLOBAL_KLOTHO_TAG: "stacksnap-dev",
       RESOURCE_NAME: "stacksnap-pulumi-state-bucket",

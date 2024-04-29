@@ -21,6 +21,8 @@ base:
         TargetGroup: aws:target_group:gitea-ssh
         ContainerName: gitea-task
       TaskDefinition: aws:ecs_task_definition:gitea-task
+      DeploymentMaximumPercent: 100
+      DeploymentMinimumHealthyPercent: 0
     aws:ecs_task_definition:gitea-task:
       Cpu: ${CPU}
       Memory: ${Memory}
@@ -43,7 +45,7 @@ base:
           TransitEncryption: ENABLED
           RootDirectory: /mnt/ssh
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:gitea
+        Image: aws:ecr_image:gitea#ImageName
         PortMappings[0]:
           ContainerPort: 3000
           HostPort: 3000
