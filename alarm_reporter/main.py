@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from urllib.parse import urlencode
 
@@ -91,6 +92,17 @@ def lambda_handler(event, context):
 
     sns_message = json.loads(event["Records"][0]["Sns"]["Message"])
     print(sns_message)
+
+    alarm_state_only: list = json.loads(os.environ.get("ALARM_STATE_ONLY", "[]"))
+
+    if sns_message["NewStateValue"] == "OK" or (
+        sns_message["NewStateValue"] == "INSUFFICIENT_DATA"
+        and sns_message["AlarmName"] in alarm_state_only
+    ):
+        return {
+            "statusCode": 200,
+            "body": "OK",
+        }
 
     webhook_url = "https://hooks.slack.com/services/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"
 

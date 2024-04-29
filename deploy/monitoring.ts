@@ -6,12 +6,16 @@ export function createCustomAlarms(logGroup: aws.cloudwatch.LogGroup, snsTopic: 
     const alarmNames = [
         "EngineFailure", 
         "IacGenerationFailure", 
-        "DeploymentFailure", 
-        "TeardownFailure", 
         "ReadLiveStateFailure", 
         "PreDeployActionsFailure",
+        "DeploymentFailure", 
+        "TeardownFailure", 
         "DestroyWorkflowFailure",
         "DeploymentWorkflowFailure"
+    ]
+    const nonNotificationAlarmNames = [
+        "DeploymentFailure", 
+        "TeardownFailure", 
     ]
     const namespace = "Stacksnap"
 
@@ -24,7 +28,7 @@ export function createCustomAlarms(logGroup: aws.cloudwatch.LogGroup, snsTopic: 
                 metricName: alarmName,
                 namespace: namespace,
                 threshold: 1,
-                triggerActions: [snsTopic.arn],
+                triggerActions: nonNotificationAlarmNames.includes(alarmName) ? [] : [snsTopic.arn],
                 treatMissingData: "ignore",
             })
         );
@@ -87,7 +91,7 @@ function createMetricFilter(logGroupName: pulumi.Output<string>, metricName: str
 function createMetricAlarm(args: MetricAlarmArgs): aws.cloudwatch.MetricAlarm {
     return new aws.cloudwatch.MetricAlarm(args.alarmName, {
         comparisonOperator: "GreaterThanOrEqualToThreshold",
-        evaluationPeriods: 2,
+        evaluationPeriods: 1,
         actionsEnabled: true,
         alarmActions: args.triggerActions,
         dimensions: args.dimensions,
