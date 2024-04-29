@@ -77,6 +77,30 @@
             ],
             "Effect": "Allow",
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Resource": "*",
+            "Action": [
+                "lambda:invokeFunction"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/STACKSNAP_FUNCTION": "POSTGRES_MANAGER"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Resource": "*",
+            "Action": [
+                "lambda:invokeFunction"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/STACKSNAP_FUNCTION": "MYSQL_MANAGER"
+                }
+            }
         }
     ],
     "Version": "2012-10-17"
