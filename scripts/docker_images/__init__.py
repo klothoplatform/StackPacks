@@ -133,24 +133,54 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as docker from "@pulumi/docker";
 
-const ecrPublicAuth = aws.ecrpublic.getAuthorizationToken({{}});
+const ecrAuth = aws.ecr.getAuthorizationToken({{}});
+
+function repoPolicy(repository: aws.ecr.Repository) {{
+    return aws.iam.getPolicyDocument({{
+        statements: [{{
+        sid: "new policy",
+            effect: "Allow",
+            principals: [{{
+        type: "AWS",
+                identifiers: ["*"],
+            }}],
+            actions: [
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:BatchCheckLayerAvailability"
+            ],
+        }}],
+    }}).then(p => p.json);
+}}
 
 """
     for image_detail in image_details:
         camel_case_repo = camel_case(image_detail.ecr_repo_name)
         repo_var = f"{camel_case_repo}Repository"
         image_var = f"{camel_case_repo}Image"
+        policy_var = f"{camel_case_repo}Policy"
         pulumi_program += f"""
         
 // Create an ECR repository.
-const {repo_var} = new aws.ecrpublic.Repository("{image_detail.ecr_repo_name}", {{
-    repositoryName: "{image_detail.ecr_repo_name}",
-    forceDestroy: true,
-    tags: {{
+const {repo_var} = new aws.ecr.Repository("{image_detail.ecr_repo_name}", {{
+    name: "{image_detail.ecr_repo_name}",
+    forceDelete: true,
+    imageScanningConfiguration: {{
+        scanOnPush: true,
+    }},
+        tags: {{
         stackpack_id: "{image_detail.stackpack_id}",
         image_name: "{image_detail.image_name}",
     }}
 }});
+
+// Attach a policy to the ECR repository.
+const {policy_var} = new aws.ecr.RepositoryPolicy("{image_detail.ecr_repo_name}-policy", {{
+        repository: {repo_var}.name,
+        policy: repoPolicy({repo_var}),
+    }}, 
+    {{ parent: {repo_var} }}
+);
 
 // Build and publish the Docker image to the ECR repository.
 const {image_var} = new docker.Image("{image_detail.ecr_repo_name}:{image_detail.version}", {{
@@ -159,16 +189,15 @@ const {image_var} = new docker.Image("{image_detail.ecr_repo_name}:{image_detail
         dockerfile: "{image_detail.dockerfile}",
         platform: "{image_detail.platform or "linux/amd64"}",
     }},
-    imageName: pulumi.interpolate`${{{repo_var}.repositoryUri}}:{image_detail.version}`,
+    imageName: pulumi.interpolate`${{{repo_var}.repositoryUrl}}:{image_detail.version}`,
     registry: {{
-        password: pulumi.secret(
-          ecrPublicAuth.then((authToken) => authToken.password),
-        ),
-        username: ecrPublicAuth.then((authToken) => authToken.userName),
-        server: {repo_var}.repositoryUri,
+        password: pulumi.secret(ecrAuth.then(authToken => authToken.password)),
+        username: ecrAuth.then((authToken) => authToken.userName),
+        server: {repo_var}.repositoryUrl,
     }},
 }},
-);
+{{ parent: {repo_var} }});
+
 """
     return pulumi_program
 

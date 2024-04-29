@@ -16,7 +16,7 @@ async def policy_gen():
     with TempDir() as tmp_dir:
         sps = get_stack_packs()
         common = CommonStack(list(sps.values()), [])
-        imports = common.to_constraints({})
+        imports = common.to_constraints({}, "us-east-1")
         await asyncio.gather(
             gen_policy(common, tmp_dir, []),
             *[gen_policy(sp, tmp_dir, imports) for sp in sps.values()],
@@ -26,7 +26,7 @@ async def policy_gen():
 async def gen_policy(sp: StackPack, tmp_dir: Path, imports: list):
     app_dir = tmp_dir / sp.id
     app_dir.mkdir(parents=True, exist_ok=True)
-    constraints = sp.to_constraints(sp.final_config({}))
+    constraints = sp.to_constraints(sp.final_config({}), "us-east-1")
     constraints.extend(imports)
     engine_result = await run_engine(
         RunEngineRequest(

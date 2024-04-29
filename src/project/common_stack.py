@@ -62,11 +62,11 @@ class CommonPack(BaseModel):
     base: CommonBase
 
 
-def get_stack_pack_base() -> CommonBase:
+def parse_raw_pack() -> CommonPack:
     root = Path("stackpacks_common")
     f = root / "common.yaml"
     pack = parse_yaml_file_as(CommonPack, f)
-    return pack.base
+    return pack
 
 
 class CommonStack(StackPack):
@@ -78,7 +78,8 @@ class CommonStack(StackPack):
 
     def __init__(self, stack_packs: List[StackPack], features: List[str]):
 
-        base = get_stack_pack_base()
+        pack = parse_raw_pack()
+        base = pack.base
         # Initialize an empty StackParts object
         resources = Resources()
         edges = Edges()
@@ -125,12 +126,13 @@ class CommonStack(StackPack):
             always_inject=always_inject,
             never_inject=never_inject,
             additional_policies=additional_policies,
-            id=CommonStack.COMMON_APP_NAME,
+            id=pack.id,
             name=CommonStack.COMMON_APP_NAME,
-            version="0.0.1",
+            version=pack.version,
             requires=[],
             base=stack_base,
             configuration=configuration,
+            docker_images=pack.docker_images,
         )
 
     def copy_files(

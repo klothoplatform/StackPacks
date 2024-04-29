@@ -13,7 +13,7 @@ from pydantic_yaml import parse_yaml_file_as
 from src.util.logging import logger
 
 
-ECR_REGISTRY = os.environ.get("ECR_REGISTRY")
+AWS_ACCOUNT = os.environ.get("AWS_ACCOUNT")
 ECR_SUFFIX = os.environ.get("ECR_SUFFIX", "")
 
 
@@ -262,9 +262,9 @@ class StackPack(BaseModel):
         final_cfg.update(user_config)
         return final_cfg
 
-    def to_constraints(self, user_config: ConfigValues):
+    def to_constraints(self, user_config: ConfigValues, region: str):
         config = self.final_config(user_config)
-        config["$docker_images"] = self.get_docker_images()
+        config["$docker_images"] = self.get_docker_images(region)
 
         constraints = self.base.to_constraints(config)
 
@@ -277,9 +277,9 @@ class StackPack(BaseModel):
                 constraints.extend(cfg.values[v].to_constraints(config))
         return constraints
 
-    def get_docker_images(self) -> dict[str, str]:
+    def get_docker_images(self, region: str) -> dict[str, str]:
         return {
-            k: f"{ECR_REGISTRY}/{k if k == self.id else self.id + '-' + k }{ECR_SUFFIX}:{self.version}"
+            k: f"{AWS_ACCOUNT}.dkr.ecr.{region}.amazonaws.com/{k if k == self.id else self.id + '-' + k }{ECR_SUFFIX}:{self.version}"
             for k in self.docker_images.keys()
         }
 
