@@ -14,6 +14,7 @@
                 "ec2:*Vpc",
                 "ec2:*Vpc*",
                 "ec2:AssociateRouteTable",
+                "ec2:DeleteNetworkInterface",
                 "ec2:DeleteSecurityGroup",
                 "ec2:Describe*",
                 "ec2:DescribeAvailabilityZones",
@@ -47,8 +48,6 @@
                 "iam:Update*",
                 "kms:RetireGrant",
                 "lambda:*Function*",
-                "lambda:*Permission",
-                "lambda:*Policy",
                 "lambda:TagResource",
                 "lambda:UntagResource",
                 "logs:*LogGroup*",
@@ -60,23 +59,34 @@
                 "rds:Describe*",
                 "rds:List*",
                 "rds:ModifyDBSubnetGroup",
-                "rds:RemoveTagsFromResource",
-                "sns:*Topic",
-                "sns:AddPermission",
-                "sns:Get*",
-                "sns:GetSubscriptionAttributes",
-                "sns:List*",
-                "sns:ListSubscriptions",
-                "sns:ListSubscriptionsByTopic",
-                "sns:SetSubscriptionAttributes",
-                "sns:SetTopicAttributes",
-                "sns:Subscribe",
-                "sns:TagResource",
-                "sns:Unsubscribe",
-                "sns:UntagResource"
+                "rds:RemoveTagsFromResource"
             ],
             "Effect": "Allow",
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:invokeFunction"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/STACKSNAP_FUNCTION": "MYSQL_MANAGER"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:invokeFunction"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/STACKSNAP_FUNCTION": "POSTGRES_MANAGER"
+                }
+            }
         }
     ],
     "Version": "2012-10-17"
