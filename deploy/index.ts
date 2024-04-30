@@ -14,7 +14,6 @@ const awsProfile = awsConfig.get("profile");
 const accountId = pulumi.output(aws.getCallerIdentity({}));
 const region = pulumi.output(aws.getRegion({}));
 
-
 const cloudfront_origin_access_identity_0 =
   new aws.cloudfront.OriginAccessIdentity(
     "cloudfront_origin_access_identity-0",
@@ -1582,15 +1581,15 @@ const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
           type: "metric",
           width: 6,
         },
-        {
-          height: 6,
-          properties: {
-            annotations: { alarms: customAlarms.map((a) => a.arn) },
-            region: region_0.apply((o) => o.name),
-          },
-          type: "metric",
-          width: 6,
-        },
+        // {
+        //   height: 6,
+        //   properties: {
+        //     annotations: { alarms: customAlarms.map((a) => a.arn) },
+        //     region: region_0.apply((o) => o.name),
+        //   },
+        //   type: "metric",
+        //   width: 6,
+        // },
       ],
     }),
   },
@@ -1607,7 +1606,9 @@ const lambda_function_alarm_reporter = new aws.lambda.Function(
     name: "alarm_reporter",
     environment: {
       variables: {
-        ALARM_STATE_ONLY_ALARMS: pulumi.jsonStringify(customAlarms.map((a) => a.name)),
+        ALARM_STATE_ONLY_ALARMS: pulumi.jsonStringify(
+          customAlarms.map((a) => a.name),
+        ),
       },
     },
     tags: {
