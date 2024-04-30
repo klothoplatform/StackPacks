@@ -50,7 +50,7 @@ async def calculate_costs(
         else:
             raise ValueError(f"Unknown app_id: {app_id}")
 
-        constraints = spec.to_constraints(app.get_configurations())
+        constraints = spec.to_constraints(app.get_configurations(), project.region)
         costs.extend(await calculate_costs_single(app_id, constraints))
 
     return costs

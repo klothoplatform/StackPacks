@@ -8,9 +8,6 @@ requires:
   - postgres
 base:
   resources:
-    aws:ecr_image:supertokens:
-      BaseImage: registry.supertokens.io/supertokens/supertokens-postgresql:7.0
-      Dockerfile: Dockerfile
     aws:ecs_service:supertokens-service:
       LoadBalancers[0]:
         ContainerPort: 3567
@@ -20,7 +17,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:supertokens
+        Image: registry.supertokens.io/supertokens/supertokens-postgresql:7.0
         PortMappings[0]:
           ContainerPort: 3567
           HostPort: 3567

@@ -92,6 +92,7 @@ async def build_app(
             stack_pack=stack_pack,
             app_dir=tmp_dir,
             binary_storage=binary_storage,
+            region=project.region,
             imports=get_constraints_from_common_live_state(project, live_state),
         )
         metrics_logger.log_metric(MetricNames.ENGINE_FAILURE, 0)

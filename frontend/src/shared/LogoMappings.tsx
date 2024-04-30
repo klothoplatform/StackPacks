@@ -14,6 +14,7 @@ import Matomo from "/images/logos/matomo.svg";
 import OwnCloud from "/images/logos/owncloud.svg";
 import Rallly from "/images/logos/rallly.svg";
 import TypeSense from "/images/logos/typesense.png";
+import NocoDB from "/images/logos/nocodb.svg";
 
 export interface LogoMapping {
   filePath: string;
@@ -31,13 +32,15 @@ export const LogoMappings: Record<string, string | LogoMapping> = {
   },
   keila: Keila,
   matomo: Matomo,
-  owncloud: OwnCloud,
   mattermost: {
     filePath: Mattermost,
     darkPath: mattermostDark,
   },
-  tooljet: ToolJet,
   metabase: Metabase,
+  nocodb: NocoDB,
+  owncloud: OwnCloud,
+
+  tooljet: ToolJet,
   rallly: Rallly,
   strapi: Strapi,
   supertokens: {

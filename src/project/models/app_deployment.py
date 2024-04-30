@@ -101,14 +101,6 @@ class AppDeployment(Model):
             and self.display_name == other.display_name
         )
 
-    @deprecated("Use app_id() instead")
-    def get_app_id(self):
-        return self.app_id()
-
-    @deprecated("Use self.project_id instead")
-    def get_project_id(self):
-        return self.project_id
-
     def global_tag(self):
         # Different services have different restrictions on the characters allowed in tags
         # Use this as the lowest common denominator
@@ -133,6 +125,7 @@ class AppDeployment(Model):
         stack_pack: StackPack,
         app_dir: str,
         binary_storage: BinaryStorage,
+        region: str,
         imports: list[any] = [],
         dry_run: bool = False,
     ):
@@ -158,11 +151,11 @@ class AppDeployment(Model):
                 policy = Policy(policy_path.read_text())
 
         if policy is None:
-            constraints = stack_pack.to_constraints(cfg)
+            constraints = stack_pack.to_constraints(cfg, region)
             constraints.extend(imports)
             if len(imports) == 0:
                 common_modules = CommonStack([stack_pack], [])
-                constraints.extend(common_modules.to_constraints({}))
+                constraints.extend(common_modules.to_constraints({}, region))
 
             binary_storage.ensure_binary(Binary.ENGINE)
             engine_result: RunEngineResult = await run_engine(
@@ -194,14 +187,15 @@ class AppDeployment(Model):
         stack_pack: StackPack,
         app_dir: str,
         binary_storage: BinaryStorage,
+        region: str,
         imports: list[any] = [],
         dry_run: bool = False,
     ):
-        constraints = stack_pack.to_constraints(self.get_configurations())
+        constraints = stack_pack.to_constraints(self.get_configurations(), region)
         constraints.extend(imports)
         if len(imports) == 0:
             common_modules = CommonStack([stack_pack], [])
-            constraints.extend(common_modules.to_constraints({}))
+            constraints.extend(common_modules.to_constraints({}, region))
 
         binary_storage.ensure_binary(Binary.ENGINE)
         engine_result: RunEngineResult = await run_engine(

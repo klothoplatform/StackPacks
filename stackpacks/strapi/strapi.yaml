@@ -8,9 +8,6 @@ requires:
   - postgres
 base:
   resources:
-    aws:ecr_image:strapi:
-      BaseImage: elestio/strapi-production
-      Dockerfile: Dockerfile
     aws:ecs_service:strapi-service:
       HealthCheckGracePeriodSeconds: 300
       LoadBalancers[0]:
@@ -21,7 +18,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:strapi
+        Image: elestio/strapi-production:latest
         PortMappings[0]:
           ContainerPort: 1337
           HostPort: 1337

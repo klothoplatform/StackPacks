@@ -6,11 +6,12 @@ requires:
   - network
   - ecs
   - postgres
+
+docker_images:
+  calcom:
+
 base:
   resources:
-    aws:ecr_image:calcom:
-      BaseImage: calcom.docker.scarf.sh/calcom/cal.com
-      Dockerfile: Dockerfile
     aws:ecs_service:calcom-service:
       LoadBalancers[0]:
         ContainerPort: 3000
@@ -21,7 +22,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:calcom
+        Image: ${docker_image:calcom}
         PortMappings[0]:
           ContainerPort: 3000
           HostPort: 3000
@@ -76,9 +77,6 @@ base:
     aws:load_balancer:calcom-lb -> aws:ecs_service:calcom-service:
 
     aws:ecs_service:calcom-service -> aws:rds_instance:stacksnap-postgres:
-  files:
-    Dockerfile:
-    container_start.sh:
 
 configuration:
   CPU: # This is an example of a value used in the base config

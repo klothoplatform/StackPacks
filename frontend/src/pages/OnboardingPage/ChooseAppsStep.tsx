@@ -55,10 +55,10 @@ export const ChooseAppsStep: FC<StepperNavigatorProps & {}> = ({
 
     // load stack packs
     (async () => {
-      const stackPacks = await getStackPacks();
+      const stackPacks = await getStackPacks(true);
       setApps(
         [...stackPacks.values()].filter(
-          (sp) => !currentProjectApps.includes(sp.id),
+          (sp) => sp.id !== "common" && !currentProjectApps.includes(sp.id),
         ),
       );
     })();

@@ -8,9 +8,6 @@ requires:
   - mysql
 base:
   resources:
-    aws:ecr_image:matomo:
-      BaseImage: matomo
-      Dockerfile: Dockerfile
     aws:ecs_service:matomo-service:
       LoadBalancers[0]:
         ContainerPort: 80
@@ -21,7 +18,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:matomo
+        Image: matomo:5.0
         PortMappings[0]:
           ContainerPort: 80
           HostPort: 80

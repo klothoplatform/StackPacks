@@ -125,7 +125,8 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
             display_name="My App",
         )
         mock_stack_pack = MagicMock(
-            spec=StackPack, to_constraints=MagicMock(return_value=["constraint1"])
+            spec=StackPack,
+            to_constraints=MagicMock(return_value=["constraint1"], region="us-east-1"),
         )
         mock_binary_storage = MagicMock(spec=BinaryStorage)
         mock_run_engine.return_value = MagicMock(
@@ -134,10 +135,14 @@ class TestAppDeployment(PynamoTest, aiounittest.AsyncTestCase):
         )
         imports = ["constraint2"]
         # Act
-        result = await app.run_app(mock_stack_pack, "dir", mock_binary_storage, imports)
+        result = await app.run_app(
+            mock_stack_pack, "dir", mock_binary_storage, "us-east-1", imports
+        )
 
         # Assert
-        mock_stack_pack.to_constraints.assert_called_once_with({"config": "value"})
+        mock_stack_pack.to_constraints.assert_called_once_with(
+            {"config": "value"}, "us-east-1"
+        )
         mock_run_engine.assert_called_once_with(
             RunEngineRequest(
                 constraints=["constraint1", "constraint2"],

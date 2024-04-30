@@ -26,11 +26,11 @@ async def iac():
 @click.option("--config", help="The config file.")
 @click.option("--project-name", prompt="project name", help="The project name.")
 @click.option("--output-dir", prompt="output directory", help="The output directory.")
+@click.option(
+    "--region", prompt="region", help="The region the iac will be deployed to."
+)
 async def generate_iac(
-    file: str,
-    config: str,
-    project_name: str,
-    output_dir: str,
+    file: str, config: str, project_name: str, output_dir: str, region: str
 ):
     try:
         sp = parse_yaml_file_as(StackPack, file)
@@ -53,7 +53,7 @@ async def generate_iac(
 
     request = RunEngineRequest(
         tag=project_name,
-        constraints=sp.to_constraints(user_config),
+        constraints=sp.to_constraints(user_config, region),
         tmp_dir=output_dir,
     )
 
