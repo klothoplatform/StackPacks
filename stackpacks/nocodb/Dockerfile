@@ -9,6 +9,12 @@ ENV POSTGRES_USER=$POSTGRES_USER \
     REDIS_HOST=$REDIS_HOST \
     REDIS_PORT=$REDIS_PORT
 
-COPY --chmod=755 container_start.sh .
+# Print out the environment variables
+RUN echo "Setting up Nocodb connection string..." \
+    && export NC_DB="pg://${POSTGRES_HOST}:${POSTGRES_PORT}?u=${POSTGRES_USER}&p=${POSTGRES_PASSWORD}&d=${POSTGRES_DATABASE_NAME}" \
+    && export NC_REDIS_URL="redis://${REDIS_HOST}:${REDIS_PORT}" \
+    && echo "Connection string: $NC_DB" \
+    && echo "Redis URL: $NC_REDIS_URL"
 
-ENTRYPOINT [ "./container_start.sh" ]
+# Start Nocodb
+CMD ["/usr/src/appEntry/start.sh"]

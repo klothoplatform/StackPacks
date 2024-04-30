@@ -133,8 +133,8 @@ class AppDeployment(Model):
         is_empty_config = True
         if len(self.configuration) > 0:
             for k, v in self.configuration.items():
-                cfg = stack_pack.configuration[k]
-                if cfg.default is None or v == cfg.default:
+                cfg = stack_pack.configuration.get(k)
+                if not cfg or cfg.default is None or v == cfg.default:
                     continue
 
                 is_empty_config = False

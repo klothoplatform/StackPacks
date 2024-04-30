@@ -20,8 +20,9 @@ run:
 	SES_ENDPOINT=http://localhost:8005 \
 	AUTH0_DOMAIN="klotho-dev.us.auth0.com" \
 	AUTH0_AUDIENCE="A0sIE3wvh8LpG8mtJEjWPnBqZgBs5cNM" \
-	ECR_REGISTRY=public.ecr.aws/x8h5w2r6 \
+	AWS_ACCOUNT=338991950301 \
 	pipenv run gunicorn --timeout 0 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:3000 --log-level debug src.main:app
+
 
 test-backend:
 	PYTHONPATH=. pipenv run coverage run --source=src -m unittest discover
