@@ -71,7 +71,7 @@ jobs:
           # converts the stage config to a format that pulumi can consume via config-map: <KEY>: { value: <VALUE> }
           PULUMI_ENV_CONFIG=$(cat ${{ inputs.stage }}.config.json | jq -r 'to_entries[] | "klo:\(.key): { value: \(.value | @json), secret: false }"' | sed 's/$/,/')
           echo "$PULUMI_ENV_CONFIG"
-          echo "pulumi_env_config=PULUMI_ENV_CONFIG" >> $GITHUB_ENV
+          echo "pulumi_env_config=$(echo $PULUMI_ENV_CONFIG)" >> $GITHUB_OUTPUT
           # Generate the pulumi.yaml file
           echo "name: stacksnap-${{ inputs.stage }}" > Pulumi.yaml
           echo "runtime: nodejs" >> Pulumi.yaml 
@@ -107,8 +107,6 @@ jobs:
           config-map: |
             {
               ${{ steps.pulumi-config.outputs.pulumi_env_config }}
-              klo:Alias: { value: "dev.stacksnap.io" }, klo:CertificateArn: { value: "arn:aws:acm:us-east-1:338991950301:certificate/de37adbe-563d-4b81-b878-8be0e8175ce4" }, klo:AuthDomain: { value: "klotho-dev.us.auth0.com" }, klo:AuthAudience: { value: "hZwtQWajZBlAM7lKOp6jr98py5v13jCk" },
-
               aws:region: { value: "${{ vars.AWS_REGION }}", secret: false },
             }
         env:
