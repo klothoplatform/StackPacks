@@ -1088,6 +1088,10 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
           name: "STACKSNAP_PULUMI_ACCESS_TOKEN_ID",
           value: stacksnap_pulumi_access_token.id,
         },
+        {
+          name: "AWS_ACCOUNT",
+          value: accountId.accountId,
+        },
       ],
       essential: true,
       healthCheck: {
