@@ -124,7 +124,7 @@ jobs:
         working-directory: "./deploy"
         shell: bash
       - name: build frontend
-        run: |
+        run: |  
           make frontend/node_modules
           make build-frontend-${STAGE}
         env:

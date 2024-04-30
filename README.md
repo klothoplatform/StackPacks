@@ -152,11 +152,11 @@ Context is relative to the current file's directory.
 #### Referencing Custom Docker Images
 Custom Docker images can be referenced in the `resources` section of the StackPack file using the following format:
 
-    ```yaml
-    resources:
-      aws:ecs_task_definition:my-task:
-        ContainerDefinitions[0].Image: ${docker_image:my-image}
-    ```
+```yaml
+resources:
+  aws:ecs_task_definition:my-task:
+    ContainerDefinitions[0].Image: ${docker_image:my-image}
+```
 
 In the example above, `${docker_image:my-image}` will be replaced with the URI of the Docker image in the ECR repository by the backend at run time during the constraint generation process.
 
@@ -165,7 +165,7 @@ The backend will attempt to resolve custom Docker image URIs by substituting the
 
 `<ECR_REGISTRY>/<IMAGE_NAME><ECR_SUFFIX>:<VERSION>`
 
-- **ECR_REGISTRY** - The ECR registry URI. This is account-specific and must be set as an environment variable.
+- **AWS_ACCOUNT** - The ID of the AWS account that stacksnap is deployed in. This ID will also be used as part of the ECR registry URI for custom Docker images.
 - **IMAGE_NAME** - The image name. This is the name of the image as declared in the `docker_images` section of the StackPack file, including the StackPack ID prefix.
 - **ECR_SUFFIX** - The suffix to append to the image name. This is an optional variable that can be set as an environment variable.
 - **VERSION** - The version of the image. This is the version of the StackPack.
