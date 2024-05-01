@@ -137,8 +137,12 @@ class Project(Model):
 
         resources_changed = True
         if old_config is not None:
-            old_resources = get_resources(common_stack.to_constraints(old_config))
-            new_resources = get_resources(common_stack.to_constraints(config))
+            old_resources = get_resources(
+                common_stack.to_constraints(old_config, self.region)
+            )
+            new_resources = get_resources(
+                common_stack.to_constraints(config, self.region)
+            )
             diff = new_resources ^ old_resources
             logger.debug(
                 f"common:: old: {old_resources}; new: {new_resources}; diff: {diff}"
@@ -150,7 +154,10 @@ class Project(Model):
             subdir = tmp_dir / app.app_id()
             subdir.mkdir(exist_ok=True)
             await app.update_policy(
-                common_stack, str(subdir.absolute()), binary_storage
+                common_stack,
+                str(subdir.absolute()),
+                binary_storage,
+                self.region,
             )
 
         if not dry_run:
@@ -248,7 +255,9 @@ class Project(Model):
                 )
                 old_resources.update(
                     get_resources(
-                        stack_packs[app_id].to_constraints(app.get_configurations())
+                        stack_packs[app_id].to_constraints(
+                            app.get_configurations(), self.region
+                        )
                     )
                 )
 
@@ -256,7 +265,9 @@ class Project(Model):
         for app in apps:
             new_resources.update(
                 get_resources(
-                    stack_packs[app.app_id()].to_constraints(app.get_configurations())
+                    stack_packs[app.app_id()].to_constraints(
+                        app.get_configurations(), self.region
+                    )
                 )
             )
         diff = new_resources ^ old_resources
@@ -275,6 +286,7 @@ class Project(Model):
                         sp,
                         str(subdir.absolute()),
                         binary_storage,
+                        self.region,
                         imports,
                         dry_run=not increment_versions,
                     )

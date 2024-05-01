@@ -23,7 +23,7 @@ import {
 } from "../shared/models/Project.ts";
 import { FormProvider, useForm } from "react-hook-form";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
-import { awsDefaultRegions, awsRegions } from "../shared/aws-regions.ts";
+import { awsSupportedRegions, awsRegions } from "../shared/aws-regions.ts";
 import { CollapsibleSection } from "../components/CollapsibleSection.tsx";
 import { CreateRoleStep } from "../components/CreateRoleStep.tsx";
 import { Container } from "../components/Container.tsx";
@@ -332,7 +332,7 @@ export const ConfigureEnvironmentForm: FC<{
                   },
                 }}
               >
-                {Object.entries(awsDefaultRegions).map(([region, name]) => {
+                {Object.entries(awsSupportedRegions).map(([region, name]) => {
                   return (
                     <Dropdown.Item
                       key={region}

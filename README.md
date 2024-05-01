@@ -5,6 +5,15 @@
   * [Development](#development)
     * [WSL2](#wsl2)
   * [Format](#format)
+  * [CLI](#cli)
+  * [Personal Stacks](#personal-stacks)
+  * [Docker Images](#docker-images)
+    * [Using a Custom Docker Image](#using-a-custom-docker-image)
+      * [Declaring Custom Docker Images](#declaring-custom-docker-images)
+      * [Referencing Custom Docker Images](#referencing-custom-docker-images)
+      * [Configuring Docker Image Resolution](#configuring-docker-image-resolution)
+    * [Building and Pushing Docker Images](#building-and-pushing-docker-images)
+    * [Versioning Docker Images](#versioning-docker-images)
 <!-- TOC -->
 
 
@@ -107,3 +116,87 @@ To deploy, run:
 ```
 KLOTHO_DIR=../klotho STACK_NAME=MY-STACK PULUMI_ACCESS_TOKEN=${ACCESS_TOKEN} REGION=us-east-2 make deploy-personal-infra
 ```
+
+## Docker Images
+
+Docker images referenced by StackPacks must either be pulled from a public registry or built
+and pushed to ECR using the process described below.
+
+### Using a Custom Docker Image
+
+
+#### Declaring Custom Docker Images
+Custom Docker images can be declared in the `docker_images` section of the StackPack file.
+The `docker_images` section is a map from image name to build configuration.
+    
+    ```yaml
+    id: my-stack
+    version: 0.1.0
+    docker_images:
+      my-image:
+        Dockerfile: path/to/Dockerfile
+        Context: path/to/context  
+      my-other-image:
+        # inferred
+        # Dockerfile: ./Dockerfile
+        # Context: .
+    ```
+
+The resulting image's repository will be a combination of the StackPack ID and the image name.
+If the image name matches the StackPack ID, the repository will be the StackPack ID.
+
+The image will be tagged with the StackPack version.
+
+Context is relative to the current file's directory.
+
+#### Referencing Custom Docker Images
+Custom Docker images can be referenced in the `resources` section of the StackPack file using the following format:
+
+```yaml
+resources:
+  aws:ecs_task_definition:my-task:
+    ContainerDefinitions[0].Image: ${docker_image:my-image}
+```
+
+In the example above, `${docker_image:my-image}` will be replaced with the URI of the Docker image in the ECR repository by the backend at run time during the constraint generation process.
+
+#### Configuring Docker Image Resolution
+The backend will attempt to resolve custom Docker image URIs by substituting the following variables in the following format:
+
+`<ECR_REGISTRY>/<IMAGE_NAME><ECR_SUFFIX>:<VERSION>`
+
+- **AWS_ACCOUNT** - The ID of the AWS account that stacksnap is deployed in. This ID will also be used as part of the ECR registry URI for custom Docker images.
+- **IMAGE_NAME** - The image name. This is the name of the image as declared in the `docker_images` section of the StackPack file, including the StackPack ID prefix.
+- **ECR_SUFFIX** - The suffix to append to the image name. This is an optional variable that can be set as an environment variable.
+- **VERSION** - The version of the image. This is the version of the StackPack.
+
+
+### Building and Pushing Docker Images
+
+To build and push a Docker image to ECR, run one of the following commands (depending on the environment):
+
+**Local**
+```sh
+make dockergen-local
+```
+
+**Dev**
+```sh
+make dockergen-dev
+```
+
+**Prod**
+```sh
+make dockergen-prod
+```
+
+This will generate a Pulumi program that builds and pushes all custom Docker images declared in the StackPack files to ECR.
+The program will be output in the `docker_images/<ENVIRONMENT>` directory.
+
+Create a stack and run `pulumi up` to deploy the Docker images to ECR.
+
+### Versioning Docker Images
+
+When making a change to an existing Docker image, running `pulumi up` without modifying the StackPack version will overwrite the existing image tag in ECR with the new image.
+
+To create a new version of the Docker image, increment the StackPack version in the StackPack file and run `pulumi up` to push the new image to ECR with the new version tag.

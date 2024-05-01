@@ -1,4 +1,4 @@
-PHONY: run test-backend black start clean-local test-frontend reset-backend
+PHONY: run test-backend black start clean-local test-frontend reset-backend dockergen-local dockergen-dev dockergen-prod dockergen-whatif
 
 engineCliPath := $(shell command -v engine)
 ifdef engineCliPath
@@ -20,7 +20,8 @@ run:
 	SES_ENDPOINT=http://localhost:8005 \
 	AUTH0_DOMAIN="klotho-dev.us.auth0.com" \
 	AUTH0_AUDIENCE="A0sIE3wvh8LpG8mtJEjWPnBqZgBs5cNM" \
-	pipenv run gunicorn --timeout 0 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:3000 --log-level debug src.main:app 
+	AWS_ACCOUNT=338991950301 \
+	pipenv run gunicorn --timeout 0 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:3000 --log-level debug src.main:app
 
 test-backend:
 	PYTHONPATH=. pipenv run coverage run --source=src -m unittest discover
@@ -105,3 +106,21 @@ deploy-personal-infra:
 
 	cd personal && \
 	pulumi up --yes -s $(STACK_NAME)
+
+dockergen-local:
+	PYTHONPATH=. pipenv run python scripts/cli.py docker-images generate \
+		--repo-suffix="-$(whoami)" \
+		--output-dir="./docker_images/local"
+
+dockergen-dev:
+	PYTHONPATH=. pipenv run python scripts/cli.py docker-images generate \
+		--output-dir="./docker_images/dev"
+
+dockergen-prod:
+	PYTHONPATH=. pipenv run python scripts/cli.py docker-images generate \
+		--output-dir="./docker_images/prod"
+
+dockergen-whatif:
+	PYTHONPATH=. pipenv run python scripts/cli.py docker-images generate \
+		--output-dir="./docker_images/whatif" \
+		--whatif

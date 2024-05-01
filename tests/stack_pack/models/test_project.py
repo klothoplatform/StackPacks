@@ -123,7 +123,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         # Assert
         mock_update_policy.assert_called_once_with(
-            self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
+            self.project.common_stackpack(),
+            "/tmp/common",
+            self.mock_binary_storage,
+            "region",
         )
         self.assertEqual({"common": 1}, self.project.apps)
 
@@ -147,7 +150,10 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
             AppDeployment.get("id", AppDeployment.compose_range_key("common", 1))
         )
         mock_update_policy.assert_called_once_with(
-            self.project.common_stackpack(), "/tmp/common", self.mock_binary_storage
+            self.project.common_stackpack(),
+            "/tmp/common",
+            self.mock_binary_storage,
+            "region",
         )
 
     @patch.object(AppDeployment, "get_latest_deployed_version")
@@ -299,6 +305,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
                     self.mock_stack_packs["app1"],
                     "/tmp/app1",
                     self.mock_binary_storage,
+                    "region",
                     [],
                     dry_run=False,
                 ),
@@ -306,6 +313,7 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
                     self.mock_stack_packs["app2"],
                     "/tmp/app2",
                     self.mock_binary_storage,
+                    "region",
                     [],
                     dry_run=False,
                 ),

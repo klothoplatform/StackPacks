@@ -6,11 +6,12 @@ requires:
   - network
   - ecs
   - postgres
+
+docker_images:
+  tooljet:
+
 base:
   resources:
-    aws:ecr_image:tooljet:
-      BaseImage: tooljet/tooljet:latest
-      Dockerfile: Dockerfile
     aws:ecs_service:tooljet-service:
       HealthCheckGracePeriodSeconds: 900
       LoadBalancers[0].ContainerPort: 3000
@@ -20,7 +21,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:tooljet
+        Image: ${docker_image:tooljet}
         PortMappings[0]:
           ContainerPort: 3000
           HostPort: 3000
@@ -74,8 +75,6 @@ base:
     aws:target_group:tooljet-tg -> aws:ecs_service:tooljet-service:
     aws:ecs_service:tooljet-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:tooljet-service -> aws:memorydb_cluster:tooljet-memcluster:
-  files:
-    Dockerfile:
 
 configuration:
   CPU: # This is an example of a value used in the base config

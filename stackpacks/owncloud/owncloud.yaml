@@ -6,11 +6,12 @@ requires:
   - network
   - ecs
   - postgres
+
+docker_images:
+  owncloud:
+
 base:
   resources:
-    aws:ecr_image:owncloud:
-      BaseImage: owncloud/server:latest
-      Dockerfile: Dockerfile
     aws:ecs_service:owncloud-service:
       LoadBalancers[0]:
         ContainerPort: 8080
@@ -21,7 +22,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:owncloud
+        Image: owncloud/server:10.14
         PortMappings[0]:
           ContainerPort: 8080
           HostPort: 8080
@@ -97,8 +98,6 @@ base:
 
     aws:ecs_service:owncloud-service -> aws:rds_instance:stacksnap-postgres:
     aws:ecs_service:owncloud-service -> aws:memorydb_cluster:owncloud-redis:
-  files:
-    Dockerfile:
 
 configuration:
   CPU: # This is an example of a value used in the base config

@@ -8,9 +8,6 @@ requires:
   - postgres
 base:
   resources:
-    aws:ecr_image:gitea:
-      BaseImage: gitea/gitea:latest
-      Dockerfile: Dockerfile
     aws:ecs_service:gitea-service:
       LoadBalancers[0]:
         ContainerPort: 3000
@@ -45,7 +42,7 @@ base:
           TransitEncryption: ENABLED
           RootDirectory: /mnt/ssh
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:gitea#ImageName
+        Image: gitea/gitea:1.21
         PortMappings[0]:
           ContainerPort: 3000
           HostPort: 3000

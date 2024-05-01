@@ -14,7 +14,6 @@ const awsProfile = awsConfig.get("profile");
 const accountId = pulumi.output(aws.getCallerIdentity({}));
 const region = pulumi.output(aws.getRegion({}));
 
-
 const cloudfront_origin_access_identity_0 =
   new aws.cloudfront.OriginAccessIdentity(
     "cloudfront_origin_access_identity-0",
@@ -697,28 +696,7 @@ echo ECS_CLUSTER=${stacksnap_ecs_cluster.name} >> /etc/ecs/ecs.config
     },
   },
 );
-const lambda_function_alarm_reporter = new aws.lambda.Function(
-  "alarm_reporter",
-  {
-    packageType: "Image",
-    imageUri: ecr_image_alarm_reporter.imageName,
-    memorySize: 512,
-    timeout: 180,
-    role: alarm_reporter_executionrole.arn,
-    name: "alarm_reporter",
-    tags: {
-      GLOBAL_KLOTHO_TAG: "stacksnap-dev",
-      RESOURCE_NAME: "alarm_reporter",
-    },
-  },
-  {
-    dependsOn: [
-      alarm_reporter_executionrole,
-      alarm_reporter_log_group,
-      ecr_image_alarm_reporter,
-    ],
-  },
-);
+
 const stacksnap_shared_storage = new aws.efs.FileSystem(
   "stacksnap-shared-storage",
   {
@@ -762,19 +740,7 @@ const subnet_3_route_table = new aws.ec2.RouteTable("subnet-3-route_table", {
     RESOURCE_NAME: "subnet-3-route_table",
   },
 });
-const lambda_permission_alarm_actions_topic_alarm_reporter =
-  new aws.lambda.Permission("alarm_actions_topic-alarm_reporter", {
-    action: "lambda:InvokeFunction",
-    function: lambda_function_alarm_reporter.name,
-    principal: "sns.amazonaws.com",
-    sourceArn: alarm_actions_topic.arn,
-  });
-const sns_topic_subscription_alarm_actions_topic_alarm_reporter =
-  new aws.sns.TopicSubscription("alarm_actions_topic-alarm_reporter", {
-    endpoint: lambda_function_alarm_reporter.arn,
-    protocol: "lambda",
-    topic: alarm_actions_topic.arn,
-  });
+
 const stacksnap_service_stacksnap_shared_storage = new aws.efs.AccessPoint(
   "stacksnap-service-stacksnap-shared-storage",
   {
@@ -1124,6 +1090,10 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
         {
           name: "STACKSNAP_PULUMI_ACCESS_TOKEN_ID",
           value: stacksnap_pulumi_access_token.id,
+        },
+        {
+          name: "AWS_ACCOUNT",
+          value: accountId.accountId,
         },
       ],
       essential: true,
@@ -1593,23 +1563,11 @@ const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
         },
         {
           height: 6,
-          properties: { alarms: [stacksnap_service_cpuutilization.arn] },
-          type: "alarm",
-          width: 6,
-        },
-        {
-          height: 6,
           properties: {
             annotations: { alarms: [stacksnap_service_memoryutilization.arn] },
             region: region_0.apply((o) => o.name),
           },
           type: "metric",
-          width: 6,
-        },
-        {
-          height: 6,
-          properties: { alarms: [stacksnap_service_memoryutilization.arn] },
-          type: "alarm",
           width: 6,
         },
         {
@@ -1623,23 +1581,67 @@ const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
         },
         {
           height: 6,
-          properties: { alarms: [stacksnap_service_runningtaskcount.arn] },
-          type: "alarm",
+          properties: {
+            annotations: { alarms: albAlarms.map((a) => a.arn) },
+            region: region_0.apply((o) => o.name),
+          },
+          type: "metric",
           width: 6,
         },
-        {
-          height: 6,
-          properties: { alarms: albAlarms.map((a) => a.arn) },
-          type: "alarm",
-          width: 6,
-        },
-        {
-          height: 6,
-          properties: { alarms: customAlarms.map((a) => a.arn) },
-          type: "alarm",
-          width: 6,
-        },
+        // {
+        //   height: 6,
+        //   properties: {
+        //     annotations: { alarms: customAlarms.map((a) => a.arn) },
+        //     region: region_0.apply((o) => o.name),
+        //   },
+        //   type: "metric",
+        //   width: 6,
+        // },
       ],
     }),
   },
 );
+
+const lambda_function_alarm_reporter = new aws.lambda.Function(
+  "alarm_reporter",
+  {
+    packageType: "Image",
+    imageUri: ecr_image_alarm_reporter.imageName,
+    memorySize: 512,
+    timeout: 180,
+    role: alarm_reporter_executionrole.arn,
+    name: "alarm_reporter",
+    environment: {
+      variables: {
+        ALARM_STATE_ONLY_ALARMS: pulumi.jsonStringify(
+          customAlarms.map((a) => a.name),
+        ),
+      },
+    },
+    tags: {
+      GLOBAL_KLOTHO_TAG: "stacksnap-dev",
+      RESOURCE_NAME: "alarm_reporter",
+    },
+  },
+  {
+    dependsOn: [
+      alarm_reporter_executionrole,
+      alarm_reporter_log_group,
+      ecr_image_alarm_reporter,
+    ],
+  },
+);
+
+const lambda_permission_alarm_actions_topic_alarm_reporter =
+  new aws.lambda.Permission("alarm_actions_topic-alarm_reporter", {
+    action: "lambda:InvokeFunction",
+    function: lambda_function_alarm_reporter.name,
+    principal: "sns.amazonaws.com",
+    sourceArn: alarm_actions_topic.arn,
+  });
+const sns_topic_subscription_alarm_actions_topic_alarm_reporter =
+  new aws.sns.TopicSubscription("alarm_actions_topic-alarm_reporter", {
+    endpoint: lambda_function_alarm_reporter.arn,
+    protocol: "lambda",
+    topic: alarm_actions_topic.arn,
+  });

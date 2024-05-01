@@ -1,0 +1,86 @@
+name: Push Custom Images
+
+env:
+  NODE_VERSION: "20.x"
+  PYTHON_VERSION: "3.11"
+
+on:
+  workflow_call:
+    inputs:
+      stage:
+        description: The stage (environment) of the deployment
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: The stage (environment) of the deployment
+        required: true
+        type: environment
+
+concurrency:
+  group: ci-${{ inputs.stage }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        region: [ 'us-east-1','us-west-2', 'eu-west-1', 'eu-west-2', 'ap-south-1' ]
+    environment: ${{ inputs.stage }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Python Dependencies
+        run: |
+          pip install pipenv
+          pipenv install -d
+      - name: Generate Pulumi Stack
+        run: make dockergen-${{ inputs.stage }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-region: ${{ matrix.region }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Pulumi Refresh
+        uses: pulumi/actions@v4
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ""
+          AWS_REGION: ${{ matrix.region }}
+          STAGE: ${{ inputs.stage }}
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
+        with:
+          command: refresh
+          work-dir: "docker_images/${{ inputs.stage }}"
+          stack-name: "stacksnap-docker-images-${{ inputs.stage }}-${{ matrix.region }}"
+          upsert: true
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm install
+        run: npm install
+        working-directory: docker_images/${{ inputs.stage }}
+      - name: Build & Push (pulumi - up)
+        uses: pulumi/actions@v4
+        with:
+          command: up
+          work-dir: "docker_images/${{ inputs.stage }}"
+          stack-name: "stacksnap-docker-images-${{ inputs.stage }}-${{ matrix.region }}"
+          upsert: true
+          config-map: |
+            {
+              aws:region: { value: "${{ matrix.region }}", secret: false },
+            }
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ""
+          AWS_REGION: ${{ matrix.region }}
+          STAGE: ${{ inputs.stage }}
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}

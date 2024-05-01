@@ -5,11 +5,12 @@ version: '1.0.0'
 requires:
   - network
   - ecs
+
+docker_images:
+  rallly:
+
 base:
   resources:
-    aws:ecr_image:rallly:
-      BaseImage: lukevella/rallly:latest
-      Dockerfile: Dockerfile
     aws:ecs_service:rallly-service:
       LoadBalancers[0]:
         ContainerPort: 3000
@@ -20,7 +21,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:rallly
+        Image: ${docker_image:rallly}
         PortMappings[0]:
           ContainerPort: 3000
           HostPort: 3000
@@ -66,9 +67,6 @@ base:
     aws:load_balancer:rallly-lb -> aws:ecs_service:rallly-service:
     aws:cloudfront_distribution:rallly-cf -> aws:load_balancer:rallly-lb:
     aws:ecs_service:rallly-service -> aws:rds_instance:stacksnap-postgres:
-  files:
-    Dockerfile:
-    container_start.sh:
 
 configuration:
   CPU: # This is an example of a value used in the base config

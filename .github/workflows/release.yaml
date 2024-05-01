@@ -52,7 +52,7 @@ jobs:
       - name: Install pipenv
         run: pip install pipenv
       - name: export requirements.txt
-        run: pipenv requirements > requirements.txt     
+        run: pipenv requirements > requirements.txt
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -64,14 +64,18 @@ jobs:
         with:
           name: binaries
           path: binaries
-      - name: Generate IaC
+      - id: pulumi-config
+        name: Resolve Pulumi Config
+        working-directory: ./deploy
         run: |
-          pipenv install --dev
-          export ENGINE_PATH="$(pwd)/binaries/engine"
-          chmod +x $ENGINE_PATH
-          export IAC_PATH="$(pwd)/binaries/iac"
-          chmod +x $IAC_PATH
-          PYTHONPATH=. pipenv run python scripts/cli.py iac generate-iac --file ./deploy/stacksnap.yaml --config ./deploy/${{ inputs.stage }}.config.json --project-name stacksnap-${{ inputs.stage }} --output-dir deploy/${{ inputs.stage }}
+          # converts the stage config to a format that pulumi can consume via config-map: <KEY>: { value: <VALUE> }
+          PULUMI_ENV_CONFIG=$(cat ${{ inputs.stage }}.config.json | jq -r 'to_entries[] | "klo:\(.key): { value: \(.value | @json), secret: false }"' | sed 's/$/,/')
+          echo "$PULUMI_ENV_CONFIG"
+          echo "pulumi_env_config=$(echo $PULUMI_ENV_CONFIG)" >> $GITHUB_OUTPUT
+          # Generate the pulumi.yaml file
+          echo "name: stacksnap-${{ inputs.stage }}" > Pulumi.yaml
+          echo "runtime: nodejs" >> Pulumi.yaml 
+          echo 'description: "A Pulumi program that deploys the StackSnap infrastructure."' >> Pulumi.yaml
       - name: Pulumi Refresh
         uses: pulumi/actions@v4
         env:
@@ -83,7 +87,7 @@ jobs:
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
         with:
           command: refresh
-          work-dir: "./deploy/${{ inputs.stage }}"
+          work-dir: "./deploy"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
       - name: Use Node.js
@@ -92,16 +96,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: npm install
         run: npm install
-        working-directory: ./deploy/${{ inputs.stage }}
+        working-directory: "./deploy"
       - name: pulumi - up
         uses: pulumi/actions@v4
         with:
           command: up
-          work-dir: "./deploy/${{ inputs.stage }}"
+          work-dir: "./deploy"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
           config-map: |
             {
+              ${{ steps.pulumi-config.outputs.pulumi_env_config }}
               aws:region: { value: "${{ vars.AWS_REGION }}", secret: false },
             }
         env:
@@ -116,10 +121,10 @@ jobs:
         run: |
           echo "stacksnap_binaries_BucketName=$(pulumi stack output stacksnap_binaries_BucketName)" >> $GITHUB_OUTPUT
           echo "stacksnap_ui_BucketName=$(pulumi stack output stacksnap_ui_BucketName)" >> $GITHUB_OUTPUT
-        working-directory: ./deploy/${{ inputs.stage }}
+        working-directory: "./deploy"
         shell: bash
       - name: build frontend
-        run: |
+        run: |  
           make frontend/node_modules
           make build-frontend-${STAGE}
         env:
@@ -161,11 +166,12 @@ jobs:
         uses: pulumi/actions@v4
         with:
           command: up
-          work-dir: "./deploy/${{ inputs.stage }}"
+          work-dir: "./deploy"
           stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
           upsert: true
           config-map: |
             {
+              ${{ steps.pulumi-config.outputs.pulumi_env_config }}
               aws:region: { value: "${{ vars.AWS_REGION }}", secret: false },
             }
         env:

@@ -9,7 +9,7 @@ import { AiOutlineLoading, AiOutlineLoading3Quarters } from "react-icons/ai";
 import { UIError } from "../../shared/errors.ts";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { awsDefaultRegions, awsRegions } from "../../shared/aws-regions.ts";
+import { awsSupportedRegions, awsRegions } from "../../shared/aws-regions.ts";
 import { useEffectOnMount } from "../../hooks/useEffectOnMount.ts";
 import { InlineDropdown } from "../../components/InlineDropdown.tsx";
 import { InstructionalStep } from "../../components/InstructionalStep.tsx";
@@ -120,17 +120,19 @@ export const DeploymentStep: FC<StepperNavigatorProps> = (props) => {
                       },
                     }}
                   >
-                    {Object.entries(awsDefaultRegions).map(([region, name]) => {
-                      return (
-                        <Dropdown.Item
-                          key={region}
-                          value={region}
-                          onClick={() => onSelectRegion(region)}
-                        >
-                          {name}
-                        </Dropdown.Item>
-                      );
-                    })}
+                    {Object.entries(awsSupportedRegions).map(
+                      ([region, name]) => {
+                        return (
+                          <Dropdown.Item
+                            key={region}
+                            value={region}
+                            onClick={() => onSelectRegion(region)}
+                          >
+                            {name}
+                          </Dropdown.Item>
+                        );
+                      },
+                    )}
                   </InlineDropdown>
                   {updatingRegion && (
                     <div

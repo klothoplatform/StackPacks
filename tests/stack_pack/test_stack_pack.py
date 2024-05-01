@@ -21,7 +21,7 @@ class TestStackPack(unittest.TestCase):
         self.assertEqual(3, len(self.sp.configuration))
 
     def test_constraints(self):
-        constraints = self.sp.to_constraints({})
+        constraints = self.sp.to_constraints({}, region="us-east-1")
 
         self.assertCountEqual(
             [
@@ -108,7 +108,7 @@ class TestStackPack(unittest.TestCase):
         )
 
     def test_config_constraints(self):
-        constraints = self.sp.to_constraints({"AddResource": True})
+        constraints = self.sp.to_constraints({"AddResource": True}, region="us-east-1")
 
         self.assertIn(
             {
@@ -131,7 +131,7 @@ class TestStackPack(unittest.TestCase):
         )
 
     def test_config_override(self):
-        constraints = self.sp.to_constraints({"CPU": 1024})
+        constraints = self.sp.to_constraints({"CPU": 1024}, region="us-east-1")
 
         self.assertIn(
             {

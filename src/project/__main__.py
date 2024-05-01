@@ -35,7 +35,7 @@ if args.config:
 print(f"User config: {values}")
 
 print("constraints:")
-c = sp.to_constraints(values)
+c = sp.to_constraints(values, "us-east-1")
 print(yaml.dump(c))
 with open("stackpack_input.yaml", "w") as f:
     yaml.dump({"constraints": c}, f)

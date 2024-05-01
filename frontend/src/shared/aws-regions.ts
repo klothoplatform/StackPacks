@@ -30,22 +30,10 @@ export const awsRegions: { [key: string]: string } = {
   "sa-east-1": "sa-east-1 (São Paulo)",
 };
 
-export const awsDefaultRegions = {
-  "us-east-2": "us-east-2 (Ohio)",
+export const awsSupportedRegions = {
   "us-east-1": "us-east-1 (N. Virginia)",
-  "us-west-1": "us-west-1 (N. California)",
   "us-west-2": "us-west-2 (Oregon)",
   "ap-south-1": "ap-south-1 (Mumbai)",
-  "ap-northeast-3": "ap-northeast-3 (Osaka)",
-  "ap-northeast-2": "ap-northeast-2 (Seoul)",
-  "ap-southeast-1": "ap-southeast-1 (Singapore)",
-  "ap-southeast-2": "ap-southeast-2 (Sydney)",
-  "ap-northeast-1": "ap-northeast-1 (Tokyo)",
-  "ca-central-1": "ca-central-1 (Central)",
-  "eu-central-1": "eu-central-1 (Frankfurt)",
   "eu-west-1": "eu-west-1 (Ireland)",
   "eu-west-2": "eu-west-2 (London)",
-  "eu-west-3": "eu-west-3 (Paris)",
-  "eu-north-1": "eu-north-1 (Stockholm)",
-  "sa-east-1": "sa-east-1 (São Paulo)",
 };
