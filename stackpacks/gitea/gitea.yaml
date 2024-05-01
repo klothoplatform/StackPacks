@@ -18,6 +18,8 @@ base:
         TargetGroup: aws:target_group:gitea-ssh
         ContainerName: gitea-task
       TaskDefinition: aws:ecs_task_definition:gitea-task
+      DeploymentMaximumPercent: 100
+      DeploymentMinimumHealthyPercent: 0
     aws:ecs_task_definition:gitea-task:
       Cpu: ${CPU}
       Memory: ${Memory}
