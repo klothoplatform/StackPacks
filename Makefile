@@ -109,7 +109,7 @@ deploy-personal-infra:
 
 dockergen-local:
 	PYTHONPATH=. pipenv run python scripts/cli.py docker-images generate \
-		--repo-suffix="-$(whoami)" \
+		--repo-suffix="-$$(whoami)" \
 		--output-dir="./docker_images/local"
 
 dockergen-dev:
