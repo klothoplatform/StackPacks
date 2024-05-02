@@ -117,6 +117,8 @@ class DeployLogHandler(PatternMatchingEventHandler):
 
     def on_modified(self, event):
         line_count = 0
+        if self.file is None:
+            self.file = open(self.log.path, "r")
         for line in self.file.readlines():
             line_count += 1
             if line.strip() == "END":
