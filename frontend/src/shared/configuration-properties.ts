@@ -198,10 +198,11 @@ export function parseProperty(
     maxLength,
     uniqueItems,
     uniqueKeys,
+    required,
   } = validation || {};
 
   // TODO: figure out how we want to handle required
-  const required = true;
+  const defaultRequired = true;
 
   if (!name) {
     console.warn("Property missing name", rawProperty);
@@ -221,7 +222,7 @@ export function parseProperty(
     description,
     configurationDisabled,
     deployTime,
-    required,
+    required: required ?? defaultRequired,
     defaultValue,
     important,
     hidden,
