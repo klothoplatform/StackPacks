@@ -58,12 +58,13 @@ async def deploy_workflow(job_id: str, job_number: int):
                 workflow_job.project_id(), CommonStack.COMMON_APP_NAME
             )
         with TempDir() as tmp_dir:
-            run_engine_result = await build_app(workflow_job, tmp_dir, live_state)
-            await generate_iac(run_engine_result, workflow_job, tmp_dir)
             if workflow_job.modified_app_id != CommonStack.COMMON_APP_NAME:
+                # We need to run the pre deploy hooks before building the app in case the outputs are used as config
                 success = run_pre_deploy_hooks(workflow_job, live_state)
                 if not success:
                     raise ValueError("Error running pre-deploy hooks")
+            run_engine_result = await build_app(workflow_job, tmp_dir, live_state)
+            await generate_iac(run_engine_result, workflow_job, tmp_dir)
             manager, deploy_status, deploy_message = deploy(workflow_job, tmp_dir)
             outputs = get_expected_outputs_for_job(workflow_job)
             stack_outputs = manager.get_outputs(outputs)
