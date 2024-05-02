@@ -303,15 +303,11 @@ class Project(Model):
 
     def to_view_model(self):
         apps = {}
-        for k, v in self.apps.items():
-            try:
-                app = AppDeployment.get(
-                    self.id, AppDeployment.compose_range_key(app_id=k, version=v)
-                )
-                apps[k] = app.to_view_model()
-            except DoesNotExist as e:
-                logger.error(f"App {k}v{v} does not exist for pack id {self.id}.")
-                raise e
+        policy = Policy()
+        for app in self.get_app_deployments():
+            apps[app.app_id()] = app.to_view_model()
+            policy.combine(Policy(app.policy))
+
         return ProjectView(
             id=self.id,
             owner=self.owner,
@@ -322,7 +318,7 @@ class Project(Model):
             features=self.features,
             created_by=self.created_by,
             created_at=self.created_at,
-            policy=str(self.get_policy()),
+            policy=str(policy),
         )
 
     def common_stackpack(self) -> CommonStack:
