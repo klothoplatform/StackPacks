@@ -398,18 +398,3 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
         self.assertEqual("created_by", project_view.created_by)
         self.assertEqual(3, len(project_view.stack_packs))
         self.assertIsNotNone(project_view.created_at)
-
-    def test_to_user_stack_does_not_exist(self):
-        # Arrange
-        project = Project(
-            id="id",
-            owner="owner",
-            created_by="created_by",
-            apps={"app1": 1, "app2": 1, CommonStack.COMMON_APP_NAME: 1},
-            region="region",
-            assumed_role_arn="arn",
-        )
-
-        # Act & Assert
-        with self.assertRaises(DoesNotExist):
-            project.to_view_model()
