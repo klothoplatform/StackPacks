@@ -13,7 +13,6 @@ from pynamodb.attributes import (
     UTCDateTimeAttribute,
 )
 from pynamodb.models import Model
-from typing_extensions import deprecated
 
 from src.deployer.models.workflow_job import (
     WorkflowJob,
@@ -133,8 +132,8 @@ class AppDeployment(Model):
         is_empty_config = True
         if len(self.configuration) > 0:
             for k, v in self.configuration.items():
-                cfg = stack_pack.configuration[k]
-                if cfg.default is None or v == cfg.default:
+                cfg = stack_pack.configuration.get(k)
+                if not cfg or cfg.default is None or v == cfg.default:
                     continue
 
                 is_empty_config = False
@@ -239,7 +238,7 @@ class AppDeployment(Model):
             project_id,
             AppDeployment.range_key.startswith(f"{app_id}#"),
             filter_condition=AppDeployment.deployments.exists(),  # Only include items where status is not null
-            scan_index_forward=True,  # Sort in descending order
+            scan_index_forward=False,  # Sort in descending order
             page_size=10,  # Only check the ten most recent versions
         )
         local_state = None
@@ -252,7 +251,6 @@ class AppDeployment(Model):
                 except WorkflowJob.DoesNotExist:
                     logger.error(f"Job {hk} # {rk} not found")
                     return app, AppLifecycleStatus.INSTALLED, None
-
                 if local_state:
                     if job.job_type == WorkflowJobType.DESTROY.value:
                         if job.status == WorkflowJobStatus.SUCCEEDED.value:

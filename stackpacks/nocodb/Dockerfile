@@ -7,8 +7,11 @@ ENV POSTGRES_USER=$POSTGRES_USER \
     POSTGRES_HOST=$POSTGRES_HOST \
     POSTGRES_PORT=$POSTGRES_PORT \
     REDIS_HOST=$REDIS_HOST \
-    REDIS_PORT=$REDIS_PORT
+    REDIS_PORT=$REDIS_PORT 
 
-COPY --chmod=755 container_start.sh .
 
-ENTRYPOINT [ "./container_start.sh" ]
+# Start Nocodb
+COPY --chmod=755 container_start.sh /usr/src
+
+
+CMD [ "/usr/src/container_start.sh" ]

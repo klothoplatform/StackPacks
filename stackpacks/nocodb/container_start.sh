@@ -1,15 +1,13 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-echo "Setting up Nocodb connection string..."
+echo "Setting up NocoDB connection string..."
 
-# Set the Mattermost connection string since InfraCopilot doesn't natively support compound environment variables
-# Construct the connection string
+# Set the NocoDB connection string since InfraCopilot doesn't natively support compound environment variables
 export NC_DB="pg://${POSTGRES_HOST}:${POSTGRES_PORT}?u=${POSTGRES_USER}&p=${POSTGRES_PASSWORD}&d=${POSTGRES_DATABASE_NAME}"
-export NC_REDIS_URL="redis://$REDIS_HOST:$REDIS_PORT"
+export NC_REDIS_URL="redis://${REDIS_HOST}:${REDIS_PORT}"
 
-RUN echo "Connection string: $NC_DB"
-RUN echo "Redis URL: $NC_REDIS_URL"
-
-echo "Starting Nocodb..."
+echo "NocoDB connection string set to: $NC_DB"
+echo "Redis connection string set to: $NC_REDIS_URL"
+echo "Starting NocoDB..."
 # execute the passed in command
-exec "$@"
+exec "/usr/src/appEntry/start.sh"

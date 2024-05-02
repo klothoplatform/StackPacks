@@ -23,6 +23,7 @@ run:
 	AWS_ACCOUNT=338991950301 \
 	pipenv run gunicorn --timeout 0 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:3000 --log-level debug src.main:app
 
+
 test-backend:
 	PYTHONPATH=. pipenv run coverage run --source=src -m unittest discover
 	PYTHONPATH=. pipenv run coverage report -m --fail-under 60

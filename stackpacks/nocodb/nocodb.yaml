@@ -6,11 +6,12 @@ requires:
   - network
   - ecs
   - postgres
+
+docker_images:
+  nocodb:
+
 base:
   resources:
-    aws:ecr_image:nocodb:
-      BaseImage: nocodb/nocodb:latest
-      Dockerfile: Dockerfile
     aws:ecs_service:nocodb-service:
       LoadBalancers[0].ContainerPort: 8080
       TaskDefinition: aws:ecs_task_definition:nocodb-task
@@ -18,7 +19,7 @@ base:
       Cpu: ${CPU}
       Memory: ${Memory}
       ContainerDefinitions[0]:
-        Image: aws:ecr_image:nocodb
+        Image: ${docker_image:nocodb}
         Name: nocodb
         PortMappings[0]:
           ContainerPort: 8080
