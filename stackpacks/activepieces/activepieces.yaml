@@ -1,0 +1,335 @@
+name: Activepieces
+id: activepieces
+description: Open source no-code business automation
+version: '1.0.0'
+requires:
+  - network
+  - ecs
+  - postgres
+
+base:
+  resources:
+    aws:ecs_service:activepieces-service:
+      LoadBalancers[0].ContainerPort: 80
+      TaskDefinition: aws:ecs_task_definition:activepieces-task
+      DesiredCount: 1
+    aws:ecs_task_definition:activepieces-task:
+      Cpu: ${CPU}
+      Memory: ${Memory}
+      ContainerDefinitions[0]:
+        Image: activepieces/activepieces:latest
+        PortMappings[0]:
+          ContainerPort: 80
+          HostPort: 80
+        Cpu: ${CPU}
+        Memory: ${Memory}
+        HealthCheck:
+          Command:
+            - CMD-SHELL
+            - curl -f http://localhost:80/api/v1/flags || exit 1
+          Interval: 30
+          Timeout: 5
+          Retries: 3
+        Environment:
+        - Name: AP_FRONTEND_URL
+          Value: aws:cloudfront_distribution:activepieces-cf#URLBase
+        - Name: AP_DB_TYPE
+          Value: "POSTGRES"
+        - Name: AP_POSTGRES_HOST
+          Value: aws:rds_instance:stacksnap-postgres#Host
+        - Name: AP_POSTGRES_USERNAME
+          Value: aws:rds_instance:stacksnap-postgres#Username
+        - Name: AP_POSTGRES_PASSWORD
+          Value: aws:rds_instance:stacksnap-postgres#Password
+        - Name: AP_POSTGRES_PORT
+          Value: aws:rds_instance:stacksnap-postgres#Port
+        - Name: AP_POSTGRES_DATABASE
+          Value: ${DatabaseName}
+        - Name: AP_REDIS_HOST
+          Value: aws:elasticache_cluster:activepieces-redis#CacheNodeAddress
+        - Name: AP_REDIS_PORT
+          Value: "6379"
+        - Name: AP_QUEUE_MODE
+          Value: "REDIS"
+        - Name: AP_JWT_SECRET
+          Value: ${JWTSecret}
+        - Name: AP_ENCRYPTION_KEY
+          Value: ${EncryptionKey}
+        - Name: AP_API_KEY
+          Value: ${APIKey}
+        - Name: AP_EXECUTION_MODE
+          Value: ${ExecutionMode}
+        - Name: AP_FLOW_WORKER_CONCURRENCY
+          Value: ${FlowWorkerConcurrency}
+        - Name: AP_EXECUTION_DATA_RETENTION_DAYS
+          Value: ${ExecutionDataRetentionDays}
+        - Name: AP_QUEUE_UI_ENABLED
+          Value: ${QueueUiEnabled}
+        - Name: AP_QUEUE_UI_USERNAME
+          Value: ${QueueUiUsername}
+        - Name: AP_QUEUE_UI_PASSWORD
+          Value: ${QueueUiPassword}
+        - Name: AP_TRIGGER_DEFAULT_POLL_INTERVAL
+          Value: ${TriggerDefaultPollInterval}
+        - Name: AP_PIECES_SOURCE
+          Value: ${PiecesSource}
+        - Name: AP_PIECES_SYNC_MODE
+          Value: ${PiecesSyncMode}
+        - Name: AP_NOTIFICATION_URL
+          Value: ${NotificationUrl}
+        - Name: AP_OPENAI_API_KEY
+          Value: ${OpenaiApiKey}
+        - Name: AP_COPILOT_INSTANCE_TYPE
+          Value: ${CopilotInstanceType}
+        - Name: AP_AZURE_OPENAI_ENDPOINT
+          Value: ${AzureOpenaiEndpoint}
+        - Name: AP_AZURE_OPENAI_API_VERSION
+          Value: ${AzureOpenaiApiVersion}
+        - Name: AP_SANDBOX_RUN_TIME_SECONDS
+          Value: ${SandboxRunTimeSeconds}
+        - Name: AP_SIGN_UP_ENABLED
+          Value: ${SignUpEnabled}
+        - Name: AP_TELEMETRY_ENABLED
+          Value: ${TelemetryEnabled}
+        - Name: AP_WEBHOOK_TIMEOUT_SECONDS
+          Value: ${WebhookTimeoutSeconds}
+
+    aws:target_group:activepieces-tg:
+      Port: 80
+      Protocol: HTTP
+      HealthCheck:
+        Protocol: HTTP
+        Path: /api/v1/flags
+        Matcher: 200
+    aws:load_balancer:activepieces-lb:
+      Scheme: internet-facing
+      Type: application
+    aws:load_balancer_listener:activepieces-lb:activepieces-listener:
+      LoadBalancer: aws:load_balancer:activepieces-lb
+      Port: 80
+      Protocol: HTTP
+      DefaultAction:
+        Type: forward
+        TargetGroup: aws:target_group:activepieces-tg
+    aws:elasticache_cluster:activepieces-redis:
+    aws:elasticache_parameter_group:activepieces-redis-param-group:
+      Description: Parameter group for Activepieces Redis cluster
+      Parameters:
+        - Name: maxmemory-policy
+          Value: noeviction
+    aws:cloudfront_distribution:activepieces-cf:
+  edges:
+    aws:cloudfront_distribution:activepieces-cf -> aws:load_balancer:activepieces-lb:
+    aws:load_balancer:activepieces-lb -> aws:ecs_service:activepieces-service:
+    aws:load_balancer:activepieces-lb -> aws:load_balancer_listener:activepieces-lb:activepieces-listener:
+    aws:load_balancer_listener:activepieces-lb:activepieces-listener -> aws:target_group:activepieces-tg:
+    aws:target_group:activepieces-tg -> aws:ecs_service:activepieces-service:
+    aws:ecs_service:activepieces-service -> aws:rds_instance:stacksnap-postgres:
+    aws:ecs_service:activepieces-service -> aws:elasticache_cluster:activepieces-redis:
+    aws:elasticache_cluster:activepieces-redis -> aws:elasticache_parameter_group:activepieces-redis-param-group:
+
+
+configuration:
+  CPU: # This is an example of a value used in the base config
+    name: CPU
+    description: The amount of CPU to allocate to the Activepieces service
+    type: number
+    default: 1024
+    validation:
+      minValue: 1024
+      maxValue: 4096
+
+  Memory:
+    name: Memory
+    description: The amount of Memory to allocate to the Activepieces service
+    type: number
+    default: 3072
+    validation:
+      minValue: 3072
+      maxValue: 4096
+
+  DatabaseName:
+    name: Database Name
+    description: the name of the database to store activepieces data on the instance
+    type: string
+    default: activepieces
+    action: create_database
+
+  JWTSecret:
+    name: JWT Secret
+    description: Encryption key used for generating JWT tokens
+    type: string
+    secret: true
+    generate_default: true
+    validation:
+      minLength: 16
+      maxLength: 128
+
+  EncryptionKey:
+    name: Encryption Key
+    description: Encryption key used for connections (256 bit encryption key, 32 hex characters)
+    type: string
+    secret: true
+    validation:
+      minLength: 32
+      maxLength: 32
+
+  APIKey:
+    name: API Key
+    description: Random Long Password
+    type: string
+    secret: true
+    generate_default: true
+    validation:
+      minLength: 16
+      maxLength: 128
+
+  ExecutionMode:
+    name: Execution Mode
+    description: The execution mode for the Activepieces service
+    type: string
+    default: "UNSANDBOXED"
+    validation:
+      allowedValues:
+        - "SANDBOXED"
+        - "UNSANDBOXED"
+
+  FlowWorkerConcurrency:
+    name: Flow Worker Concurrency
+    description: The number of different flows can be processed in same time
+    type: number
+    default: 10
+    validation:
+      minValue: 1
+
+  ExecutionDataRetentionDays:
+    name: Execution Data Retention Days
+    description: The number of days to retain execution data, logs and events.
+    type: number
+    default: 30
+    validation:
+      minValue: 1
+
+  QueueUiEnabled:
+    name: Queue UI Enabled
+    description: Enable the queue UI
+    type: boolean
+    default: true
+
+  QueueUiUsername:
+    name: Queue UI Username
+    description: The username for the queue UI
+    type: string
+    default: "admin"
+
+  QueueUiPassword:
+    name: Queue UI Password
+    description: The password for the queue UI
+    type: string
+    secret: true
+    generate_default: true
+    validation:
+      minLength: 8
+      maxLength: 128
+
+  TriggerDefaultPollInterval:
+    name: Trigger Default Poll Interval
+    description: The default polling interval determines how frequently the system checks for new data updates for pieces with scheduled triggers, such as new Google Contacts.
+    type: number
+    default: 5
+    validation:
+      minValue: 1
+
+  PiecesSource:
+    name: Pieces Source
+    description: You can find more information about it in Setting Piece Source section (https://www.activepieces.com/docs/install/configurations/environment-variables#setting-piece-source).
+    type: string
+    default: "CLOUD_AND_DB"
+    validation:
+      allowedValues:
+        - "DB"
+        - "CLOUD_AND_DB"
+
+  PiecesSyncMode:
+    name: Pieces Sync Mode
+    description: NONE for no metadata syncing / ‘OFFICIAL_AUTO’ for automatic syncing for pieces metadata from cloud
+    type: string
+    default: "OFFICIAL_AUTO"
+    validation:
+      allowedValues:
+        - "NONE"
+        - "OFFICIAL_AUTO"
+
+  NotificationUrl:
+    name: Notification URL
+    description: The notification URL is triggered whenever a run fails.
+    type: string
+    default: "false"
+    validation:
+      required: false
+
+  OpenaiApiKey:
+    name: OpenAI API Key
+    description: This is required only if you want to enable code copilot
+    type: string
+    secret: true
+    validation:
+      required: false
+
+  CopilotInstanceType:
+    name: Copilot Instance Type
+    description: The type of Copilot instance to use
+    type: string
+    default: "OPENAI"
+    validation:
+      allowedValues:
+        - "AZURE_OPENAI"
+        - "OPENAI"
+
+  AzureOpenaiEndpoint:
+    name: Azure OpenAI Endpoint
+    description: This is required only if you want to enable code copilot
+    type: string
+    validation:
+      required: false
+
+  AzureOpenaiApiVersion:
+    name: Azure OpenAI API Version
+    description: This is required only if you want to enable code copilot
+    type: string
+    default: "2023-06-01-preview"
+    validation:
+      required: false
+
+  SandboxRunTimeSeconds:
+    name: Sandbox Run Time Seconds
+    description: Maximum allowed runtime for the flow in seconds
+    type: number
+    default: 600
+    validation:
+      minValue: 1
+
+  SignUpEnabled:
+    name: Sign Up Enabled
+    description: Enable the Sign up, It requires sandboxing to be on
+    type: boolean
+    default: false
+
+  TelemetryEnabled:
+    name: Telemetry Enabled
+    description: Collect telemetry information
+    type: boolean
+    default: true
+
+  WebhookTimeoutSeconds:
+    name: Webhook Timeout Seconds
+    description: The default timeout for webhooks.
+    type: number
+    default: 30
+    validation:
+      minValue: 1
+
+outputs:
+  URL:
+    description: The URL of the Activepieces service
+    value: aws:cloudfront_distribution:activepieces-cf#Domain

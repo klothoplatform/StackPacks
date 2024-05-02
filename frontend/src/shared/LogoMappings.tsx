@@ -1,3 +1,4 @@
+import Activepieces from "/images/logos/activepieces.svg";
 import Gitea from "/images/logos/gitea.svg";
 import Mattermost from "/images/logos/mattermost.svg";
 import mattermostDark from "/images/logos/mattermost-dark.svg";
@@ -23,6 +24,7 @@ export interface LogoMapping {
 }
 
 export const LogoMappings: Record<string, string | LogoMapping> = {
+  activepieces: Activepieces,
   calcom: CalCom,
   gitea: Gitea,
   gitness: {

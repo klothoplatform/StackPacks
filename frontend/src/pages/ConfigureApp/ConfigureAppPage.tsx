@@ -63,7 +63,7 @@ export const ConfigureAppPage: FC = () => {
           );
         }}
       >
-        <div className="flex max-w-xl flex-col justify-center gap-4 p-4">
+        <div className="flex max-h-full max-w-xl flex-col gap-4 overflow-y-hidden p-4">
           <div className="flex gap-4 px-1">
             <Button
               color={mode}
@@ -79,10 +79,12 @@ export const ConfigureAppPage: FC = () => {
             </h2>
           </div>
 
-          <CurrentStepComponent
-            {...workflowSteps[currentStep].props}
-            {...mainStepperContext}
-          />
+          <div className="h-fit overflow-hidden">
+            <CurrentStepComponent
+              {...workflowSteps[currentStep].props}
+              {...mainStepperContext}
+            />
+          </div>
         </div>
       </ErrorBoundary>
     </StepperProvider>
