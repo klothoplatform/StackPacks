@@ -132,8 +132,8 @@ class AppDeployment(Model):
         is_empty_config = True
         if len(self.configuration) > 0:
             for k, v in self.configuration.items():
-                cfg = stack_pack.configuration.get(k)
-                if not cfg or cfg.default is None or v == cfg.default:
+                item = stack_pack.configuration.get(k)
+                if not item or item.default is None or v == item.default:
                     continue
 
                 is_empty_config = False
@@ -172,7 +172,11 @@ class AppDeployment(Model):
                     policy_path.write_text(engine_result.policy)
 
             policy = Policy(engine_result.policy)
-            for pol in stack_pack.additional_policies:
+            for pol in (
+                stack_pack.additional_policies
+                if isinstance(stack_pack, CommonStack)
+                else []
+            ):
                 additional_policies = Policy()
                 additional_policies.policy = pol
                 policy.combine(additional_policies)
