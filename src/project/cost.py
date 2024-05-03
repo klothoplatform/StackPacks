@@ -17,18 +17,8 @@ class CostElement(BaseModel):
 
 async def calculate_costs(
     project: Project,
-    operation: str,
-    request_app_ids: List[str],
+    app_ids: List[str],
 ):
-    match operation:
-        case "install":
-            app_ids = request_app_ids
-        case "uninstall":
-            app_ids = [a for a in project.apps if a not in request_app_ids]
-        case _:
-            raise ValueError(f"Invalid operation: {operation}")
-
-    app_ids = [a for a in app_ids if a != CommonStack.COMMON_APP_NAME]
 
     sps = get_stack_packs()
 
@@ -70,6 +60,8 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
             continue
 
         res_type = constraint["node"].split(":")[1]
+
+        print(constraint)
 
         match res_type:
             case "subnet":

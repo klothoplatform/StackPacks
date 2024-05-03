@@ -368,7 +368,7 @@ async def get_costs(
         for a in project.apps
         if AppDeployment.get_latest_deployed_version(project.id, a) is not None
     ]
-    current_cost = calculate_costs(project, "install", current_apps)
+    current_cost = await calculate_costs(project, current_apps)
     if body.operation is not None:
         if body.app_ids is None:
             current_cost.close()
@@ -376,12 +376,20 @@ async def get_costs(
                 status_code=400,
                 detail="App IDs must be provided when operation is specified",
             )
+        match body.operation:
+            case "install":
+                app_ids = body.app_ids
+                app_ids.extend([a for a in current_apps if a not in body.app_ids])
+            case "uninstall":
+                app_ids = [a for a in current_apps if a not in body.app_ids]
+            case _:
+                raise ValueError(f"Invalid operation: {body.operation}")
 
-        pending_cost = calculate_costs(project, body.operation, body.app_ids)
+        pending_cost = await calculate_costs(project, app_ids)
 
         return CostResponse(
-            current=await current_cost,
-            pending=await pending_cost,
+            current=current_cost,
+            pending=pending_cost,
         )
 
     return CostResponse(current=await current_cost, pending=None)
