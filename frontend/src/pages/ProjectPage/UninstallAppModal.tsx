@@ -139,10 +139,7 @@ export default function UninstallAppModal({
               />
             </div>
 
-            <CostChange
-              operation={"uninstall"}
-              appIds={Object.keys(project.stack_packs)}
-            />
+            <CostChange operation={"uninstall"} appIds={[id]} />
           </div>
         </Modal.Body>
         <Modal.Footer>
