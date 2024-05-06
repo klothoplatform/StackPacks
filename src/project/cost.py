@@ -61,8 +61,6 @@ async def calculate_costs_single(app_id: str, constraints: List[dict]):
 
         res_type = constraint["node"].split(":")[1]
 
-        print(constraint)
-
         match res_type:
             case "subnet":
                 is_public = bool(
