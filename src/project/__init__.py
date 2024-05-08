@@ -226,7 +226,7 @@ class StackConfig(BaseModel):
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
     action: Optional[str] = Field(default=None)
-    generate_default: bool | str = Field(default=False)
+    generate_default: bool = Field(default=False)
     hidden: Optional[bool] = Field(default=False)
     configurationDisabled: Optional[bool] = Field(default=False)
 

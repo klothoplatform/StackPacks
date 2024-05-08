@@ -83,7 +83,6 @@ export const DynamicConfigForm: FC<DynamicConfigFormProps> = ({ sections }) => {
             const importantProperties = properties.filter(
               importantPropertyPredicate,
             );
-            console.log(importantProperties);
             const additionalProperties = properties.filter(
               (property) => !importantPropertyPredicate(property),
             );
