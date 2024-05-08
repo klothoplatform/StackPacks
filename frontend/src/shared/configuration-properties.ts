@@ -71,6 +71,7 @@ export interface StringProperty extends Property {
   minLength?: number;
   maxLength?: number;
   secret?: boolean;
+  charset?: string;
 }
 
 export interface EnumProperty extends Property {
@@ -122,6 +123,7 @@ export type RawProperty = {
   validation: {
     required?: boolean;
     allowedValues?: string[];
+    charset?: string;
     minValue?: number;
     maxValue?: number;
     important?: boolean;
@@ -191,6 +193,7 @@ export function parseProperty(
 
   const {
     allowedValues,
+    charset,
     minValue,
     maxValue,
     important,
@@ -301,6 +304,7 @@ export function parseProperty(
       stringProperty.minLength = minLength;
       stringProperty.maxLength = maxLength;
       stringProperty.secret = secret;
+      stringProperty.charset = charset;
       break;
     }
     case PrimitiveTypes.Integer:
@@ -371,4 +375,29 @@ export function getNewConfiguration(
     }
   }
   return val;
+}
+
+export const alphanumericPattern = /^[a-zA-Z0-9]*$/;
+export const hexPattern = /^[0-9a-fA-F]*$/;
+
+interface Rule {
+  value: RegExp;
+  message: string;
+}
+
+export function getCharsetPattern(field: StringProperty): Rule | undefined {
+  switch (field.charset) {
+    case "alphanumeric":
+      return {
+        value: alphanumericPattern,
+        message: "Only alphanumeric characters are allowed",
+      };
+    case "hex":
+      return {
+        value: hexPattern,
+        message: "Only hexadecimal characters are allowed",
+      };
+    default:
+      return undefined;
+  }
 }

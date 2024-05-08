@@ -12,7 +12,6 @@ from pydantic_yaml import parse_yaml_file_as
 
 from src.util.logging import logger
 
-
 AWS_ACCOUNT = os.environ.get("AWS_ACCOUNT")
 ECR_SUFFIX = os.environ.get("ECR_SUFFIX", "")
 
@@ -227,7 +226,7 @@ class StackConfig(BaseModel):
     values: dict[Any, Optional[StackParts]] = Field(default_factory=dict)
     pulumi_key: Optional[str] = Field(default=None)
     action: Optional[str] = Field(default=None)
-    generate_default: bool = Field(default=False)
+    generate_default: bool | str = Field(default=False)
     hidden: Optional[bool] = Field(default=False)
     configurationDisabled: Optional[bool] = Field(default=False)
 
@@ -258,7 +257,9 @@ class StackPack(BaseModel):
                 length = min(
                     validation.get("maxLength", 16), validation.get("minLength", 16)
                 )
-                final_cfg[k] = generate_default(length)
+                final_cfg[k] = generate_default(
+                    length, charset=validation.get("charset", "alphanumeric")
+                )
         final_cfg.update(user_config)
         return final_cfg
 
@@ -353,6 +354,21 @@ def get_app_name(app_id: str):
     return pack.name if pack else app_id
 
 
-def generate_default(length: int):
-    cs = string.ascii_letters + string.digits
-    return "".join(cs[secrets.randbelow(len(cs))] for _ in range(length))
+def generate_default(length: int, charset: str = "alphanumeric"):
+    match charset:
+        case "alphanumeric" | None:
+            return rand_alphanumeric_string(length)
+        case "hex":
+            return rand_hex_string(length)
+        case _:
+            raise ValueError(f"Unknown charset: {charset}")
+
+
+def rand_alphanumeric_string(length: int):
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def rand_hex_string(length: int):
+    key = secrets.token_hex(length // 2)
+    return key if length % 2 == 0 else key + secrets.choice(string.hexdigits)

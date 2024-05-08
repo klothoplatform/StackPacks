@@ -28,6 +28,7 @@ import type {
   Property,
   StringProperty,
 } from "../../shared/configuration-properties.ts";
+import { getCharsetPattern } from "../../shared/configuration-properties.ts";
 import {
   CollectionTypes,
   PrimitiveTypes,
@@ -303,6 +304,7 @@ export const StringField: FC<TextProps> = ({
                   message: `${field.name} may be at most ${field.maxLength} characters in length.`,
                 }
               : undefined,
+            pattern: getCharsetPattern(field),
           }}
           disabled={field.configurationDisabled}
           required={field.required}
