@@ -164,15 +164,18 @@ configuration:
     validation:
       minLength: 16
       maxLength: 128
+      charset: hex
 
   EncryptionKey:
     name: Encryption Key
     description: Encryption key used for connections (256 bit encryption key, 32 hex characters)
     type: string
+    generate_default: true
     secret: true
     validation:
       minLength: 32
       maxLength: 32
+      charset: hex
 
   APIKey:
     name: API Key
