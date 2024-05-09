@@ -324,7 +324,7 @@ export const stacksnap_ui_BucketName = stacksnap_ui.bucket;
 const stacksnap_pulumi_access_token = new aws.secretsmanager.Secret(
   "stacksnap-pulumi-access-token",
   {
-    name: `${namePrefix}-pulumi-access-token`,
+    name: `stacksnap-pulumi-access-token`,
     recoveryWindowInDays: 0,
     tags: {
       ...globalTags,
@@ -965,7 +965,7 @@ const subnet_3 = new aws.ec2.Subnet("subnet-3", {
 
 
 const stacksnap_cli_task = new aws.ecs.TaskDefinition("stacksnap-cli-task", {
-  family: `${namePrefix}-cli`,
+  family: `stacksnap-cli`,
   cpu: "1024", // 1 vCPU
   memory: "4096", // 4GB
   networkMode: "awsvpc",
@@ -1119,7 +1119,7 @@ const deploy_state_machine = CreateDeploymentStateMachine(
 )
 
 const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
-  family: `${namePrefix}-task`,
+  family: `stacksnap-task`,
   cpu: "2048",
   memory: "3200",
   networkMode: "awsvpc",
