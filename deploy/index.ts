@@ -410,7 +410,7 @@ const ecr_image_alarm_reporter = (() => {
 })();
 const stacksnap_task_image = (() => {
   const base = new docker.Image(
-    `${"stacksnap-task-image"}-base`,
+    `stacksnap-task-image-base`,
     {
       build: {
         context: "..",
@@ -454,7 +454,7 @@ const stacksnap_task_image = (() => {
 
 const stacksnap_cli_image = (() => {
   const base = new docker.Image(
-    `${"stacksnap-task-image"}-base`,
+    `stacksnap-cli-image-base`,
     {
       build: {
         context: "..",
