@@ -52,6 +52,10 @@ class StepFunctionDeployer:
     def install(self, input: DeployerInput):
         name = input.run.composite_key()
         name.replace(r"[^a-zA-Z0-9_-]", "-").replace(r"--+", "-")
+        if len(name) > 80:
+            # just in case, make sure it meets the length criteria
+            name = name[:80]
+
         self.client.start_execution(
             stateMachineArn=deploy_arn,
             name=name,
