@@ -10,6 +10,7 @@ from src.deployer.destroy import run_full_destroy_workflow
 from src.deployer.models.util import start_workflow_run
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun
+from src.util.logging import logger
 
 
 @dataclass
@@ -55,7 +56,7 @@ class StepFunctionDeployer:
         if len(name) > 80:
             # just in case, make sure it meets the length criteria
             name = name[:80]
-
+        logger.info(f"Starting StepFunction execution: {name}")
         self.client.start_execution(
             stateMachineArn=deploy_arn,
             name=name,
