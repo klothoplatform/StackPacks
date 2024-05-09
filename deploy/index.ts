@@ -471,7 +471,7 @@ const stacksnap_cli_image = (() => {
   })
 
   return new docker.Image(
-    "stacksnap-task-image",
+    "stacksnap-cli-image",
     {
       build: {
         context: "..",
@@ -1152,7 +1152,7 @@ const stacksnap_cli_task = new aws.ecs.TaskDefinition("stacksnap-cli-task", {
 const stacksnap_cli_log_group = new aws.cloudwatch.LogGroup(
   "stacksnap-cli-log-group",
   {
-    name: pulumi.interpolate`/aws/ecs/${stacksnap_cli_task.family}`,
+    name: "/aws/ecs/stacksnap-cli",
     retentionInDays: 5,
     tags: {
       ...globalTags,
@@ -1605,6 +1605,17 @@ const stacksnap_cluster_capacity_provider =
       },
     ],
   });
+const stacksnap_task_log_group = new aws.cloudwatch.LogGroup(
+  "stacksnap-task-log-group",
+  {
+    name: "/aws/ecs/stacksnap-task",
+    retentionInDays: 5,
+    tags: {
+      ...globalTags,
+      RESOURCE_NAME: "stacksnap-task-log-group",
+    },
+  },
+);
 const stacksnap_service = new aws.ecs.Service(
   "stacksnap-service",
   {
@@ -1644,17 +1655,6 @@ const stacksnap_service = new aws.ecs.Service(
       subnet_0,
       subnet_1,
     ],
-  },
-);
-const stacksnap_task_log_group = new aws.cloudwatch.LogGroup(
-  "stacksnap-task-log-group",
-  {
-    name: pulumi.interpolate`/aws/ecs/${stacksnap_task.family}`,
-    retentionInDays: 5,
-    tags: {
-      ...globalTags,
-      RESOURCE_NAME: "stacksnap-task-log-group",
-    },
   },
 );
 
