@@ -55,7 +55,7 @@ class StepFunctionDeployer:
             input=json.dumps(
                 {
                     "projectId": input.run.project_id,
-                    "runId": input.run.run_id,
+                    "runId": input.run.run_id(),
                     "jobIds": {
                         "common": input.common_job.job_number,
                         "apps": [j.job_number for j in input.app_jobs],

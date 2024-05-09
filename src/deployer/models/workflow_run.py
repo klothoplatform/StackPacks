@@ -104,6 +104,14 @@ class WorkflowRun(Model):
     def composite_key(self):
         return f"{self.project_id}#{self.range_key}"
 
+    def run_id(self):
+        return WorkflowJob.compose_partition_key(
+            project_id=self.project_id,
+            workflow_type=self.workflow_type(),
+            owning_app_id=self.app_id(),
+            run_number=self.run_number(),
+        )
+
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, WorkflowRun):
             return False
