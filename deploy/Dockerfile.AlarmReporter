@@ -1,10 +1,12 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-COPY ./alarm_reporter ${LAMBDA_TASK_ROOT}
+COPY ./requirements.txt ${LAMBDA_TASK_ROOT}
 
 RUN pip3 install \
         --target ${LAMBDA_TASK_ROOT} \
         -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+COPY . ${LAMBDA_TASK_ROOT}
 
 ENV PYTHONPATH=${LAMBDA_TASK_ROOT}:${PYTHONPATH}
 

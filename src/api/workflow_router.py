@@ -8,7 +8,8 @@ from starlette.responses import Response, StreamingResponse
 
 from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
-from src.deployer.deploy import create_deploy_workflow_jobs, run_full_deploy_workflow
+from src.deployer.deploy import create_deploy_workflow_jobs
+from src.deployer.deployer import DeployerInput, get_deployer
 from src.deployer.destroy import create_destroy_workflow_jobs, run_full_destroy_workflow
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
@@ -50,12 +51,12 @@ async def install(
             status_code=400,
             detail="Role not set",
         )
-    common_job = create_deploy_workflow_jobs(
+    common_job, app_jobs = create_deploy_workflow_jobs(
         run,
         list(project.apps.keys()),
     )
 
-    background_tasks.add_task(run_full_deploy_workflow, run, common_job)
+    get_deployer(background_tasks).install(DeployerInput(run, common_job, app_jobs))
 
     return Response(
         media_type="application/json",
@@ -103,11 +104,11 @@ async def install_app(
         notification_email=users_email,
     )
 
-    common_job = create_deploy_workflow_jobs(
+    common_job, app_jobs = create_deploy_workflow_jobs(
         run,
         [app_id],
     )
-    background_tasks.add_task(run_full_deploy_workflow, run, common_job)
+    get_deployer(background_tasks).install(DeployerInput(run, common_job, app_jobs))
     return Response(
         media_type="application/json",
         status_code=201,

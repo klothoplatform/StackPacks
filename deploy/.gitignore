@@ -1,9 +1,9 @@
 /*
-!/index.ts
-!/monitoring.ts
+!/*.ts
 !/*.config.json
 !/stacksnap.yaml
 !/container_start.sh
 !/Dockerfile
 !/Dockerfile.AlarmReporter
+!/CLI.Dockerfile
 !/.gitignore

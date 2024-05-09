@@ -208,7 +208,7 @@ def create_deploy_workflow_jobs(
                 dependencies=[deploy_common_job.composite_key()],
             )
         )
-    return deploy_common_job
+    return deploy_common_job, deploy_app_jobs
 
 
 async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
