@@ -392,4 +392,4 @@ async def get_costs(
             pending=pending_cost,
         )
 
-    return CostResponse(current=await current_cost, pending=None)
+    return CostResponse(current=current_cost, pending=None)
