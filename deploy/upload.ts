@@ -24,7 +24,7 @@ export function UploadStaticSite(bucket: aws.s3.Bucket, assets: {
 export function UploadPulumiAccessToken(secret: aws.secretsmanager.Secret) {
   new aws.secretsmanager.SecretVersion('pulumi-access-token-secret', {
     secretId: secret.arn,
-    secretString: kloConfig.requireSecret("PulumiAccessToken"),
+    secretString: process.env["PULUMI_ACCESS_TOKEN"] || kloConfig.requireSecret("PulumiAccessToken"),
   }, {parent: secret})
 }
 
