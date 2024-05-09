@@ -1801,12 +1801,16 @@ const sns_topic_subscription_alarm_actions_topic_alarm_reporter =
     topic: alarm_actions_topic.arn,
   });
 
-const buildFrontend = new command.local.Command("buildFrontend", {
-  dir: "../frontend",
-  create: `npm run build-${deployEnv}`,
-  assetPaths: ["dist/**"],
-})
+if (!('GITHUB_TOKEN' in process.env)) {
+  // The github action still does this, so check to make sure it's not in a github action until the action is updated.
+  
+  const buildFrontend = new command.local.Command("buildFrontend", {
+    dir: "../frontend",
+    create: `npm run build-${deployEnv}`,
+    assetPaths: ["dist/**"],
+  })
 
-buildFrontend.assets.apply((assets) => assets && UploadStaticSite(stacksnap_ui, assets))
-UploadPulumiAccessToken(stacksnap_pulumi_access_token)
-UploadBinaries(stacksnap_binaries)
+  buildFrontend.assets.apply((assets) => assets && UploadStaticSite(stacksnap_ui, assets))
+  UploadPulumiAccessToken(stacksnap_pulumi_access_token)
+  UploadBinaries(stacksnap_binaries)
+}
