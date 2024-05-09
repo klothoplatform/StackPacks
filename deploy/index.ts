@@ -165,6 +165,21 @@ const stacksnap_task_image_ecr_repo = new aws.ecr.Repository(
     },
   },
 );
+const stacksnap_cli_image_ecr_repo = new aws.ecr.Repository(
+  "stacksnap-cli-image-ecr_repo",
+  {
+    imageScanningConfiguration: {
+      scanOnPush: true,
+    },
+    imageTagMutability: "MUTABLE",
+    forceDelete: true,
+    encryptionConfigurations: [{ encryptionType: "KMS" }],
+    tags: {
+      ...globalTags,
+      RESOURCE_NAME: "stacksnap-cli-image-ecr_repo",
+    },
+  },
+);
 const stacksnap_ecs_cluster = new aws.ecs.Cluster("stacksnap-ecs-cluster", {
   settings: [{ name: "containerInsights", value: "enabled" }],
   tags: {
@@ -365,13 +380,9 @@ const ecr_image_alarm_reporter = (() => {
     },
   );
 
-  const sha256 = new command.local.Command(
-    `${"alarm_reporter"}-base-get-sha256-${Date.now()}`,
-    {
-      create: pulumi.interpolate`docker image inspect -f {{.ID}} ${base.imageName}`,
-    },
-    { parent: base },
-  ).stdout.apply((id) => id.substring(7));
+  const sha256 = base.repoDigest.apply((digest) => {
+    return digest.substring(digest.indexOf('sha256:') + 7)
+  })
 
   return new docker.Image(
     "alarm_reporter",
@@ -411,13 +422,9 @@ const stacksnap_task_image = (() => {
     },
   );
 
-  const sha256 = new command.local.Command(
-    `${"stacksnap-task-image"}-base-get-sha256-${Date.now()}`,
-    {
-      create: pulumi.interpolate`docker image inspect -f {{.ID}} ${base.imageName}`,
-    },
-    { parent: base },
-  ).stdout.apply((id) => id.substring(7));
+  const sha256 = base.repoDigest.apply((digest) => {
+    return digest.substring(digest.indexOf('sha256:') + 7)
+  })
 
   return new docker.Image(
     "stacksnap-task-image",
@@ -440,6 +447,50 @@ const stacksnap_task_image = (() => {
           };
         }),
       imageName: pulumi.interpolate`${stacksnap_task_image_ecr_repo.repositoryUrl}:${sha256}`,
+    },
+    { parent: base },
+  );
+})();
+
+const stacksnap_cli_image = (() => {
+  const base = new docker.Image(
+    `${"stacksnap-task-image"}-base`,
+    {
+      build: {
+        context: "..",
+        dockerfile: "CLI.Dockerfile",
+        platform: "linux/amd64",
+      },
+      skipPush: true,
+      imageName: pulumi.interpolate`${stacksnap_cli_image_ecr_repo.repositoryUrl}:base`,
+    },
+  );
+
+  const sha256 = base.repoDigest.apply((digest) => {
+    return digest.substring(digest.indexOf('sha256:') + 7)
+  })
+
+  return new docker.Image(
+    "stacksnap-task-image",
+    {
+      build: {
+        context: "..",
+        dockerfile: "CLI.Dockerfile",
+        platform: "linux/amd64",
+      },
+      registry: aws.ecr
+        .getAuthorizationTokenOutput(
+          { registryId: stacksnap_cli_image_ecr_repo.registryId },
+          { async: true },
+        )
+        .apply((registryToken) => {
+          return {
+            server: stacksnap_cli_image_ecr_repo.repositoryUrl,
+            username: registryToken.userName,
+            password: registryToken.password,
+          };
+        }),
+      imageName: pulumi.interpolate`${stacksnap_cli_image_ecr_repo.repositoryUrl}:${sha256}`,
     },
     { parent: base },
   );
@@ -1070,7 +1121,7 @@ const stacksnap_cli_task = new aws.ecs.TaskDefinition("stacksnap-cli-task", {
         },
       ],
       essential: true,
-      image: stacksnap_task_image.imageName,
+      image: stacksnap_cli_image.imageName,
       logConfiguration: {
         logDriver: "awslogs",
         options: {
