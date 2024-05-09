@@ -1801,9 +1801,9 @@ const sns_topic_subscription_alarm_actions_topic_alarm_reporter =
     topic: alarm_actions_topic.arn,
   });
 
-if (!('GITHUB_TOKEN' in process.env)) {
+if (kloConfig.getBoolean("upload")) {
   // The github action still does this, so check to make sure it's not in a github action until the action is updated.
-  
+
   const buildFrontend = new command.local.Command("buildFrontend", {
     dir: "../frontend",
     create: `npm run build-${deployEnv}`,
