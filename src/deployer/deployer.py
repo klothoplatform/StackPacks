@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks
 
 from src.deployer.deploy import run_full_deploy_workflow
 from src.deployer.destroy import run_full_destroy_workflow
+from src.deployer.models.util import start_workflow_run
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun
 
@@ -49,9 +50,11 @@ class StepFunctionDeployer:
         self.background_tasks = background_tasks
 
     def install(self, input: DeployerInput):
+        name = input.run.composite_key()
+        name.replace(r"[^a-zA-Z0-9_-]", "-").replace(r"--+", "-")
         self.client.start_execution(
             stateMachineArn=deploy_arn,
-            name=input.run.composite_key(),
+            name=name,
             input=json.dumps(
                 {
                     "projectId": input.run.project_id,
@@ -63,6 +66,7 @@ class StepFunctionDeployer:
                 }
             ),
         )
+        start_workflow_run(input.run)
 
     def uninstall(self, input: DeployerInput):
         # TODO - switch to destroy_arn when implemented

@@ -173,7 +173,6 @@ def create_deploy_workflow_jobs(
     apps: List[str],
 ) -> WorkflowJob:
     project_id = run.project_id
-    app_id = run.app_id()
     project = Project.get(project_id)
 
     if project.destroy_in_progress:
