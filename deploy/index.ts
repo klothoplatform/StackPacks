@@ -1141,9 +1141,9 @@ const stacksnap_cli_task = new aws.ecs.TaskDefinition("stacksnap-cli-task", {
       logConfiguration: {
         logDriver: "awslogs",
         options: {
-          "awslogs-group": "/aws/ecs/stacksnap-task",
+          "awslogs-group": "/aws/ecs/stacksnap-cli",
           "awslogs-region": region_0.apply((o) => o.name),
-          "awslogs-stream-prefix": "stacksnap-task-stacksnap-backend",
+          "awslogs-stream-prefix": "stacksnap-cli",
         },
       },
       mountPoints: [

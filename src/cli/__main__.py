@@ -18,7 +18,7 @@ async def cli():
     pass
 
 
-@click.command("deploy")
+@cli.command("deploy")
 @click.option(
     "--run-id",
     prompt="The workflow id",
@@ -34,7 +34,7 @@ async def deploy(job_id: str, job_number: int):
     deploy_workflow(job_id, job_number)
 
 
-@click.command("destroy")
+@cli.command("destroy")
 @click.option(
     "--run-id",
     prompt="The workflow id",
@@ -50,7 +50,7 @@ async def destroy(job_id: str, job_number: int):
     destroy_workflow(job_id, job_number)
 
 
-@click.command("get-app-workflows")
+@cli.command("get-app-workflows")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -65,7 +65,7 @@ def get_app_workflows(project_id: str, run_id: str):
     return get_app_workflows(workflow_run)
 
 
-@click.command("send-email")
+@cli.command("send-email")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -80,7 +80,7 @@ def send_email(project_id: str, run_id: str):
     send_email_util(run)
 
 
-@click.command("abort-workflow")
+@cli.command("abort-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -96,7 +96,7 @@ def abort_workflow(project_id: str, run_id: str):
     return {"status": "success", "message": "Workflow run aborted"}
 
 
-@click.command("start-workflow")
+@cli.command("start-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -112,7 +112,7 @@ def start_workflow(project_id: str, run_id: str):
     return {"status": "success", "message": "Workflow run started"}
 
 
-@click.command("complete-workflow")
+@cli.command("complete-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -129,11 +129,4 @@ def complete_workflow(project_id: str, run_id: str):
 
 
 if __name__ == "__main__":
-    cli.add_command(deploy_workflow)
-    cli.add_command(destroy_workflow)
-    cli.add_command(abort_workflow)
-    cli.add_command(get_app_workflows)
-    cli.add_command(send_email)
-    cli.add_command(start_workflow)
-    cli.add_command(complete_workflow)
-    cli.main()
+    cli(_anyio_backend="asyncio")
