@@ -108,194 +108,156 @@ export function CreateDeploymentStateMachine(
   //     "apps": ["2", "3"]
   //    },
   // }
-  const definition = pulumi
-    .all([cluster.arn, deployApp.arn, succeedRun.arn, failRun.arn])
-    .apply(([clusterArn, deployAppArn, succeedRunArn, failRunArn]) => {
-      return JSON.stringify({
-        StartAt: "Run Common",
-        States: {
-          "Run Common": {
-            Type: "Task",
-            Resource: "arn:aws:states:::ecs:runTask.sync",
-            Parameters: {
-              LaunchType: "FARGATE",
-              Cluster: clusterArn,
-              TaskDefinition: deployAppArn,
-              NetworkConfiguration: networkConfig,
-              Overrides: {
-                ContainerOverrides: [
-                  {
-                    Name: "stacksnap-cli",
-                    "Command.$":
-                      "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $.input.jobIds.common)",
-                    // [
-                    //   "deploy",
-                    //   "--run-id",
-                    //   "$.input.runId",
-                    //   "--job-number",
-                    //   "$.input.jobIds.common",
-                    // ],
-                  },
-                ],
-              },
-            },
-            Next: "Run all Apps",
-            Catch: [
+  const definition = pulumi.jsonStringify({
+    StartAt: "Run Common",
+    States: {
+      "Run Common": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: deployApp.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
               {
-                ErrorEquals: ["States.ALL"],
-                Next: "Fail Run (common)",
-                Comment: "on fail",
-                ResultPath: "$.input",
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $.input.jobIds.common)",
               },
             ],
-            ResultPath: "$.input",
-          },
-          "Fail Run (common)": {
-            Type: "Task",
-            Resource: "arn:aws:states:::ecs:runTask.sync",
-            Parameters: {
-              LaunchType: "FARGATE",
-              Cluster: clusterArn,
-              TaskDefinition: failRunArn,
-              NetworkConfiguration: networkConfig,
-              Overrides: {
-                ContainerOverrides: [
-                  {
-                    Name: "stacksnap-cli",
-                    "Command.$":
-                      "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
-                    // [
-                    //   "complete-workflow",
-                    //   "--project-id",
-                    //   "$.input.projectId",
-                    //   "--run-id",
-                    //   "$.input.runId",
-                    // ],
-                  },
-                ],
-              },
-            },
-            Next: "Fail (common)",
-          },
-          "Fail (common)": {
-            Type: "Fail",
-          },
-          "Run all Apps": {
-            Type: "Map",
-            ItemProcessor: {
-              ProcessorConfig: {
-                Mode: "DISTRIBUTED",
-                ExecutionType: "STANDARD",
-              },
-              StartAt: "Run App",
-              States: {
-                "Run App": {
-                  Type: "Task",
-                  Resource: "arn:aws:states:::ecs:runTask.sync",
-                  Parameters: {
-                    LaunchType: "FARGATE",
-                    Cluster: clusterArn,
-                    TaskDefinition: deployAppArn,
-                    NetworkConfiguration: networkConfig,
-                    Overrides: {
-                      ContainerOverrides: [
-                        {
-                          Name: "stacksnap-cli",
-                          "Command.$":
-                            "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $$.Map.Item)",
-                          // [
-                          //   "deploy",
-                          //   "--run-id",
-                          //   "$.input.runId",
-                          //   "--job-number",
-                          //   "$$.Map.Item",
-                          // ],
-                        },
-                      ],
-                    },
-                  },
-                  Catch: [
-                    {
-                      ErrorEquals: ["States.ALL"],
-                      Next: "Fail Run (app)",
-                      ResultPath: "$.input",
-                    },
-                  ],
-                  End: true,
-                  ResultPath: "$.input",
-                },
-                "Fail Run (app)": {
-                  Type: "Task",
-                  Resource: "arn:aws:states:::ecs:runTask.sync",
-                  Parameters: {
-                    LaunchType: "FARGATE",
-                    Cluster: clusterArn,
-                    TaskDefinition: failRunArn,
-                    NetworkConfiguration: networkConfig,
-                    Overrides: {
-                      ContainerOverrides: [
-                        {
-                          Name: "stacksnap-cli",
-                          "Command.$":
-                            "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
-                          // [
-                          //   "complete-workflow",
-                          //   "--project-id",
-                          //   "$.input.projectId",
-                          //   "--run-id",
-                          //   "$.input.runId",
-                          // ],
-                        },
-                      ],
-                    },
-                  },
-                  Next: "Fail (app)",
-                },
-                "Fail (app)": {
-                  Type: "Fail",
-                },
-              },
-            },
-            Next: "Succeed Run",
-            Label: "RunallApps",
-            MaxConcurrency: 100,
-            ItemsPath: "$.input.jobIds.apps",
-            ResultPath: "$.input",
-          },
-          "Succeed Run": {
-            Type: "Task",
-            Resource: "arn:aws:states:::ecs:runTask.sync",
-            Parameters: {
-              LaunchType: "FARGATE",
-              Cluster: clusterArn,
-              TaskDefinition: succeedRunArn,
-              NetworkConfiguration: networkConfig,
-              Overrides: {
-                ContainerOverrides: [
-                  {
-                    Name: "stacksnap-cli",
-                    "Command.$":
-                      "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
-                    // [
-                    //   "complete-workflow",
-                    //   "--project-id",
-                    //   "$.input.projectId",
-                    //   "--run-id",
-                    //   "$.input.runId",
-                    // ],
-                  },
-                ],
-              },
-            },
-            Next: "Success",
-          },
-          Success: {
-            Type: "Succeed",
           },
         },
-        Comment: "Deploys a set of apps (including common)",
-      });
-    });
+        Next: "Run all Apps",
+        Catch: [
+          {
+            ErrorEquals: ["States.ALL"],
+            Next: "Fail Run (common)",
+            Comment: "on fail",
+            ResultPath: "$.input",
+          },
+        ],
+        ResultPath: "$.input",
+      },
+      "Fail Run (common)": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: failRun.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+              },
+            ],
+          },
+        },
+        Next: "Fail (common)",
+      },
+      "Fail (common)": {
+        Type: "Fail",
+      },
+      "Run all Apps": {
+        Type: "Map",
+        ItemProcessor: {
+          ProcessorConfig: {
+            Mode: "DISTRIBUTED",
+            ExecutionType: "STANDARD",
+          },
+          StartAt: "Run App",
+          States: {
+            "Run App": {
+              Type: "Task",
+              Resource: "arn:aws:states:::ecs:runTask.sync",
+              Parameters: {
+                LaunchType: "FARGATE",
+                Cluster: cluster.arn,
+                TaskDefinition: deployApp.arn,
+                NetworkConfiguration: networkConfig,
+                Overrides: {
+                  ContainerOverrides: [
+                    {
+                      Name: "stacksnap-cli",
+                      "Command.$":
+                        "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $$.Map.Item)",
+                    },
+                  ],
+                },
+              },
+              Catch: [
+                {
+                  ErrorEquals: ["States.ALL"],
+                  Next: "Fail Run (app)",
+                  ResultPath: "$.input",
+                },
+              ],
+              End: true,
+              ResultPath: "$.input",
+            },
+            "Fail Run (app)": {
+              Type: "Task",
+              Resource: "arn:aws:states:::ecs:runTask.sync",
+              Parameters: {
+                LaunchType: "FARGATE",
+                Cluster: cluster.arn,
+                TaskDefinition: failRun.arn,
+                NetworkConfiguration: networkConfig,
+                Overrides: {
+                  ContainerOverrides: [
+                    {
+                      Name: "stacksnap-cli",
+                      "Command.$":
+                        "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+                    },
+                  ],
+                },
+              },
+              Next: "Fail (app)",
+            },
+            "Fail (app)": {
+              Type: "Fail",
+            },
+          },
+        },
+        Next: "Succeed Run",
+        Label: "RunallApps",
+        MaxConcurrency: 100,
+        ItemsPath: "$.input.jobIds.apps",
+        ResultPath: "$.input",
+      },
+      "Succeed Run": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: succeedRun.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+              },
+            ],
+          },
+        },
+        Next: "Success",
+      },
+      Success: {
+        Type: "Succeed",
+      },
+    },
+    Comment: "Deploys a set of apps (including common)",
+  });
+
   const stateMachine = new aws.sfn.StateMachine("deployment", {
     namePrefix: "stacksnap-deployer",
     definition,
