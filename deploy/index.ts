@@ -4,24 +4,27 @@ import * as docker from "@pulumi/docker";
 import * as pulumi from "@pulumi/pulumi";
 import { createALBAlarms, createCustomAlarms } from "./monitoring";
 import { CreateDeploymentStateMachine } from "./step_functions";
-import { UploadBinaries, UploadPulumiAccessToken, UploadStaticSite } from "./upload";
+import {
+  UploadBinaries,
+  UploadPulumiAccessToken,
+  UploadStaticSite,
+} from "./upload";
 
 const kloConfig = new pulumi.Config("klo");
 const protect = kloConfig.getBoolean("protect") ?? false;
 const accountId = pulumi.output(aws.getCallerIdentity({}));
-const deployEnv = kloConfig.get("Alias") == "app.stacksnap.io" ? "prod" : "dev"
-const namePrefix = `stacksnap-${kloConfig.get('Prefix') ?? deployEnv}`;
+const deployEnv = kloConfig.get("Alias") == "app.stacksnap.io" ? "prod" : "dev";
+const namePrefix = `stacksnap-${kloConfig.get("Prefix") ?? deployEnv}`;
 const globalTags = {
-  GLOBAL_KLOTHO_TAG: namePrefix
-}
+  GLOBAL_KLOTHO_TAG: namePrefix,
+};
 
 const cloudfront_origin_access_identity_0 =
   new aws.cloudfront.OriginAccessIdentity(
     "cloudfront_origin_access_identity-0",
     {
-      comment:
-        `${namePrefix} this is needed to set up S3 polices so that the S3 bucket is not public`,
-    },
+      comment: `${namePrefix} this is needed to set up S3 polices so that the S3 bucket is not public`,
+    }
   );
 const project_applications = new aws.dynamodb.Table(
   "project-applications",
@@ -45,7 +48,7 @@ const project_applications = new aws.dynamodb.Table(
       RESOURCE_NAME: "project-applications",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const projects = new aws.dynamodb.Table(
   "projects",
@@ -61,7 +64,7 @@ const projects = new aws.dynamodb.Table(
     billingMode: "PAY_PER_REQUEST",
     tags: { ...globalTags, RESOURCE_NAME: "projects" },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const pulumi_stacks = new aws.dynamodb.Table(
   "pulumi-stacks",
@@ -85,7 +88,7 @@ const pulumi_stacks = new aws.dynamodb.Table(
       RESOURCE_NAME: "pulumi-stacks",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const workflow_jobs = new aws.dynamodb.Table(
   "workflow-jobs",
@@ -109,7 +112,7 @@ const workflow_jobs = new aws.dynamodb.Table(
       RESOURCE_NAME: "workflow-jobs",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const workflow_runs = new aws.dynamodb.Table(
   "workflow-runs",
@@ -133,7 +136,7 @@ const workflow_runs = new aws.dynamodb.Table(
       RESOURCE_NAME: "workflow-runs",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const alarm_reporter_ecr_repo = new aws.ecr.Repository(
   "alarm_reporter-ecr_repo",
@@ -148,7 +151,7 @@ const alarm_reporter_ecr_repo = new aws.ecr.Repository(
       ...globalTags,
       RESOURCE_NAME: "alarm_reporter-ecr_repo",
     },
-  },
+  }
 );
 const stacksnap_task_image_ecr_repo = new aws.ecr.Repository(
   "stacksnap-task-image-ecr_repo",
@@ -163,7 +166,7 @@ const stacksnap_task_image_ecr_repo = new aws.ecr.Repository(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-task-image-ecr_repo",
     },
-  },
+  }
 );
 const stacksnap_cli_image_ecr_repo = new aws.ecr.Repository(
   "stacksnap-cli-image-ecr_repo",
@@ -178,7 +181,7 @@ const stacksnap_cli_image_ecr_repo = new aws.ecr.Repository(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-cli-image-ecr_repo",
     },
-  },
+  }
 );
 const stacksnap_ecs_cluster = new aws.ecs.Cluster("stacksnap-ecs-cluster", {
   settings: [{ name: "containerInsights", value: "enabled" }],
@@ -194,7 +197,7 @@ const subnet_0_route_table_nat_gateway_elastic_ip = new aws.ec2.Eip(
       ...globalTags,
       RESOURCE_NAME: "subnet-0-route_table-nat_gateway-elastic_ip",
     },
-  },
+  }
 );
 const subnet_1_route_table_nat_gateway_elastic_ip = new aws.ec2.Eip(
   "subnet-1-route_table-nat_gateway-elastic_ip",
@@ -203,7 +206,7 @@ const subnet_1_route_table_nat_gateway_elastic_ip = new aws.ec2.Eip(
       ...globalTags,
       RESOURCE_NAME: "subnet-1-route_table-nat_gateway-elastic_ip",
     },
-  },
+  }
 );
 const stacksnap_ecs_launch_template_iam_instance_profb0be8bf5 =
   new aws.iam.Role("stacksnap-ecs-launch-template-iam_instance_profb0be8bf5", {
@@ -272,7 +275,7 @@ const stacksnap_binaries = new aws.s3.Bucket(
       RESOURCE_NAME: "stacksnap-binaries",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 export const stacksnap_binaries_BucketName = stacksnap_binaries.bucket;
 const stacksnap_iac_store = new aws.s3.Bucket(
@@ -292,7 +295,7 @@ const stacksnap_iac_store = new aws.s3.Bucket(
       RESOURCE_NAME: "stacksnap-iac-store",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 export const stacksnap_iac_store_BucketName = stacksnap_iac_store.bucket;
 const stacksnap_pulumi_state_bucket = new aws.s3.Bucket(
@@ -315,7 +318,7 @@ const stacksnap_pulumi_state_bucket = new aws.s3.Bucket(
       RESOURCE_NAME: "stacksnap-pulumi-state-bucket",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 export const stacksnap_pulumi_state_bucket_BucketName =
   stacksnap_pulumi_state_bucket.bucket;
@@ -333,7 +336,7 @@ const stacksnap_ui = new aws.s3.Bucket(
     },
     tags: { ...globalTags, RESOURCE_NAME: "stacksnap-ui" },
   },
-  { protect: protect },
+  { protect: protect }
 );
 export const stacksnap_ui_BucketName = stacksnap_ui.bucket;
 const stacksnap_pulumi_access_token = new aws.secretsmanager.Secret(
@@ -346,13 +349,13 @@ const stacksnap_pulumi_access_token = new aws.secretsmanager.Secret(
       RESOURCE_NAME: "stacksnap-pulumi-access-token",
     },
   },
-  { protect: protect },
+  { protect: protect }
 );
 const stacksnap_email_identity = new aws.ses.EmailIdentity(
   "stacksnap-email-identity",
   {
     email: "stacksnap@klo.dev",
-  },
+  }
 );
 const alarm_actions_topic = new aws.sns.Topic("alarm_actions_topic", {
   tags: {
@@ -367,22 +370,19 @@ const vpc_0 = new aws.ec2.Vpc("vpc-0", {
   tags: { ...globalTags, RESOURCE_NAME: "vpc-0" },
 });
 const ecr_image_alarm_reporter = (() => {
-  const base = new docker.Image(
-    `${"alarm_reporter"}-base`,
-    {
-      build: {
-        context: "../alarm_reporter",
-        dockerfile: "Dockerfile.AlarmReporter",
-        platform: "linux/amd64",
-      },
-      skipPush: true,
-      imageName: pulumi.interpolate`${alarm_reporter_ecr_repo.repositoryUrl}:base`,
+  const base = new docker.Image(`${"alarm_reporter"}-base`, {
+    build: {
+      context: "../alarm_reporter",
+      dockerfile: "Dockerfile.AlarmReporter",
+      platform: "linux/amd64",
     },
-  );
+    skipPush: true,
+    imageName: pulumi.interpolate`${alarm_reporter_ecr_repo.repositoryUrl}:base`,
+  });
 
   const sha256 = base.repoDigest.apply((digest) => {
-    return digest.substring(digest.indexOf('sha256:') + 7)
-  })
+    return digest.substring(digest.indexOf("sha256:") + 7);
+  });
 
   return new docker.Image(
     "alarm_reporter",
@@ -391,11 +391,14 @@ const ecr_image_alarm_reporter = (() => {
         context: "../alarm_reporter",
         dockerfile: "Dockerfile.AlarmReporter",
         platform: "linux/amd64",
+        cacheFrom: {
+          images: [base.imageName],
+        },
       },
       registry: aws.ecr
-        .getAuthorizationTokenOutput(
-          { registryId: alarm_reporter_ecr_repo.registryId },
-        )
+        .getAuthorizationTokenOutput({
+          registryId: alarm_reporter_ecr_repo.registryId,
+        })
         .apply((registryToken) => {
           return {
             server: alarm_reporter_ecr_repo.repositoryUrl,
@@ -405,26 +408,23 @@ const ecr_image_alarm_reporter = (() => {
         }),
       imageName: pulumi.interpolate`${alarm_reporter_ecr_repo.repositoryUrl}:${sha256}`,
     },
-    { parent: base },
+    { parent: base }
   );
 })();
 const stacksnap_task_image = (() => {
-  const base = new docker.Image(
-    `stacksnap-task-image-base`,
-    {
-      build: {
-        context: "..",
-        dockerfile: "Dockerfile",
-        platform: "linux/amd64",
-      },
-      skipPush: true,
-      imageName: pulumi.interpolate`${stacksnap_task_image_ecr_repo.repositoryUrl}:base`,
+  const base = new docker.Image(`stacksnap-task-image-base`, {
+    build: {
+      context: "..",
+      dockerfile: "Dockerfile",
+      platform: "linux/amd64",
     },
-  );
+    skipPush: true,
+    imageName: pulumi.interpolate`${stacksnap_task_image_ecr_repo.repositoryUrl}:base`,
+  });
 
   const sha256 = base.repoDigest.apply((digest) => {
-    return digest.substring(digest.indexOf('sha256:') + 7)
-  })
+    return digest.substring(digest.indexOf("sha256:") + 7);
+  });
 
   return new docker.Image(
     "stacksnap-task-image",
@@ -433,11 +433,14 @@ const stacksnap_task_image = (() => {
         context: "..",
         dockerfile: "Dockerfile",
         platform: "linux/amd64",
+        cacheFrom: {
+          images: [base.imageName],
+        },
       },
       registry: aws.ecr
         .getAuthorizationTokenOutput(
           { registryId: stacksnap_task_image_ecr_repo.registryId },
-          { async: true },
+          { async: true }
         )
         .apply((registryToken) => {
           return {
@@ -448,27 +451,24 @@ const stacksnap_task_image = (() => {
         }),
       imageName: pulumi.interpolate`${stacksnap_task_image_ecr_repo.repositoryUrl}:${sha256}`,
     },
-    { parent: base },
+    { parent: base }
   );
 })();
 
 const stacksnap_cli_image = (() => {
-  const base = new docker.Image(
-    `stacksnap-cli-image-base`,
-    {
-      build: {
-        context: "..",
-        dockerfile: "CLI.Dockerfile",
-        platform: "linux/amd64",
-      },
-      skipPush: true,
-      imageName: pulumi.interpolate`${stacksnap_cli_image_ecr_repo.repositoryUrl}:base`,
+  const base = new docker.Image(`stacksnap-cli-image-base`, {
+    build: {
+      context: "..",
+      dockerfile: "CLI.Dockerfile",
+      platform: "linux/amd64",
     },
-  );
+    skipPush: true,
+    imageName: pulumi.interpolate`${stacksnap_cli_image_ecr_repo.repositoryUrl}:base`,
+  });
 
   const sha256 = base.repoDigest.apply((digest) => {
-    return digest.substring(digest.indexOf('sha256:') + 7)
-  })
+    return digest.substring(digest.indexOf("sha256:") + 7);
+  });
 
   return new docker.Image(
     "stacksnap-cli-image",
@@ -477,11 +477,14 @@ const stacksnap_cli_image = (() => {
         context: "..",
         dockerfile: "CLI.Dockerfile",
         platform: "linux/amd64",
+        cacheFrom: {
+          images: [base.imageName],
+        },
       },
       registry: aws.ecr
         .getAuthorizationTokenOutput(
           { registryId: stacksnap_cli_image_ecr_repo.registryId },
-          { async: true },
+          { async: true }
         )
         .apply((registryToken) => {
           return {
@@ -492,7 +495,7 @@ const stacksnap_cli_image = (() => {
         }),
       imageName: pulumi.interpolate`${stacksnap_cli_image_ecr_repo.repositoryUrl}:${sha256}`,
     },
-    { parent: base },
+    { parent: base }
   );
 })();
 const stacksnap_ecs_launch_template_iam_instance_profile =
@@ -504,7 +507,7 @@ const stacksnap_ecs_launch_template_iam_instance_profile =
         ...globalTags,
         RESOURCE_NAME: "stacksnap-ecs-launch-template-iam_instance_profile",
       },
-    },
+    }
   );
 const alarm_reporter_executionrole = new aws.iam.Role(
   "alarm_reporter-ExecutionRole",
@@ -526,17 +529,17 @@ const alarm_reporter_executionrole = new aws.iam.Role(
       ...globalTags,
       RESOURCE_NAME: "alarm_reporter-ExecutionRole",
     },
-  },
+  }
 );
 const availability_zone_0 = pulumi.output(
   aws.getAvailabilityZones({
     state: "available",
-  }),
+  })
 ).names[0];
 const availability_zone_1 = pulumi.output(
   aws.getAvailabilityZones({
     state: "available",
-  }),
+  })
 ).names[1];
 const s3_bucket_policy_0 = new aws.s3.BucketPolicy("s3_bucket_policy-0", {
   bucket: stacksnap_ui.id,
@@ -595,7 +598,7 @@ const stacksnap_alb_security_group = new aws.ec2.SecurityGroup(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-alb-security_group",
     },
-  },
+  }
 );
 const stacksnap_service_security_group = new aws.ec2.SecurityGroup(
   "stacksnap-service-security_group",
@@ -657,7 +660,7 @@ const stacksnap_service_security_group = new aws.ec2.SecurityGroup(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-service-security_group",
     },
-  },
+  }
 );
 const stacksnap_tg = (() => {
   const tg = new aws.lb.TargetGroup("stacksnap-tg", {
@@ -705,7 +708,7 @@ echo ECS_CLUSTER=${stacksnap_ecs_cluster.name} >> /etc/ecs/ecs.config
       ...globalTags,
       RESOURCE_NAME: "stacksnap-ecs-launch-template",
     },
-  },
+  }
 );
 
 const stacksnap_shared_storage = new aws.efs.FileSystem(
@@ -721,7 +724,7 @@ const stacksnap_shared_storage = new aws.efs.FileSystem(
   },
   {
     dependsOn: [],
-  },
+  }
 );
 const subnet_2_route_table = new aws.ec2.RouteTable("subnet-2-route_table", {
   vpcId: vpc_0.id,
@@ -765,7 +768,7 @@ const stacksnap_service_stacksnap_shared_storage = new aws.efs.AccessPoint(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-service-stacksnap-shared-storage",
     },
-  },
+  }
 );
 const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
   assumeRolePolicy: pulumi.jsonStringify({
@@ -987,7 +990,7 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
         ],
         Version: "2012-10-17",
       }),
-    }
+    },
   ],
   managedPolicyArns: [
     ...[
@@ -998,6 +1001,20 @@ const stacksnap_ecs_task_role = new aws.iam.Role("stacksnap-ecs-task-role", {
     ...globalTags,
     RESOURCE_NAME: "stacksnap-ecs-task-role",
   },
+});
+const subnet_0 = new aws.ec2.Subnet("subnet-0", {
+  vpcId: vpc_0.id,
+  cidrBlock: "10.0.192.0/18",
+  availabilityZone: availability_zone_1,
+  mapPublicIpOnLaunch: false,
+  tags: { ...globalTags, RESOURCE_NAME: "subnet-0" },
+});
+const subnet_1 = new aws.ec2.Subnet("subnet-1", {
+  vpcId: vpc_0.id,
+  cidrBlock: "10.0.128.0/18",
+  availabilityZone: availability_zone_0,
+  mapPublicIpOnLaunch: false,
+  tags: { ...globalTags, RESOURCE_NAME: "subnet-1" },
 });
 const subnet_2 = new aws.ec2.Subnet("subnet-2", {
   vpcId: vpc_0.id,
@@ -1013,7 +1030,6 @@ const subnet_3 = new aws.ec2.Subnet("subnet-3", {
   mapPublicIpOnLaunch: false,
   tags: { ...globalTags, RESOURCE_NAME: "subnet-3" },
 });
-
 
 const stacksnap_cli_task = new aws.ecs.TaskDefinition("stacksnap-cli-task", {
   family: `stacksnap-cli`,
@@ -1158,7 +1174,7 @@ const stacksnap_cli_log_group = new aws.cloudwatch.LogGroup(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-cli-log-group",
     },
-  },
+  }
 );
 
 const deploy_state_machine = CreateDeploymentStateMachine(
@@ -1167,7 +1183,9 @@ const deploy_state_machine = CreateDeploymentStateMachine(
   stacksnap_cli_task,
   stacksnap_cli_task,
   stacksnap_cli_task,
-)
+  [subnet_0, subnet_1],
+  [stacksnap_service_security_group]
+);
 
 const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
   family: `stacksnap-task`,
@@ -1276,7 +1294,7 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
         {
           name: "DEPLOY_STEP_FUNCTION_ARN",
           value: deploy_state_machine.arn,
-        }
+        },
       ],
       essential: true,
       healthCheck: {
@@ -1322,14 +1340,14 @@ const subnet_0_route_table_nat_gateway = new aws.ec2.NatGateway(
       ...globalTags,
       RESOURCE_NAME: "subnet-0-route_table-nat_gateway",
     },
-  },
+  }
 );
 const subnet_2_subnet_2_route_table = new aws.ec2.RouteTableAssociation(
   "subnet-2-subnet-2-route_table",
   {
     subnetId: subnet_2.id,
     routeTableId: subnet_2_route_table.id,
-  },
+  }
 );
 const stacksnap_alb = new aws.lb.LoadBalancer("stacksnap-alb", {
   internal: false,
@@ -1348,14 +1366,14 @@ const subnet_1_route_table_nat_gateway = new aws.ec2.NatGateway(
       ...globalTags,
       RESOURCE_NAME: "subnet-1-route_table-nat_gateway",
     },
-  },
+  }
 );
 const subnet_3_subnet_3_route_table = new aws.ec2.RouteTableAssociation(
   "subnet-3-subnet-3-route_table",
   {
     subnetId: subnet_3.id,
     routeTableId: subnet_3_route_table.id,
-  },
+  }
 );
 const subnet_0_route_table = new aws.ec2.RouteTable("subnet-0-route_table", {
   vpcId: vpc_0.id,
@@ -1395,12 +1413,14 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
       },
     ],
     enabled: true,
-    viewerCertificate: kloConfig.get("Alias") ? {
-      acmCertificateArn: kloConfig.require("CertificateArn"),
-      sslSupportMethod: "sni-only",
-    } : {
-      cloudfrontDefaultCertificate: true,
-    },
+    viewerCertificate: kloConfig.get("Alias")
+      ? {
+          acmCertificateArn: kloConfig.require("CertificateArn"),
+          sslSupportMethod: "sni-only",
+        }
+      : {
+          cloudfrontDefaultCertificate: true,
+        },
     orderedCacheBehaviors: [
       {
         allowedMethods: [
@@ -1452,7 +1472,7 @@ const stacksnap_distribution = new aws.cloudfront.Distribution(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-distribution",
     },
-  },
+  }
 );
 export const stacksnap_distribution_Domain = stacksnap_distribution.domainName;
 const stacksnap_alb_listener = new aws.lb.Listener("stacksnap-alb-listener", {
@@ -1485,13 +1505,6 @@ const subnet_1_route_table = new aws.ec2.RouteTable("subnet-1-route_table", {
     RESOURCE_NAME: "subnet-1-route_table",
   },
 });
-const subnet_0 = new aws.ec2.Subnet("subnet-0", {
-  vpcId: vpc_0.id,
-  cidrBlock: "10.0.192.0/18",
-  availabilityZone: availability_zone_1,
-  mapPublicIpOnLaunch: false,
-  tags: { ...globalTags, RESOURCE_NAME: "subnet-0" },
-});
 const stacksnap_alb_listener_rule = new aws.lb.ListenerRule(
   "stacksnap-alb-listener-rule",
   {
@@ -1509,31 +1522,24 @@ const stacksnap_alb_listener_rule = new aws.lb.ListenerRule(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-alb-listener-rule",
     },
-  },
+  }
 );
-const subnet_1 = new aws.ec2.Subnet("subnet-1", {
-  vpcId: vpc_0.id,
-  cidrBlock: "10.0.128.0/18",
-  availabilityZone: availability_zone_0,
-  mapPublicIpOnLaunch: false,
-  tags: { ...globalTags, RESOURCE_NAME: "subnet-1" },
-});
 const subnet_0_stacksnap_shared_storage = new aws.efs.MountTarget(
   "subnet-0-stacksnap-shared-storage",
   {
     fileSystemId: stacksnap_shared_storage.id,
     subnetId: subnet_0.id,
     securityGroups: [stacksnap_service_security_group]?.map((sg) => sg.id),
-  },
+  }
 );
 const subnet_0_subnet_0_route_table = new aws.ec2.RouteTableAssociation(
   "subnet-0-subnet-0-route_table",
   {
     subnetId: subnet_0.id,
     routeTableId: subnet_0_route_table.id,
-  },
+  }
 );
-const asg_tags: any[] = []
+const asg_tags: any[] = [];
 for (const [k, v] of Object.entries(globalTags)) {
   asg_tags.push({
     key: k,
@@ -1565,14 +1571,14 @@ const subnet_1_stacksnap_shared_storage = new aws.efs.MountTarget(
     fileSystemId: stacksnap_shared_storage.id,
     subnetId: subnet_1.id,
     securityGroups: [stacksnap_service_security_group]?.map((sg) => sg.id),
-  },
+  }
 );
 const subnet_1_subnet_1_route_table = new aws.ec2.RouteTableAssociation(
   "subnet-1-subnet-1-route_table",
   {
     subnetId: subnet_1.id,
     routeTableId: subnet_1_route_table.id,
-  },
+  }
 );
 const stacksnap_capacity_provider = new aws.ecs.CapacityProvider(
   "stacksnap-capacity-provider",
@@ -1591,7 +1597,7 @@ const stacksnap_capacity_provider = new aws.ecs.CapacityProvider(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-capacity-provider",
     },
-  },
+  }
 );
 const stacksnap_cluster_capacity_provider =
   new aws.ecs.ClusterCapacityProviders("stacksnap-cluster-capacity-provider", {
@@ -1614,7 +1620,7 @@ const stacksnap_task_log_group = new aws.cloudwatch.LogGroup(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-task-log-group",
     },
-  },
+  }
 );
 const stacksnap_service = new aws.ecs.Service(
   "stacksnap-service",
@@ -1655,7 +1661,7 @@ const stacksnap_service = new aws.ecs.Service(
       subnet_0,
       subnet_1,
     ],
-  },
+  }
 );
 
 const stacksnap_service_cpuutilization = new aws.cloudwatch.MetricAlarm(
@@ -1682,7 +1688,7 @@ const stacksnap_service_cpuutilization = new aws.cloudwatch.MetricAlarm(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-service-CPUUtilization",
     },
-  },
+  }
 );
 const stacksnap_service_memoryutilization = new aws.cloudwatch.MetricAlarm(
   "stacksnap-service-MemoryUtilization",
@@ -1708,7 +1714,7 @@ const stacksnap_service_memoryutilization = new aws.cloudwatch.MetricAlarm(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-service-MemoryUtilization",
     },
-  },
+  }
 );
 const stacksnap_service_runningtaskcount = new aws.cloudwatch.MetricAlarm(
   "stacksnap-service-RunningTaskCount",
@@ -1734,12 +1740,12 @@ const stacksnap_service_runningtaskcount = new aws.cloudwatch.MetricAlarm(
       ...globalTags,
       RESOURCE_NAME: "stacksnap-service-RunningTaskCount",
     },
-  },
+  }
 );
 const albAlarms = createALBAlarms(stacksnap_alb, alarm_actions_topic);
 const customAlarms = createCustomAlarms(
   stacksnap_task_log_group,
-  alarm_actions_topic,
+  alarm_actions_topic
 );
 
 const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
@@ -1795,7 +1801,7 @@ const cloudwatch_dashboard_0 = new aws.cloudwatch.Dashboard(
         // },
       ],
     }),
-  },
+  }
 );
 
 const lambda_function_alarm_reporter = new aws.lambda.Function(
@@ -1809,7 +1815,7 @@ const lambda_function_alarm_reporter = new aws.lambda.Function(
     environment: {
       variables: {
         ALARM_STATE_ONLY_ALARMS: pulumi.jsonStringify(
-          customAlarms.map((a) => a.name),
+          customAlarms.map((a) => a.name)
         ),
       },
     },
@@ -1819,11 +1825,8 @@ const lambda_function_alarm_reporter = new aws.lambda.Function(
     },
   },
   {
-    dependsOn: [
-      alarm_reporter_executionrole,
-      ecr_image_alarm_reporter,
-    ],
-  },
+    dependsOn: [alarm_reporter_executionrole, ecr_image_alarm_reporter],
+  }
 );
 
 const alarm_reporter_log_group = new aws.cloudwatch.LogGroup(
@@ -1835,7 +1838,7 @@ const alarm_reporter_log_group = new aws.cloudwatch.LogGroup(
       ...globalTags,
       RESOURCE_NAME: "alarm_reporter-log-group",
     },
-  },
+  }
 );
 
 const lambda_permission_alarm_actions_topic_alarm_reporter =
@@ -1859,9 +1862,11 @@ if (kloConfig.getBoolean("upload")) {
     dir: "../frontend",
     create: `npm run build-${deployEnv}`,
     assetPaths: ["dist/**"],
-  })
+  });
 
-  buildFrontend.assets.apply((assets) => assets && UploadStaticSite(stacksnap_ui, assets))
-  UploadPulumiAccessToken(stacksnap_pulumi_access_token)
-  UploadBinaries(stacksnap_binaries)
+  buildFrontend.assets.apply(
+    (assets) => assets && UploadStaticSite(stacksnap_ui, assets)
+  );
+  UploadPulumiAccessToken(stacksnap_pulumi_access_token);
+  UploadBinaries(stacksnap_binaries);
 }

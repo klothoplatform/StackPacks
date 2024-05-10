@@ -7,7 +7,9 @@ export function CreateDeploymentStateMachine(
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
-  failRun: aws.ecs.TaskDefinition
+  failRun: aws.ecs.TaskDefinition,
+  subnets: aws.ec2.Subnet[],
+  securityGroups: aws.ec2.SecurityGroup[]
 ): aws.sfn.StateMachine {
   const deployRole = new aws.iam.Role("deployRole", {
     namePrefix,
@@ -90,6 +92,13 @@ export function CreateDeploymentStateMachine(
       ],
     }),
   });
+  const networkConfig = {
+    awsvpcConfiguration: {
+      subnets: subnets.map((subnet) => subnet.id),
+      securityGroups: securityGroups.map((sg) => sg.id),
+    },
+  };
+
   // input:
   // {
   //   "projectId": "123",
@@ -112,6 +121,7 @@ export function CreateDeploymentStateMachine(
               LaunchType: "FARGATE",
               Cluster: clusterArn,
               TaskDefinition: deployAppArn,
+              NetworkConfiguration: networkConfig,
               Overrides: {
                 ContainerOverrides: [
                   {
@@ -135,6 +145,7 @@ export function CreateDeploymentStateMachine(
                 ErrorEquals: ["States.ALL"],
                 Next: "Fail Run (common)",
                 Comment: "on fail",
+                ResultPath: "$.input",
               },
             ],
             ResultPath: "$.input",
@@ -146,6 +157,7 @@ export function CreateDeploymentStateMachine(
               LaunchType: "FARGATE",
               Cluster: clusterArn,
               TaskDefinition: failRunArn,
+              NetworkConfiguration: networkConfig,
               Overrides: {
                 ContainerOverrides: [
                   {
@@ -184,6 +196,7 @@ export function CreateDeploymentStateMachine(
                     LaunchType: "FARGATE",
                     Cluster: clusterArn,
                     TaskDefinition: deployAppArn,
+                    NetworkConfiguration: networkConfig,
                     Overrides: {
                       ContainerOverrides: [
                         {
@@ -205,6 +218,7 @@ export function CreateDeploymentStateMachine(
                     {
                       ErrorEquals: ["States.ALL"],
                       Next: "Fail Run (app)",
+                      ResultPath: "$.input",
                     },
                   ],
                   End: true,
@@ -217,6 +231,7 @@ export function CreateDeploymentStateMachine(
                     LaunchType: "FARGATE",
                     Cluster: clusterArn,
                     TaskDefinition: failRunArn,
+                    NetworkConfiguration: networkConfig,
                     Overrides: {
                       ContainerOverrides: [
                         {
@@ -254,6 +269,7 @@ export function CreateDeploymentStateMachine(
               LaunchType: "FARGATE",
               Cluster: clusterArn,
               TaskDefinition: succeedRunArn,
+              NetworkConfiguration: networkConfig,
               Overrides: {
                 ContainerOverrides: [
                   {
