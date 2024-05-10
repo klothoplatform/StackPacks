@@ -64,12 +64,14 @@ class StepFunctionDeployer:
             name=name,
             input=json.dumps(
                 {
-                    "projectId": input.run.project_id,
-                    "runId": input.run.run_id(),
-                    "jobIds": {
-                        "common": input.common_job.job_number,
-                        "apps": [j.job_number for j in input.app_jobs],
-                    },
+                    "input": {
+                        "projectId": input.run.project_id,
+                        "runId": input.run.run_id(),
+                        "jobIds": {
+                            "common": str(input.common_job.job_number),
+                            "apps": [str(j.job_number) for j in input.app_jobs],
+                        },
+                    }
                 }
             ),
         )
