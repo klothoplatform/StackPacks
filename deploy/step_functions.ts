@@ -93,7 +93,7 @@ export function CreateDeploymentStateMachine(
     }),
   });
   const networkConfig = {
-    AwsVpcConfiguration: {
+    AwsvpcConfiguration: {
       Subnets: subnets.map((subnet) => subnet.id),
       SecurityGroups: securityGroups.map((sg) => sg.id),
     },
