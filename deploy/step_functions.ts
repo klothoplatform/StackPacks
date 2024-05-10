@@ -135,10 +135,10 @@ export function CreateDeploymentStateMachine(
             ErrorEquals: ["States.ALL"],
             Next: "Fail Run (common)",
             Comment: "on fail",
-            ResultPath: "$.input",
+            ResultPath: "$.result",
           },
         ],
-        ResultPath: "$.input",
+        ResultPath: "$.result",
       },
       "Fail Run (common)": {
         Type: "Task",
@@ -194,11 +194,11 @@ export function CreateDeploymentStateMachine(
                 {
                   ErrorEquals: ["States.ALL"],
                   Next: "Fail Run (app)",
-                  ResultPath: "$.input",
+                  ResultPath: "$.result",
                 },
               ],
               End: true,
-              ResultPath: "$.input",
+              ResultPath: "$.result",
             },
             "Fail Run (app)": {
               Type: "Task",
@@ -229,7 +229,7 @@ export function CreateDeploymentStateMachine(
         Label: "RunallApps",
         MaxConcurrency: 100,
         ItemsPath: "$.input.jobIds.apps",
-        ResultPath: "$.input",
+        ResultPath: "$.result",
       },
       "Succeed Run": {
         Type: "Task",
