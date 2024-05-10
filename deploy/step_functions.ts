@@ -1,14 +1,13 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
-import * as arnParser from "@aws-sdk/util-arn-parser"
-
+import * as arnParser from "@aws-sdk/util-arn-parser";
 
 export function CreateDeploymentStateMachine(
   namePrefix: string,
-  clusterArn: pulumi.Output<string>,
-  deployAppArn: pulumi.Output<string>,
-  succeedRunArn: pulumi.Output<string>,
-  failRunArn: pulumi.Output<string>
+  cluster: aws.ecs.Cluster,
+  deployApp: aws.ecs.TaskDefinition,
+  succeedRun: aws.ecs.TaskDefinition,
+  failRun: aws.ecs.TaskDefinition
 ): aws.sfn.StateMachine {
   const deployRole = new aws.iam.Role("deployRole", {
     namePrefix,
@@ -34,7 +33,21 @@ export function CreateDeploymentStateMachine(
         {
           Action: ["ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks"],
           Effect: "Allow",
-          Resource: [...new Set([deployAppArn, succeedRunArn, failRunArn])],
+          Resource: [...new Set([deployApp.arn, succeedRun.arn, failRun.arn])],
+        },
+        {
+          Action: ["iam:PassRole"],
+          Effect: "Allow",
+          Resource: [
+            ...new Set([
+              deployApp.taskRoleArn,
+              succeedRun.taskRoleArn,
+              failRun.taskRoleArn,
+              deployApp.executionRoleArn,
+              succeedRun.executionRoleArn,
+              failRun.executionRoleArn,
+            ]),
+          ],
         },
         {
           Action: [
@@ -45,19 +58,19 @@ export function CreateDeploymentStateMachine(
           Effect: "Allow",
           Resource: [
             // Copy the region and account from the clusterArn
-            clusterArn.apply((clusterArn) => {
+            cluster.arn.apply((clusterArn) => {
               const parts = arnParser.parse(clusterArn);
               return arnParser.build({
                 ...parts,
                 service: "events",
-                resource: "rule/StepFunctionsGetEventsForECSTaskRule"
+                resource: "rule/StepFunctionsGetEventsForECSTaskRule",
               });
-            })
+            }),
           ],
         },
-      ]
-    })
-  })
+      ],
+    }),
+  });
   const xrayPolicy = new aws.iam.RolePolicy("deployXRayPolicy", {
     role: deployRole,
     name: "XRayAccessPolicy",
@@ -73,10 +86,10 @@ export function CreateDeploymentStateMachine(
           ],
           Effect: "Allow",
           Resource: "*",
-        }
-      ]
-    })
-  })
+        },
+      ],
+    }),
+  });
   // input:
   // {
   //   "projectId": "123",
@@ -87,7 +100,7 @@ export function CreateDeploymentStateMachine(
   //    },
   // }
   const definition = pulumi
-    .all([clusterArn, deployAppArn, succeedRunArn, failRunArn])
+    .all([cluster.arn, deployApp.arn, succeedRun.arn, failRun.arn])
     .apply(([clusterArn, deployAppArn, succeedRunArn, failRunArn]) => {
       return JSON.stringify({
         StartAt: "Run Common",
@@ -103,7 +116,8 @@ export function CreateDeploymentStateMachine(
                 ContainerOverrides: [
                   {
                     Name: "stacksnap-cli",
-                    "Command.$": "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $.input.jobIds.common)",
+                    "Command.$":
+                      "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $.input.jobIds.common)",
                     // [
                     //   "deploy",
                     //   "--run-id",
@@ -136,7 +150,8 @@ export function CreateDeploymentStateMachine(
                 ContainerOverrides: [
                   {
                     Name: "stacksnap-cli",
-                    "Command.$": "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)"
+                    "Command.$":
+                      "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
                     // [
                     //   "complete-workflow",
                     //   "--project-id",
@@ -173,7 +188,8 @@ export function CreateDeploymentStateMachine(
                       ContainerOverrides: [
                         {
                           Name: "stacksnap-cli",
-                          "Command.$": "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $$.Map.Item)",
+                          "Command.$":
+                            "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $$.Map.Item)",
                           // [
                           //   "deploy",
                           //   "--run-id",
@@ -205,7 +221,8 @@ export function CreateDeploymentStateMachine(
                       ContainerOverrides: [
                         {
                           Name: "stacksnap-cli",
-                          "Command.$": "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)"
+                          "Command.$":
+                            "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
                           // [
                           //   "complete-workflow",
                           //   "--project-id",
@@ -241,7 +258,8 @@ export function CreateDeploymentStateMachine(
                 ContainerOverrides: [
                   {
                     Name: "stacksnap-cli",
-                    "Command.$": "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)"
+                    "Command.$":
+                      "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
                     // [
                     //   "complete-workflow",
                     //   "--project-id",
@@ -281,13 +299,17 @@ export function CreateDeploymentStateMachine(
             const stateMachineArnParts = arnParser.parse(arn);
             return arnParser.build({
               ...stateMachineArnParts,
-              resource: stateMachineArnParts.resource.replace(/stateMachine/, "execution") + "/*"
+              resource:
+                stateMachineArnParts.resource.replace(
+                  /stateMachine/,
+                  "execution"
+                ) + "/*",
             });
           }),
         },
-      ]
-    })
-  })
+      ],
+    }),
+  });
   const startExecPolicy = new aws.iam.RolePolicy("deployStartExecPolicy", {
     role: deployRole,
     name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
@@ -306,27 +328,28 @@ export function CreateDeploymentStateMachine(
           Resource: `*`,
         },
         {
-            Effect: "Allow",
-            Action: [
-                "events:PutTargets",
-                "events:PutRule",
-                "events:DescribeRule"
-            ],
-            Resource: [
-              // Copy the region and account from the clusterArn
-              clusterArn.apply((clusterArn) => {
-                const parts = arnParser.parse(clusterArn);
-                return arnParser.build({
-                  ...parts,
-                  service: "events",
-                  resource: "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
-                });
-              })
-            ]
+          Effect: "Allow",
+          Action: [
+            "events:PutTargets",
+            "events:PutRule",
+            "events:DescribeRule",
+          ],
+          Resource: [
+            // Copy the region and account from the clusterArn
+            cluster.arn.apply((clusterArn) => {
+              const parts = arnParser.parse(clusterArn);
+              return arnParser.build({
+                ...parts,
+                service: "events",
+                resource:
+                  "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+              });
+            }),
+          ],
         },
-      ]
-    })
-  })
+      ],
+    }),
+  });
 
   return stateMachine;
 }

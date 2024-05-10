@@ -1163,10 +1163,10 @@ const stacksnap_cli_log_group = new aws.cloudwatch.LogGroup(
 
 const deploy_state_machine = CreateDeploymentStateMachine(
   "stacksnap-deploy",
-  stacksnap_ecs_cluster.arn,
-  stacksnap_cli_task.arn,
-  stacksnap_cli_task.arn,
-  stacksnap_cli_task.arn,
+  stacksnap_ecs_cluster,
+  stacksnap_cli_task,
+  stacksnap_cli_task,
+  stacksnap_cli_task,
 )
 
 const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
