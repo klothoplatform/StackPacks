@@ -31,7 +31,7 @@ async def cli():
     help="The job number of the workflow run",
 )
 async def deploy(job_id: str, job_number: int):
-    deploy_workflow(job_id, job_number)
+    await deploy_workflow(job_id, job_number)
 
 
 @cli.command("destroy")
@@ -47,7 +47,7 @@ async def deploy(job_id: str, job_number: int):
     help="The job number of the workflow run",
 )
 async def destroy(job_id: str, job_number: int):
-    destroy_workflow(job_id, job_number)
+    await destroy_workflow(job_id, job_number)
 
 
 @cli.command("get-app-workflows")
@@ -59,7 +59,7 @@ async def destroy(job_id: str, job_number: int):
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
-def get_app_workflows(project_id: str, run_id: str):
+def get_app_workflows_cmd(project_id: str, run_id: str):
     logger.info(f"Getting workflows for {project_id}/{run_id}")
     workflow_run = WorkflowRun.get(project_id, run_id)
     return get_app_workflows(workflow_run)
