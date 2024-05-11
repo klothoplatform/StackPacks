@@ -281,7 +281,7 @@ export function CreateDeploymentStateMachine(
                 stateMachineArnParts.resource.replace(
                   /stateMachine/,
                   "execution"
-                ) + ":*",
+                ) + "*",
             });
           }),
         },
