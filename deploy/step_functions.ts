@@ -281,7 +281,7 @@ export function CreateDeploymentStateMachine(
                 stateMachineArnParts.resource.replace(
                   /stateMachine/,
                   "execution"
-                ) + "/*",
+                ) + ":*",
             });
           }),
         },
@@ -302,8 +302,17 @@ export function CreateDeploymentStateMachine(
         {
           Action: ["states:DescribeExecution", "states:StopExecution"],
           Effect: "Allow",
-          // TODO can this be restricted to the state machine? The generated one does this '*', so maybe not a concern
-          Resource: `*`,
+          Resource: stateMachine.arn.apply((arn) => {
+            const stateMachineArnParts = arnParser.parse(arn);
+            return arnParser.build({
+              ...stateMachineArnParts,
+              resource:
+                stateMachineArnParts.resource.replace(
+                  /stateMachine/,
+                  "execution"
+                ) + ":*",
+            });
+          }),
         },
         {
           Effect: "Allow",
