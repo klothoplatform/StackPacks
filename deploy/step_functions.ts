@@ -124,7 +124,7 @@ export function CreateDeploymentStateMachine(
               {
                 Name: "stacksnap-cli",
                 "Command.$":
-                  "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $.input.jobIds.common)",
+                  "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $.input.jobIds.common)",
               },
             ],
           },
@@ -185,7 +185,7 @@ export function CreateDeploymentStateMachine(
                     {
                       Name: "stacksnap-cli",
                       "Command.$":
-                        "States.Array('deploy', '--run-id', $.input.runId, '--job-number', $$.Map.Item)",
+                        "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $$.Map.Item)",
                     },
                   ],
                 },

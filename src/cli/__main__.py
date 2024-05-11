@@ -20,7 +20,7 @@ async def cli():
 
 @cli.command("deploy")
 @click.option(
-    "--run-id",
+    "--job-id",
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
@@ -36,7 +36,7 @@ async def deploy(job_id: str, job_number: int):
 
 @cli.command("destroy")
 @click.option(
-    "--run-id",
+    "--job-id",
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
