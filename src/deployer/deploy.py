@@ -189,9 +189,9 @@ def create_deploy_workflow_jobs(
     if project.destroy_in_progress:
         raise ValueError("Pack is currently being torn down")
 
-    run_id = run.run_id()
+    job_id = run.job_id()
     deploy_common_job = WorkflowJob.create_job(
-        partition_key=run_id,
+        partition_key=job_id,
         job_type=WorkflowJobType.DEPLOY,
         modified_app_id=CommonStack.COMMON_APP_NAME,
         initiated_by=run.initiated_by,
@@ -202,7 +202,7 @@ def create_deploy_workflow_jobs(
             continue
         deploy_app_jobs.append(
             WorkflowJob.create_job(
-                partition_key=run_id,
+                partition_key=job_id,
                 job_type=WorkflowJobType.DEPLOY,
                 modified_app_id=app_name,
                 initiated_by=run.initiated_by,

@@ -66,8 +66,9 @@ class StepFunctionDeployer:
                 {
                     "input": {
                         "projectId": input.run.project_id,
-                        "runId": input.run.run_id(),
-                        "jobIds": {
+                        "runId": input.run.range_key,
+                        "jobId": input.run.job_id(),
+                        "jobNumbers": {
                             "common": str(input.common_job.job_number),
                             "apps": [str(j.job_number) for j in input.app_jobs],
                         },

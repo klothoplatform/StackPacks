@@ -103,7 +103,8 @@ export function CreateDeploymentStateMachine(
   // {
   //   "projectId": "123",
   //   "runId": "123",
-  //   "jobIds": {
+  //   "jobId": "123",
+  //   "jobNumbers": {
   //     "common": "1",
   //     "apps": ["2", "3"]
   //    },
@@ -124,7 +125,7 @@ export function CreateDeploymentStateMachine(
               {
                 Name: "stacksnap-cli",
                 "Command.$":
-                  "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $.input.jobIds.common)",
+                  "States.Array('deploy', '--job-id', $.input.jobId, '--job-number', $.input.jobNumbers.common)",
               },
             ],
           },
@@ -153,7 +154,7 @@ export function CreateDeploymentStateMachine(
               {
                 Name: "stacksnap-cli",
                 "Command.$":
-                  "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+                  "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
               },
             ],
           },
@@ -184,7 +185,7 @@ export function CreateDeploymentStateMachine(
                     {
                       Name: "stacksnap-cli",
                       "Command.$":
-                        "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $.runId)",
+                        "States.Array('deploy', '--job-id', $.input.jobId, '--job-number', $.jobId)",
                     },
                   ],
                 },
@@ -212,7 +213,7 @@ export function CreateDeploymentStateMachine(
                     {
                       Name: "stacksnap-cli",
                       "Command.$":
-                        "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+                        "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
                     },
                   ],
                 },
@@ -229,9 +230,9 @@ export function CreateDeploymentStateMachine(
         MaxConcurrency: 40,
         ItemSelector: {
           "input.$": "$.input",
-          "runId.$": "$$.Map.Item.Value",
+          "jobId.$": "$$.Map.Item.Value",
         },
-        ItemsPath: "$.input.jobIds.apps",
+        ItemsPath: "$.input.jobNumbers.apps",
         ResultPath: "$.result",
       },
       "Succeed Run": {

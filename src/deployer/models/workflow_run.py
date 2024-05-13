@@ -104,7 +104,7 @@ class WorkflowRun(Model):
     def composite_key(self):
         return f"{self.project_id}#{self.range_key}"
 
-    def run_id(self):
+    def job_id(self):
         return WorkflowJob.compose_partition_key(
             project_id=self.project_id,
             workflow_type=self.workflow_type(),
