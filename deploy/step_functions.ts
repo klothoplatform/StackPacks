@@ -229,7 +229,7 @@ export function CreateDeploymentStateMachine(
         MaxConcurrency: 40,
         ItemSelector: {
           "input.$": "$.input",
-          "runId.$": "$$.Map.Item",
+          "runId.$": "$$.Map.Item.Value",
         },
         ItemsPath: "$.input.jobIds.apps",
         ResultPath: "$.result",
