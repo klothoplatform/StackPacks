@@ -7,6 +7,7 @@ from src.deployer.models.util import (
     complete_workflow_run,
     start_workflow_run,
 )
+from src.deployer.models.workflow_job import WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.util import get_app_workflows
 from src.deployer.util import send_email as send_email_util
@@ -31,7 +32,9 @@ async def cli():
     help="The job number of the workflow run",
 )
 async def deploy(job_id: str, job_number: int):
-    await deploy_workflow(job_id, job_number)
+    result = await deploy_workflow(job_id, job_number)
+    if result.status != WorkflowJobStatus.SUCCEEDED:
+        raise Exception(f"Deployment {result.status}: {result.message}")
 
 
 @cli.command("destroy")
@@ -47,7 +50,9 @@ async def deploy(job_id: str, job_number: int):
     help="The job number of the workflow run",
 )
 async def destroy(job_id: str, job_number: int):
-    await destroy_workflow(job_id, job_number)
+    result = await destroy_workflow(job_id, job_number)
+    if result.status != WorkflowJobStatus.SUCCEEDED:
+        raise Exception(f"Destroy {result.status}: {result.message}")
 
 
 @cli.command("get-app-workflows")

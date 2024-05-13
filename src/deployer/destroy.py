@@ -6,6 +6,7 @@ from typing import List
 from aiomultiprocess import Pool
 
 from src.dependencies.injection import get_iac_storage, get_pulumi_state_bucket_name
+from src.deployer.deploy import WorkflowResult
 from src.deployer.models.util import (
     abort_workflow_run,
     complete_workflow_run,
@@ -59,7 +60,7 @@ async def destroy_workflow(job_id: str, job_number: int):
                 MetricNames.DESTROY_WORKFLOW_FAILURE,
                 0,
             )
-            return {"status": destroy_status.value, "message": destroy_message}
+            return WorkflowResult(destroy_status, destroy_message)
     except Exception as e:
         metrics_logger.log_metric(
             MetricNames.DESTROY_WORKFLOW_FAILURE,
@@ -72,7 +73,7 @@ async def destroy_workflow(job_id: str, job_number: int):
                 WorkflowJob.status_reason.set(str(e)),
             ]
         )
-        return {"status": WorkflowJobStatus.FAILED.value, "message": "Internal Error"}
+        return WorkflowResult(WorkflowJobStatus.FAILED, "Internal Error")
 
 
 def can_destroy(project_id: str, app_id: str):
@@ -203,6 +204,7 @@ async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):
     except Exception as e:
         logger.error(f"Error destroying {run.composite_key()}: {e}", exc_info=True)
         abort_workflow_run(run)
+
     try:
         logger.info(results)
         if all(result["status"] == "SUCCEEDED" for result in results):

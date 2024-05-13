@@ -167,7 +167,7 @@ export function CreateDeploymentStateMachine(
         Type: "Map",
         ItemProcessor: {
           ProcessorConfig: {
-            Mode: "DISTRIBUTED",
+            Mode: "INLINE",
             ExecutionType: "STANDARD",
           },
           StartAt: "Run App",
@@ -185,7 +185,7 @@ export function CreateDeploymentStateMachine(
                     {
                       Name: "stacksnap-cli",
                       "Command.$":
-                        "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $$.Map.Item)",
+                        "States.Array('deploy', '--job-id', $.input.runId, '--job-number', $.runId)",
                     },
                   ],
                 },
@@ -227,7 +227,11 @@ export function CreateDeploymentStateMachine(
         },
         Next: "Succeed Run",
         Label: "RunallApps",
-        MaxConcurrency: 100,
+        MaxConcurrency: 40,
+        ItemSelector: {
+          "input.$": "$.input",
+          "runId.$": "$$.Map.Item",
+        },
         ItemsPath: "$.input.jobIds.apps",
         ResultPath: "$.result",
       },
