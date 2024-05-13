@@ -168,7 +168,6 @@ export function CreateDeploymentStateMachine(
         ItemProcessor: {
           ProcessorConfig: {
             Mode: "INLINE",
-            ExecutionType: "STANDARD",
           },
           StartAt: "Run App",
           States: {
