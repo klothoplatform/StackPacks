@@ -1,11 +1,11 @@
 import asyncio
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
 from aiomultiprocess import Pool
-from attr import dataclass
 from pulumi import automation as auto
 
 from src.dependencies.injection import get_pulumi_state_bucket_name
