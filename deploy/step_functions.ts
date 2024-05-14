@@ -159,10 +159,7 @@ export function CreateDeploymentStateMachine(
             ],
           },
         },
-        Next: "Fail (common)",
-      },
-      "Fail (common)": {
-        Type: "Fail",
+        End: true,
       },
       "Run all Apps": {
         Type: "Map",
@@ -218,10 +215,7 @@ export function CreateDeploymentStateMachine(
                   ],
                 },
               },
-              Next: "Fail (app)",
-            },
-            "Fail (app)": {
-              Type: "Fail",
+              End: true,
             },
           },
         },
@@ -253,10 +247,7 @@ export function CreateDeploymentStateMachine(
             ],
           },
         },
-        Next: "Success",
-      },
-      Success: {
-        Type: "Succeed",
+        End: true,
       },
     },
     Comment: "Deploys a set of apps (including common)",
