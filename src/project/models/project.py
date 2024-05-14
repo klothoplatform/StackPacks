@@ -136,9 +136,18 @@ class Project(Model):
         app.configuration = common_stack.final_config(config)
 
         resources_changed = True
-        if old_config is not None:
+        new_apps = set([CommonStack.COMMON_APP_NAME])
+        new_apps.update(sp.id for sp in stack_packs)
+        if old_config is not None or self.apps.keys() != new_apps:
+            # Need to create a new stack based on the current applications (not `stack_packs`)
+            # in case that changes requirements, which impacts the resources created.
+            all_stack_packs = get_stack_packs()
+            old_common_stack = CommonStack(
+                [sp for sp in all_stack_packs.values() if sp.id in self.apps.keys()],
+                self.features,
+            )
             old_resources = get_resources(
-                common_stack.to_constraints(old_config, self.region)
+                old_common_stack.to_constraints(old_config or {}, self.region)
             )
             new_resources = get_resources(
                 common_stack.to_constraints(config, self.region)
