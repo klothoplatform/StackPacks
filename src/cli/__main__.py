@@ -11,6 +11,10 @@ from src.deployer.models.workflow_job import WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.util import get_app_workflows
 from src.deployer.util import send_email as send_email_util
+from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
+from src.engine_service.engine_commands.run import RunEngineRequest, run_engine
+from src.project import get_stack_packs
+from src.project.common_stack import CommonStack
 from src.util.logging import logger
 
 
@@ -131,6 +135,31 @@ def complete_workflow(project_id: str, run_id: str):
     run = WorkflowRun.get(project_id, run_id)
     complete_workflow_run(run)
     return {"status": "success", "message": "Workflow run completed"}
+
+
+@cli.command("build-app")
+@click.argument("app")
+@click.option(
+    "--out-dir", "-o", help="The directory to write the output to", default="."
+)
+async def build_app(app: str, out_dir: str):
+    sps = get_stack_packs()
+    if app not in sps:
+        raise Exception(f"App {app} not found in stack packs")
+    sp = sps[app]
+    constraints = sp.to_constraints({}, "us-east-1")
+    common = CommonStack([sp], [])
+    constraints.extend(common.to_constraints({}, "us-east-1"))
+    result = await run_engine(
+        RunEngineRequest(tag="cli", constraints=constraints, tmp_dir=out_dir)
+    )
+    await export_iac(
+        ExportIacRequest(
+            input_graph=result.resources_yaml,
+            name=app,
+            tmp_dir=out_dir,
+        )
+    )
 
 
 if __name__ == "__main__":
