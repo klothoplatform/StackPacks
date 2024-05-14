@@ -1,4 +1,5 @@
 import json
+from itertools import groupby
 
 
 class Policy:
@@ -10,6 +11,22 @@ class Policy:
 
     def combine(self, other_policy):
         self.policy["Statement"].extend(other_policy.policy["Statement"])
+        self.compact_policy()
+
+    def compact_policy(self):
+        items = set(
+            (stmt["Effect"], stmt["Resource"], a)
+            for stmt in self.policy["Statement"]
+            for a in stmt["Action"]
+        )
+        groups = groupby(items, key=lambda e: (e[0], e[1]))
+        statements = []
+        for (effect, resource), actions in groups:
+            actions = sorted(a for _, _, a in actions)
+            statements.append(
+                {"Effect": effect, "Action": actions, "Resource": resource}
+            )
+        self.policy["Statement"] = statements
 
     def __str__(self):
         return json.dumps(self.policy, indent=4)
