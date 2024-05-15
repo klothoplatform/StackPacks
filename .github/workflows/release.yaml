@@ -31,7 +31,6 @@ concurrency:
   group: ci-${{ inputs.stage }}
 
 jobs:
-
   build-binaries:
     name: Build Binaries (engine, iac)
     uses: ./.github/workflows/build_binaries.yaml
@@ -83,8 +82,6 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ""
           AWS_REGION: ${{ vars.AWS_REGION }}
           STAGE: ${{ inputs.stage }}
-          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
         with:
           command: refresh
           work-dir: "./deploy"
@@ -114,70 +111,3 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ""
           AWS_REGION: ${{ vars.AWS_REGION }}
           STAGE: ${{ inputs.stage }}
-          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
-      - name: Get Pulumi Outputs
-        id: pulumi-outputs
-        run: |
-          echo "stacksnap_binaries_BucketName=$(pulumi stack output stacksnap_binaries_BucketName)" >> $GITHUB_OUTPUT
-          echo "stacksnap_ui_BucketName=$(pulumi stack output stacksnap_ui_BucketName)" >> $GITHUB_OUTPUT
-        working-directory: "./deploy"
-        shell: bash
-      - name: build frontend
-        run: |  
-          make frontend/node_modules
-          make build-frontend-${STAGE}
-        env:
-          CI: false
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          STAGE: ${{ inputs.stage }}
-      - name: Upload frontend to S3
-        run: |
-          aws s3 sync frontend/dist/ s3://${{ steps.pulumi-outputs.outputs.stacksnap_ui_BucketName }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-      - name: Upload binaries to S3
-        run: |
-          aws s3 sync binaries/ s3://${{ steps.pulumi-outputs.outputs.stacksnap_binaries_BucketName }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-      - name: Invalidate CloudFront Cache
-        run: |
-          # TODO: use something more robust - multiple deployments of stacksnap will result in multiple distributions with the same RESOURCE_NAME tag
-          distributionArn=$(aws resourcegroupstaggingapi get-resources --tag-filters Key=RESOURCE_NAME,Values=stacksnap-distribution --region us-east-1 --resource-type-filters cloudfront:distribution --query "ResourceTagMappingList[0].ResourceARN" --output text)
-          aws cloudfront create-invalidation --distribution-id "${distributionArn##*/}" --paths "/*"
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-      - name: Upload Secrets
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-        run: |
-          aws secretsmanager put-secret-value --secret-id stacksnap-pulumi-access-token --secret-string "${PULUMI_ACCESS_TOKEN}"
-      - name: pulumi - up
-        uses: pulumi/actions@v4
-        with:
-          command: up
-          work-dir: "./deploy"
-          stack-name: "stacksnap-${{ inputs.stage }}-${{ vars.AWS_REGION }}"
-          upsert: true
-          config-map: |
-            {
-              ${{ steps.pulumi-config.outputs.pulumi_env_config }}
-              aws:region: { value: "${{ vars.AWS_REGION }}", secret: false },
-            }
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          PULUMI_CONFIG_PASSPHRASE: ""
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          STAGE: ${{ inputs.stage }}
-          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
-          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}

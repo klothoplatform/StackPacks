@@ -1622,6 +1622,12 @@ const stacksnap_task_log_group = new aws.cloudwatch.LogGroup(
     },
   }
 );
+
+const stacksnap_pulumi_access_token_value = UploadPulumiAccessToken(
+  stacksnap_pulumi_access_token
+);
+const stacksnap_binary_objects = UploadBinaries(stacksnap_binaries);
+
 const stacksnap_service = new aws.ecs.Service(
   "stacksnap-service",
   {
@@ -1660,6 +1666,9 @@ const stacksnap_service = new aws.ecs.Service(
       stacksnap_tg,
       subnet_0,
       subnet_1,
+      // Wait for the uploads to complete since these are loaded at or near startup
+      stacksnap_pulumi_access_token_value,
+      ...stacksnap_binary_objects,
     ],
   }
 );
@@ -1855,18 +1864,12 @@ const sns_topic_subscription_alarm_actions_topic_alarm_reporter =
     topic: alarm_actions_topic.arn,
   });
 
-if (kloConfig.getBoolean("upload")) {
-  // The github action still does this, so check to make sure it's not in a github action until the action is updated.
+const buildFrontend = new command.local.Command("buildFrontend", {
+  dir: "../frontend",
+  create: `npm run build-${deployEnv}`,
+  assetPaths: ["dist/**"],
+});
 
-  const buildFrontend = new command.local.Command("buildFrontend", {
-    dir: "../frontend",
-    create: `npm run build-${deployEnv}`,
-    assetPaths: ["dist/**"],
-  });
-
-  buildFrontend.assets.apply(
-    (assets) => assets && UploadStaticSite(stacksnap_ui, assets)
-  );
-  UploadPulumiAccessToken(stacksnap_pulumi_access_token);
-  UploadBinaries(stacksnap_binaries);
-}
+buildFrontend.assets.apply(
+  (assets) => assets && UploadStaticSite(stacksnap_ui, assets)
+);
