@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import aiounittest
 
+from src.deployer.deploy import WorkflowResult
 from src.deployer.destroy import can_destroy, destroy, destroy_workflow
 from src.deployer.models.workflow_job import WorkflowJob, WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun
@@ -86,7 +87,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
 
         self.assertEqual(
             result,
-            {"status": WorkflowJobStatus.SUCCEEDED.value, "message": "Destroyed"},
+            WorkflowResult(status=WorkflowJobStatus.SUCCEEDED, message="Destroyed"),
         )
 
         mock_destroy.assert_called_once()

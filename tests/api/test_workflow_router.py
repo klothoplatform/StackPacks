@@ -79,7 +79,7 @@ class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
             model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
         common_job = MagicMock()
-        mock_create_deploy_workflow_jobs.return_value = common_job
+        mock_create_deploy_workflow_jobs.return_value = (common_job, [])
 
         sp = MagicMock(spec=StackPack)
 
@@ -145,7 +145,7 @@ class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
             model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
         common_job = MagicMock()
-        mock_create_deploy_workflow_jobs.return_value = common_job
+        mock_create_deploy_workflow_jobs.return_value = (common_job, [])
 
         # Act
         response = await install_app(

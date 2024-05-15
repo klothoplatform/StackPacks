@@ -136,9 +136,7 @@ class Project(Model):
         app.configuration = common_stack.final_config(config)
 
         resources_changed = True
-        new_apps = set([CommonStack.COMMON_APP_NAME])
-        new_apps.update(sp.id for sp in stack_packs)
-        if old_config is not None or self.apps.keys() != new_apps:
+        if old_config is not None:
             # Need to create a new stack based on the current applications (not `stack_packs`)
             # in case that changes requirements, which impacts the resources created.
             all_stack_packs = get_stack_packs()
