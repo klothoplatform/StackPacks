@@ -3,7 +3,11 @@ import * as command from "@pulumi/command";
 import * as docker from "@pulumi/docker";
 import * as pulumi from "@pulumi/pulumi";
 import { createALBAlarms, createCustomAlarms } from "./monitoring";
-import { CreateDeploymentStateMachine } from "./step_functions";
+import {
+  CreateDeploymentStateMachine,
+  CreateDestroyStateMachine,
+  CreateStateMachineRole,
+} from "./step_functions";
 import {
   UploadBinaries,
   UploadPulumiAccessToken,
@@ -1177,8 +1181,26 @@ const stacksnap_cli_log_group = new aws.cloudwatch.LogGroup(
   }
 );
 
+const state_machine_role = CreateStateMachineRole(
+  "stacksnap-statemachine",
+  stacksnap_ecs_cluster,
+  stacksnap_cli_task,
+  stacksnap_cli_task,
+  stacksnap_cli_task
+);
+
 const deploy_state_machine = CreateDeploymentStateMachine(
-  "stacksnap-deploy",
+  state_machine_role,
+  stacksnap_ecs_cluster,
+  stacksnap_cli_task,
+  stacksnap_cli_task,
+  stacksnap_cli_task,
+  [subnet_0, subnet_1],
+  [stacksnap_service_security_group]
+);
+
+const destroy_state_machine = CreateDestroyStateMachine(
+  state_machine_role,
   stacksnap_ecs_cluster,
   stacksnap_cli_task,
   stacksnap_cli_task,
@@ -1294,6 +1316,10 @@ const stacksnap_task = new aws.ecs.TaskDefinition("stacksnap-task", {
         {
           name: "DEPLOY_STEP_FUNCTION_ARN",
           value: deploy_state_machine.arn,
+        },
+        {
+          name: "DESTROY_STEP_FUNCTION_ARN",
+          value: destroy_state_machine.arn,
         },
       ],
       essential: true,

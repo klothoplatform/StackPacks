@@ -2,16 +2,14 @@ import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import * as arnParser from "@aws-sdk/util-arn-parser";
 
-export function CreateDeploymentStateMachine(
+export function CreateStateMachineRole(
   namePrefix: string,
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
-  failRun: aws.ecs.TaskDefinition,
-  subnets: aws.ec2.Subnet[],
-  securityGroups: aws.ec2.SecurityGroup[]
-): aws.sfn.StateMachine {
-  const deployRole = new aws.iam.Role("deployRole", {
+  failRun: aws.ecs.TaskDefinition
+): aws.iam.Role {
+  const smRole = new aws.iam.Role("deployRole", {
     namePrefix,
     assumeRolePolicy: JSON.stringify({
       Version: "2012-10-17",
@@ -27,7 +25,7 @@ export function CreateDeploymentStateMachine(
     }),
   });
   const ecsTaskPolicy = new aws.iam.RolePolicy("deployEcsTaskPolicy", {
-    role: deployRole,
+    role: smRole,
     name: "EcsTaskManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
@@ -74,7 +72,7 @@ export function CreateDeploymentStateMachine(
     }),
   });
   const xrayPolicy = new aws.iam.RolePolicy("deployXRayPolicy", {
-    role: deployRole,
+    role: smRole,
     name: "XRayAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
@@ -92,6 +90,18 @@ export function CreateDeploymentStateMachine(
       ],
     }),
   });
+  return smRole;
+}
+
+export function CreateDeploymentStateMachine(
+  deployRole: aws.iam.Role,
+  cluster: aws.ecs.Cluster,
+  deployApp: aws.ecs.TaskDefinition,
+  succeedRun: aws.ecs.TaskDefinition,
+  failRun: aws.ecs.TaskDefinition,
+  subnets: aws.ec2.Subnet[],
+  securityGroups: aws.ec2.SecurityGroup[]
+): aws.sfn.StateMachine {
   const networkConfig = {
     AwsvpcConfiguration: {
       Subnets: subnets.map((subnet) => subnet.id),
@@ -194,7 +204,6 @@ export function CreateDeploymentStateMachine(
                   ResultPath: "$.result",
                 },
               ],
-              End: true,
               ResultPath: "$.result",
             },
             "Fail Run (app)": {
@@ -285,6 +294,258 @@ export function CreateDeploymentStateMachine(
   });
   const startExecPolicy = new aws.iam.RolePolicy("deployStartExecPolicy", {
     role: deployRole,
+    name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
+    policy: pulumi.jsonStringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Action: ["states:StartExecution"],
+          Effect: "Allow",
+          Resource: stateMachine.arn,
+        },
+        {
+          Action: ["states:DescribeExecution", "states:StopExecution"],
+          Effect: "Allow",
+          Resource: stateMachine.arn.apply((arn) => {
+            const stateMachineArnParts = arnParser.parse(arn);
+            return arnParser.build({
+              ...stateMachineArnParts,
+              resource:
+                stateMachineArnParts.resource.replace(
+                  /stateMachine/,
+                  "execution"
+                ) + ":*",
+            });
+          }),
+        },
+        {
+          Effect: "Allow",
+          Action: [
+            "events:PutTargets",
+            "events:PutRule",
+            "events:DescribeRule",
+          ],
+          Resource: [
+            // Copy the region and account from the clusterArn
+            cluster.arn.apply((clusterArn) => {
+              const parts = arnParser.parse(clusterArn);
+              return arnParser.build({
+                ...parts,
+                service: "events",
+                resource:
+                  "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+              });
+            }),
+          ],
+        },
+      ],
+    }),
+  });
+
+  return stateMachine;
+}
+
+export function CreateDestroyStateMachine(
+  destroyRole: aws.iam.Role,
+  cluster: aws.ecs.Cluster,
+  deployApp: aws.ecs.TaskDefinition,
+  succeedRun: aws.ecs.TaskDefinition,
+  failRun: aws.ecs.TaskDefinition,
+  subnets: aws.ec2.Subnet[],
+  securityGroups: aws.ec2.SecurityGroup[]
+): aws.sfn.StateMachine {
+  const networkConfig = {
+    AwsvpcConfiguration: {
+      Subnets: subnets.map((subnet) => subnet.id),
+      SecurityGroups: securityGroups.map((sg) => sg.id),
+    },
+  };
+
+  // input:
+  // {
+  //   "projectId": "123",
+  //   "runId": "123",
+  //   "jobId": "123",
+  //   "jobNumbers": {
+  //     "common": "1",
+  //     "apps": ["2", "3"]
+  //    },
+  // }
+  const definition = pulumi.jsonStringify({
+    StartAt: "Run Common",
+    States: {
+      "Run all Apps": {
+        Type: "Map",
+        ItemProcessor: {
+          ProcessorConfig: {
+            Mode: "INLINE",
+          },
+          StartAt: "Run App",
+          States: {
+            "Run App": {
+              Type: "Task",
+              Resource: "arn:aws:states:::ecs:runTask.sync",
+              Parameters: {
+                LaunchType: "FARGATE",
+                Cluster: cluster.arn,
+                TaskDefinition: deployApp.arn,
+                NetworkConfiguration: networkConfig,
+                Overrides: {
+                  ContainerOverrides: [
+                    {
+                      Name: "stacksnap-cli",
+                      "Command.$":
+                        "States.Array('destroy', '--job-id', $.input.jobId, '--job-number', $.jobId)",
+                    },
+                  ],
+                },
+              },
+              Catch: [
+                {
+                  ErrorEquals: ["States.ALL"],
+                  Next: "Fail Run (app)",
+                  ResultPath: "$.result",
+                },
+              ],
+              ResultPath: "$.result",
+            },
+            "Fail Run (app)": {
+              Type: "Task",
+              Resource: "arn:aws:states:::ecs:runTask.sync",
+              Parameters: {
+                LaunchType: "FARGATE",
+                Cluster: cluster.arn,
+                TaskDefinition: failRun.arn,
+                NetworkConfiguration: networkConfig,
+                Overrides: {
+                  ContainerOverrides: [
+                    {
+                      Name: "stacksnap-cli",
+                      "Command.$":
+                        "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+                    },
+                  ],
+                },
+              },
+              End: true,
+            },
+          },
+        },
+        Next: "Run Common",
+        Label: "RunallApps",
+        MaxConcurrency: 40,
+        ItemSelector: {
+          "input.$": "$.input",
+          "jobId.$": "$$.Map.Item.Value",
+        },
+        ItemsPath: "$.input.jobNumbers.apps",
+        ResultPath: "$.result",
+      },
+      "Run Common": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: deployApp.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('destroy', '--job-id', $.input.jobId, '--job-number', $.input.jobNumbers.common)",
+              },
+            ],
+          },
+        },
+        Next: "Succeed Run",
+        Catch: [
+          {
+            ErrorEquals: ["States.ALL"],
+            Next: "Fail Run (common)",
+            Comment: "on fail",
+            ResultPath: "$.result",
+          },
+        ],
+        ResultPath: "$.result",
+      },
+      "Fail Run (common)": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: failRun.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+              },
+            ],
+          },
+        },
+        End: true,
+      },
+      "Succeed Run": {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask.sync",
+        Parameters: {
+          LaunchType: "FARGATE",
+          Cluster: cluster.arn,
+          TaskDefinition: succeedRun.arn,
+          NetworkConfiguration: networkConfig,
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "stacksnap-cli",
+                "Command.$":
+                  "States.Array('complete-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
+              },
+            ],
+          },
+        },
+        End: true,
+      },
+    },
+    Comment: "Destroys a set of apps (including common)",
+  });
+
+  const stateMachine = new aws.sfn.StateMachine("destroy", {
+    namePrefix: "stacksnap-deployer",
+    definition,
+    roleArn: destroyRole.arn,
+  });
+
+  const redrivePolicy = new aws.iam.RolePolicy("destroyRedrivePolicy", {
+    role: destroyRole,
+    name: "StepFunctionsRedriveExecutionManagementScopedAccessPolicy",
+    policy: pulumi.jsonStringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Action: ["states:RedriveExecution"],
+          Effect: "Allow",
+          Resource: stateMachine.arn.apply((arn) => {
+            const stateMachineArnParts = arnParser.parse(arn);
+            return arnParser.build({
+              ...stateMachineArnParts,
+              resource:
+                stateMachineArnParts.resource.replace(
+                  /stateMachine/,
+                  "execution"
+                ) + "*",
+            });
+          }),
+        },
+      ],
+    }),
+  });
+  const startExecPolicy = new aws.iam.RolePolicy("destroyStartExecPolicy", {
+    role: destroyRole,
     name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
