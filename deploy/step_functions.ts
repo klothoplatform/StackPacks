@@ -373,7 +373,7 @@ export function CreateDestroyStateMachine(
   //    },
   // }
   const definition = pulumi.jsonStringify({
-    StartAt: "Run Common",
+    StartAt: "Run all Apps",
     States: {
       "Run all Apps": {
         Type: "Map",
@@ -517,7 +517,7 @@ export function CreateDestroyStateMachine(
   });
 
   const stateMachine = new aws.sfn.StateMachine("destroy", {
-    namePrefix: "stacksnap-deployer",
+    namePrefix: "stacksnap-destroyer",
     definition,
     roleArn: destroyRole.arn,
   });
