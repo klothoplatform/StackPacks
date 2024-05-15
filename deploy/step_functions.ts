@@ -204,6 +204,7 @@ export function CreateDeploymentStateMachine(
                   ResultPath: "$.result",
                 },
               ],
+              End: true,
               ResultPath: "$.result",
             },
             "Fail Run (app)": {
@@ -407,6 +408,7 @@ export function CreateDestroyStateMachine(
                   ResultPath: "$.result",
                 },
               ],
+              End: true,
               ResultPath: "$.result",
             },
             "Fail Run (app)": {
