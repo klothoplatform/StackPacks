@@ -29,72 +29,91 @@ export function CreateStateMachineRole(
       ],
     }),
   });
-  const ecsTaskPolicy = new aws.iam.RolePolicy("stateMachineEcsTaskPolicy", {
-    role: smRole,
-    name: "EcsTaskManagementScopedAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: ["ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks"],
-          Effect: "Allow",
-          Resource: [...new Set([deployApp.arn, succeedRun.arn, failRun.arn])],
-        },
-        {
-          Action: ["iam:PassRole"],
-          Effect: "Allow",
-          Resource: [
-            ...new Set([
-              deployApp.taskRoleArn,
-              succeedRun.taskRoleArn,
-              failRun.taskRoleArn,
-              deployApp.executionRoleArn,
-              succeedRun.executionRoleArn,
-              failRun.executionRoleArn,
-            ]),
-          ],
-        },
-        {
-          Action: [
-            "events:PutTargets",
-            "events:PutRule",
-            "events:DescribeRule",
-          ],
-          Effect: "Allow",
-          Resource: [
-            // Copy the region and account from the clusterArn
-            cluster.arn.apply((clusterArn) => {
-              const parts = arnParser.parse(clusterArn);
-              return arnParser.build({
-                ...parts,
-                service: "events",
-                resource: "rule/StepFunctionsGetEventsForECSTaskRule",
-              });
-            }),
-          ],
-        },
-      ],
-    }),
-  });
-  const xrayPolicy = new aws.iam.RolePolicy("stateMachineXRayPolicy", {
-    role: smRole,
-    name: "XRayAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: [
-            "xray:PutTraceSegments",
-            "xray:PutTelemetryRecords",
-            "xray:GetSamplingRules",
-            "xray:GetSamplingTargets",
-          ],
-          Effect: "Allow",
-          Resource: "*",
-        },
-      ],
-    }),
-  });
+  const ecsTaskPolicy = new aws.iam.RolePolicy(
+    "stateMachineEcsTaskPolicy",
+    {
+      role: smRole,
+      name: "EcsTaskManagementScopedAccessPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: ["ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks"],
+            Effect: "Allow",
+            Resource: [
+              ...new Set([deployApp.arn, succeedRun.arn, failRun.arn]),
+            ],
+          },
+          {
+            Action: ["iam:PassRole"],
+            Effect: "Allow",
+            Resource: [
+              ...new Set([
+                deployApp.taskRoleArn,
+                succeedRun.taskRoleArn,
+                failRun.taskRoleArn,
+                deployApp.executionRoleArn,
+                succeedRun.executionRoleArn,
+                failRun.executionRoleArn,
+              ]),
+            ],
+          },
+          {
+            Action: [
+              "events:PutTargets",
+              "events:PutRule",
+              "events:DescribeRule",
+            ],
+            Effect: "Allow",
+            Resource: [
+              // Copy the region and account from the clusterArn
+              cluster.arn.apply((clusterArn) => {
+                const parts = arnParser.parse(clusterArn);
+                return arnParser.build({
+                  ...parts,
+                  service: "events",
+                  resource: "rule/StepFunctionsGetEventsForECSTaskRule",
+                });
+              }),
+              cluster.arn.apply((clusterArn) => {
+                const parts = arnParser.parse(clusterArn);
+                return arnParser.build({
+                  ...parts,
+                  service: "events",
+                  resource:
+                    "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                });
+              }),
+            ],
+          },
+        ],
+      }),
+    },
+    { parent: smRole }
+  );
+  const xrayPolicy = new aws.iam.RolePolicy(
+    "stateMachineXRayPolicy",
+    {
+      role: smRole,
+      name: "XRayAccessPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: [
+              "xray:PutTraceSegments",
+              "xray:PutTelemetryRecords",
+              "xray:GetSamplingRules",
+              "xray:GetSamplingTargets",
+            ],
+            Effect: "Allow",
+            Resource: "*",
+          },
+        ],
+      }),
+    },
+    { parent: smRole }
+  );
   return { role: smRole, policies: [ecsTaskPolicy, xrayPolicy] };
 }
 
@@ -278,79 +297,67 @@ export function CreateDeploymentStateMachine(
     { dependsOn: roleAndPolicies.policies }
   );
 
-  const redrivePolicy = new aws.iam.RolePolicy("deployRedrivePolicy", {
-    role: roleAndPolicies.role,
-    name: "StepFunctionsRedriveExecutionManagementScopedAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: ["states:RedriveExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn.apply((arn) => {
-            const stateMachineArnParts = arnParser.parse(arn);
-            return arnParser.build({
-              ...stateMachineArnParts,
-              resource:
-                stateMachineArnParts.resource.replace(
-                  /stateMachine/,
-                  "execution"
-                ) + "*",
-            });
-          }),
-        },
-      ],
-    }),
-  });
-  const startExecPolicy = new aws.iam.RolePolicy("deployStartExecPolicy", {
-    role: roleAndPolicies.role,
-    name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: ["states:StartExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn,
-        },
-        {
-          Action: ["states:DescribeExecution", "states:StopExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn.apply((arn) => {
-            const stateMachineArnParts = arnParser.parse(arn);
-            return arnParser.build({
-              ...stateMachineArnParts,
-              resource:
-                stateMachineArnParts.resource.replace(
-                  /stateMachine/,
-                  "execution"
-                ) + ":*",
-            });
-          }),
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "events:PutTargets",
-            "events:PutRule",
-            "events:DescribeRule",
-          ],
-          Resource: [
-            // Copy the region and account from the clusterArn
-            cluster.arn.apply((clusterArn) => {
-              const parts = arnParser.parse(clusterArn);
+  const redrivePolicy = new aws.iam.RolePolicy(
+    "deployRedrivePolicy",
+    {
+      role: roleAndPolicies.role,
+      name: "RedriveDeployPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: ["states:RedriveExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn.apply((arn) => {
+              const stateMachineArnParts = arnParser.parse(arn);
               return arnParser.build({
-                ...parts,
-                service: "events",
+                ...stateMachineArnParts,
                 resource:
-                  "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                  stateMachineArnParts.resource.replace(
+                    /stateMachine/,
+                    "execution"
+                  ) + "*",
               });
             }),
-          ],
-        },
-      ],
-    }),
-  });
+          },
+        ],
+      }),
+    },
+    { parent: roleAndPolicies.role }
+  );
+  const startExecPolicy = new aws.iam.RolePolicy(
+    "deployStartExecPolicy",
+    {
+      role: roleAndPolicies.role,
+      name: "DeployExecutionPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: ["states:StartExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn,
+          },
+          {
+            Action: ["states:DescribeExecution", "states:StopExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn.apply((arn) => {
+              const stateMachineArnParts = arnParser.parse(arn);
+              return arnParser.build({
+                ...stateMachineArnParts,
+                resource:
+                  stateMachineArnParts.resource.replace(
+                    /stateMachine/,
+                    "execution"
+                  ) + ":*",
+              });
+            }),
+          },
+        ],
+      }),
+    },
+    { parent: roleAndPolicies.role }
+  );
 
   return stateMachine;
 }
@@ -535,79 +542,67 @@ export function CreateDestroyStateMachine(
     { dependsOn: roleAndPolicies.policies }
   );
 
-  const redrivePolicy = new aws.iam.RolePolicy("destroyRedrivePolicy", {
-    role: roleAndPolicies.role,
-    name: "StepFunctionsRedriveExecutionManagementScopedAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: ["states:RedriveExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn.apply((arn) => {
-            const stateMachineArnParts = arnParser.parse(arn);
-            return arnParser.build({
-              ...stateMachineArnParts,
-              resource:
-                stateMachineArnParts.resource.replace(
-                  /stateMachine/,
-                  "execution"
-                ) + "*",
-            });
-          }),
-        },
-      ],
-    }),
-  });
-  const startExecPolicy = new aws.iam.RolePolicy("destroyStartExecPolicy", {
-    role: roleAndPolicies.role,
-    name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
-    policy: pulumi.jsonStringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Action: ["states:StartExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn,
-        },
-        {
-          Action: ["states:DescribeExecution", "states:StopExecution"],
-          Effect: "Allow",
-          Resource: stateMachine.arn.apply((arn) => {
-            const stateMachineArnParts = arnParser.parse(arn);
-            return arnParser.build({
-              ...stateMachineArnParts,
-              resource:
-                stateMachineArnParts.resource.replace(
-                  /stateMachine/,
-                  "execution"
-                ) + ":*",
-            });
-          }),
-        },
-        {
-          Effect: "Allow",
-          Action: [
-            "events:PutTargets",
-            "events:PutRule",
-            "events:DescribeRule",
-          ],
-          Resource: [
-            // Copy the region and account from the clusterArn
-            cluster.arn.apply((clusterArn) => {
-              const parts = arnParser.parse(clusterArn);
+  const redrivePolicy = new aws.iam.RolePolicy(
+    "destroyRedrivePolicy",
+    {
+      role: roleAndPolicies.role,
+      name: "RedriveDestroyPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: ["states:RedriveExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn.apply((arn) => {
+              const stateMachineArnParts = arnParser.parse(arn);
               return arnParser.build({
-                ...parts,
-                service: "events",
+                ...stateMachineArnParts,
                 resource:
-                  "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                  stateMachineArnParts.resource.replace(
+                    /stateMachine/,
+                    "execution"
+                  ) + "*",
               });
             }),
-          ],
-        },
-      ],
-    }),
-  });
+          },
+        ],
+      }),
+    },
+    { parent: roleAndPolicies.role }
+  );
+  const startExecPolicy = new aws.iam.RolePolicy(
+    "destroyStartExecPolicy",
+    {
+      role: roleAndPolicies.role,
+      name: "DestroyExecutionPolicy",
+      policy: pulumi.jsonStringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Action: ["states:StartExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn,
+          },
+          {
+            Action: ["states:DescribeExecution", "states:StopExecution"],
+            Effect: "Allow",
+            Resource: stateMachine.arn.apply((arn) => {
+              const stateMachineArnParts = arnParser.parse(arn);
+              return arnParser.build({
+                ...stateMachineArnParts,
+                resource:
+                  stateMachineArnParts.resource.replace(
+                    /stateMachine/,
+                    "execution"
+                  ) + ":*",
+              });
+            }),
+          },
+        ],
+      }),
+    },
+    { parent: roleAndPolicies.role }
+  );
 
   return stateMachine;
 }
