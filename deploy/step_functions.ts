@@ -263,7 +263,10 @@ export function CreateDeploymentStateMachine(
                   ],
                 },
               },
-              End: true,
+              Next: "End Run",
+            },
+            "End Run": {
+              Type: "Suceed",
             },
           },
         },
@@ -464,7 +467,10 @@ export function CreateDestroyStateMachine(
                   ],
                 },
               },
-              End: true,
+              Next: "End Run",
+            },
+            "End Run": {
+              Type: "Suceed",
             },
           },
         },
