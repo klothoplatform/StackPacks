@@ -61,13 +61,15 @@ class StepFunctionDeployer:
 
     def _execution_input(self, input: DeployerInput):
         return {
-            "projectId": input.run.project_id,
-            "runId": input.run.range_key,
-            "jobId": input.run.job_id(),
-            "jobNumbers": {
-                "common": str(input.common_job.job_number),
-                "apps": [str(j.job_number) for j in input.app_jobs],
-            },
+            "input": {
+                "projectId": input.run.project_id,
+                "runId": input.run.range_key,
+                "jobId": input.run.job_id(),
+                "jobNumbers": {
+                    "common": str(input.common_job.job_number),
+                    "apps": [str(j.job_number) for j in input.app_jobs],
+                },
+            }
         }
 
     def install(self, input: DeployerInput):
