@@ -182,14 +182,14 @@ export function CreateDeploymentStateMachine(
         Catch: [
           {
             ErrorEquals: ["States.ALL"],
-            Next: "Fail Run (common)",
+            Next: "Fail Run",
             Comment: "on fail",
             ResultPath: "$.result",
           },
         ],
         ResultPath: "$.result",
       },
-      "Fail Run (common)": {
+      "Fail Run": {
         Type: "Task",
         Resource: "arn:aws:states:::ecs:runTask.sync",
         Parameters: {
@@ -235,38 +235,8 @@ export function CreateDeploymentStateMachine(
                   ],
                 },
               },
-              Catch: [
-                {
-                  ErrorEquals: ["States.ALL"],
-                  Next: "Fail Run (app)",
-                  ResultPath: "$.result",
-                },
-              ],
               End: true,
               ResultPath: "$.result",
-            },
-            "Fail Run (app)": {
-              Type: "Task",
-              Resource: "arn:aws:states:::ecs:runTask.sync",
-              Parameters: {
-                LaunchType: "FARGATE",
-                Cluster: cluster.arn,
-                TaskDefinition: failRun.arn,
-                NetworkConfiguration: networkConfig,
-                Overrides: {
-                  ContainerOverrides: [
-                    {
-                      Name: "stacksnap-cli",
-                      "Command.$":
-                        "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
-                    },
-                  ],
-                },
-              },
-              Next: "End Run",
-            },
-            "End Run": {
-              Type: "Suceed",
             },
           },
         },
@@ -279,6 +249,14 @@ export function CreateDeploymentStateMachine(
         },
         ItemsPath: "$.input.jobNumbers.apps",
         ResultPath: "$.result",
+        Catch: [
+          {
+            ErrorEquals: ["States.ALL"],
+            Next: "Fail Run",
+            Comment: "on fail",
+            ResultPath: "$.result",
+          },
+        ],
       },
       "Succeed Run": {
         Type: "Task",
@@ -439,38 +417,8 @@ export function CreateDestroyStateMachine(
                   ],
                 },
               },
-              Catch: [
-                {
-                  ErrorEquals: ["States.ALL"],
-                  Next: "Fail Run (app)",
-                  ResultPath: "$.result",
-                },
-              ],
               End: true,
               ResultPath: "$.result",
-            },
-            "Fail Run (app)": {
-              Type: "Task",
-              Resource: "arn:aws:states:::ecs:runTask.sync",
-              Parameters: {
-                LaunchType: "FARGATE",
-                Cluster: cluster.arn,
-                TaskDefinition: failRun.arn,
-                NetworkConfiguration: networkConfig,
-                Overrides: {
-                  ContainerOverrides: [
-                    {
-                      Name: "stacksnap-cli",
-                      "Command.$":
-                        "States.Array('abort-workflow', '--project-id', $.input.projectId, '--run-id', $.input.runId)",
-                    },
-                  ],
-                },
-              },
-              Next: "End Run",
-            },
-            "End Run": {
-              Type: "Suceed",
             },
           },
         },
@@ -483,6 +431,14 @@ export function CreateDestroyStateMachine(
         },
         ItemsPath: "$.input.jobNumbers.apps",
         ResultPath: "$.result",
+        Catch: [
+          {
+            ErrorEquals: ["States.ALL"],
+            Next: "Fail Run",
+            Comment: "on fail",
+            ResultPath: "$.result",
+          },
+        ],
       },
       "Run Common": {
         Type: "Task",
@@ -506,14 +462,14 @@ export function CreateDestroyStateMachine(
         Catch: [
           {
             ErrorEquals: ["States.ALL"],
-            Next: "Fail Run (common)",
+            Next: "Fail Run",
             Comment: "on fail",
             ResultPath: "$.result",
           },
         ],
         ResultPath: "$.result",
       },
-      "Fail Run (common)": {
+      "Fail Run": {
         Type: "Task",
         Resource: "arn:aws:states:::ecs:runTask.sync",
         Parameters: {
