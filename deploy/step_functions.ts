@@ -1,10 +1,12 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import * as arnParser from "@aws-sdk/util-arn-parser";
+import * as time from "@pulumiverse/time";
 
 interface RoleAndPolicies {
   role: aws.iam.Role;
   policies: aws.iam.RolePolicy[];
+  policies_settled: pulumi.Resource;
 }
 
 export function CreateStateMachineRole(
@@ -47,16 +49,16 @@ export function CreateStateMachineRole(
           {
             Action: ["iam:PassRole"],
             Effect: "Allow",
-            Resource: [
-              ...new Set([
+            Resource: pulumi
+              .all([
                 deployApp.taskRoleArn,
                 succeedRun.taskRoleArn,
                 failRun.taskRoleArn,
                 deployApp.executionRoleArn,
                 succeedRun.executionRoleArn,
                 failRun.executionRoleArn,
-              ]),
-            ],
+              ])
+              .apply((arns) => [...new Set(arns)]),
           },
           {
             Action: [
@@ -65,26 +67,24 @@ export function CreateStateMachineRole(
               "events:DescribeRule",
             ],
             Effect: "Allow",
-            Resource: [
+            Resource:
               // Copy the region and account from the clusterArn
               cluster.arn.apply((clusterArn) => {
                 const parts = arnParser.parse(clusterArn);
-                return arnParser.build({
-                  ...parts,
-                  service: "events",
-                  resource: "rule/StepFunctionsGetEventsForECSTaskRule",
-                });
+                return [
+                  arnParser.build({
+                    ...parts,
+                    service: "events",
+                    resource: "rule/StepFunctionsGetEventsForECSTaskRule",
+                  }),
+                  arnParser.build({
+                    ...parts,
+                    service: "events",
+                    resource:
+                      "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                  }),
+                ];
               }),
-              cluster.arn.apply((clusterArn) => {
-                const parts = arnParser.parse(clusterArn);
-                return arnParser.build({
-                  ...parts,
-                  service: "events",
-                  resource:
-                    "rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
-                });
-              }),
-            ],
           },
         ],
       }),
@@ -114,7 +114,21 @@ export function CreateStateMachineRole(
     },
     { parent: smRole }
   );
-  return { role: smRole, policies: [ecsTaskPolicy, xrayPolicy] };
+
+  // Policies in AWS are eventually consistent, so we need to wait for them to settle before using them
+  // See https://github.com/hashicorp/terraform-provider-aws/issues/14008
+  // The referenced fix is in v2.69.0 of the provider, but Pulumi uses v1.60.1 (as of this writing)
+  const waitForPolicy = new time.Sleep(
+    "waitForPolicy",
+    { createDuration: "1m" },
+    { dependsOn: [ecsTaskPolicy, xrayPolicy] }
+  );
+
+  return {
+    role: smRole,
+    policies: [ecsTaskPolicy, xrayPolicy],
+    policies_settled: waitForPolicy,
+  };
 }
 
 export function CreateDeploymentStateMachine(
@@ -294,7 +308,12 @@ export function CreateDeploymentStateMachine(
       definition,
       roleArn: roleAndPolicies.role.arn,
     },
-    { dependsOn: roleAndPolicies.policies }
+    {
+      dependsOn: [
+        ...roleAndPolicies.policies,
+        roleAndPolicies.policies_settled,
+      ],
+    }
   );
 
   const redrivePolicy = new aws.iam.RolePolicy(
@@ -539,7 +558,12 @@ export function CreateDestroyStateMachine(
       definition,
       roleArn: roleAndPolicies.role.arn,
     },
-    { dependsOn: roleAndPolicies.policies }
+    {
+      dependsOn: [
+        ...roleAndPolicies.policies,
+        roleAndPolicies.policies_settled,
+      ],
+    }
   );
 
   const redrivePolicy = new aws.iam.RolePolicy(
