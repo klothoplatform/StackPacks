@@ -2,14 +2,19 @@ import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import * as arnParser from "@aws-sdk/util-arn-parser";
 
+interface RoleAndPolicies {
+  role: aws.iam.Role;
+  policies: aws.iam.RolePolicy[];
+}
+
 export function CreateStateMachineRole(
   namePrefix: string,
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
   failRun: aws.ecs.TaskDefinition
-): aws.iam.Role {
-  const smRole = new aws.iam.Role("deployRole", {
+): RoleAndPolicies {
+  const smRole = new aws.iam.Role("stateMachineRole", {
     namePrefix,
     assumeRolePolicy: JSON.stringify({
       Version: "2012-10-17",
@@ -24,7 +29,7 @@ export function CreateStateMachineRole(
       ],
     }),
   });
-  const ecsTaskPolicy = new aws.iam.RolePolicy("deployEcsTaskPolicy", {
+  const ecsTaskPolicy = new aws.iam.RolePolicy("stateMachineEcsTaskPolicy", {
     role: smRole,
     name: "EcsTaskManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
@@ -71,7 +76,7 @@ export function CreateStateMachineRole(
       ],
     }),
   });
-  const xrayPolicy = new aws.iam.RolePolicy("deployXRayPolicy", {
+  const xrayPolicy = new aws.iam.RolePolicy("stateMachineXRayPolicy", {
     role: smRole,
     name: "XRayAccessPolicy",
     policy: pulumi.jsonStringify({
@@ -90,11 +95,11 @@ export function CreateStateMachineRole(
       ],
     }),
   });
-  return smRole;
+  return { role: smRole, policies: [ecsTaskPolicy, xrayPolicy] };
 }
 
 export function CreateDeploymentStateMachine(
-  deployRole: aws.iam.Role,
+  roleAndPolicies: RoleAndPolicies,
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
@@ -263,14 +268,18 @@ export function CreateDeploymentStateMachine(
     Comment: "Deploys a set of apps (including common)",
   });
 
-  const stateMachine = new aws.sfn.StateMachine("deployment", {
-    namePrefix: "stacksnap-deployer",
-    definition,
-    roleArn: deployRole.arn,
-  });
+  const stateMachine = new aws.sfn.StateMachine(
+    "deployment",
+    {
+      namePrefix: "stacksnap-deployer",
+      definition,
+      roleArn: roleAndPolicies.role.arn,
+    },
+    { dependsOn: roleAndPolicies.policies }
+  );
 
   const redrivePolicy = new aws.iam.RolePolicy("deployRedrivePolicy", {
-    role: deployRole,
+    role: roleAndPolicies.role,
     name: "StepFunctionsRedriveExecutionManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
@@ -294,7 +303,7 @@ export function CreateDeploymentStateMachine(
     }),
   });
   const startExecPolicy = new aws.iam.RolePolicy("deployStartExecPolicy", {
-    role: deployRole,
+    role: roleAndPolicies.role,
     name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
@@ -347,7 +356,7 @@ export function CreateDeploymentStateMachine(
 }
 
 export function CreateDestroyStateMachine(
-  destroyRole: aws.iam.Role,
+  roleAndPolicies: RoleAndPolicies,
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
@@ -516,14 +525,18 @@ export function CreateDestroyStateMachine(
     Comment: "Destroys a set of apps (including common)",
   });
 
-  const stateMachine = new aws.sfn.StateMachine("destroy", {
-    namePrefix: "stacksnap-destroyer",
-    definition,
-    roleArn: destroyRole.arn,
-  });
+  const stateMachine = new aws.sfn.StateMachine(
+    "destroy",
+    {
+      namePrefix: "stacksnap-destroyer",
+      definition,
+      roleArn: roleAndPolicies.role.arn,
+    },
+    { dependsOn: roleAndPolicies.policies }
+  );
 
   const redrivePolicy = new aws.iam.RolePolicy("destroyRedrivePolicy", {
-    role: destroyRole,
+    role: roleAndPolicies.role,
     name: "StepFunctionsRedriveExecutionManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
@@ -547,7 +560,7 @@ export function CreateDestroyStateMachine(
     }),
   });
   const startExecPolicy = new aws.iam.RolePolicy("destroyStartExecPolicy", {
-    role: destroyRole,
+    role: roleAndPolicies.role,
     name: "StepFunctionsStartExecutionManagementScopedAccessPolicy",
     policy: pulumi.jsonStringify({
       Version: "2012-10-17",
