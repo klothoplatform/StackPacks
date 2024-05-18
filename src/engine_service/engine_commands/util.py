@@ -6,6 +6,7 @@ import shutil
 from asyncio.subprocess import Process
 from pathlib import Path
 
+from src.dependencies.injection import get_binary_storage
 from src.engine_service.binaries.fetcher import Binary
 
 log = logging.getLogger()
@@ -42,6 +43,9 @@ class EngineException(Exception):
 async def run_command(
     b: Binary, *args, cwd: None | Path | str = None
 ) -> tuple[str, str]:
+
+    get_binary_storage().ensure_binary(b)
+
     env = os.environ.copy()
     cwd = Path(cwd) if cwd else None
 

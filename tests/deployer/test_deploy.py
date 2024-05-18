@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import aiounittest
 
 from src.deployer.deploy import (
+    WorkflowResult,
     deploy,
     deploy_workflow,
     get_pulumi_config,
@@ -124,7 +125,8 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
         result = await deploy_workflow(self.job.partition_key, self.job.job_number)
 
         self.assertEqual(
-            result, {"status": WorkflowJobStatus.SUCCEEDED.value, "message": "Deployed"}
+            result,
+            WorkflowResult(status=WorkflowJobStatus.SUCCEEDED, message="Deployed"),
         )
         mock_build_app.assert_called_once_with(mock.ANY, mock.ANY, mock_live_state)
         mock_generate_iac.assert_called_once_with(run_engine_result, mock.ANY, mock.ANY)

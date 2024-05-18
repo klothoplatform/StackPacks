@@ -7,9 +7,14 @@ from src.deployer.models.util import (
     complete_workflow_run,
     start_workflow_run,
 )
+from src.deployer.models.workflow_job import WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun
 from src.deployer.util import get_app_workflows
 from src.deployer.util import send_email as send_email_util
+from src.engine_service.engine_commands.export_iac import ExportIacRequest, export_iac
+from src.engine_service.engine_commands.run import RunEngineRequest, run_engine
+from src.project import get_stack_packs
+from src.project.common_stack import CommonStack
 from src.util.logging import logger
 
 
@@ -18,9 +23,9 @@ async def cli():
     pass
 
 
-@click.command("deploy")
+@cli.command("deploy")
 @click.option(
-    "--run-id",
+    "--job-id",
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
@@ -31,12 +36,14 @@ async def cli():
     help="The job number of the workflow run",
 )
 async def deploy(job_id: str, job_number: int):
-    deploy_workflow(job_id, job_number)
+    result = await deploy_workflow(job_id, job_number)
+    if result.status != WorkflowJobStatus.SUCCEEDED:
+        raise Exception(f"Deployment {result.status}: {result.message}")
 
 
-@click.command("destroy")
+@cli.command("destroy")
 @click.option(
-    "--run-id",
+    "--job-id",
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
@@ -47,10 +54,12 @@ async def deploy(job_id: str, job_number: int):
     help="The job number of the workflow run",
 )
 async def destroy(job_id: str, job_number: int):
-    destroy_workflow(job_id, job_number)
+    result = await destroy_workflow(job_id, job_number)
+    if result.status != WorkflowJobStatus.SUCCEEDED:
+        raise Exception(f"Destroy {result.status}: {result.message}")
 
 
-@click.command("get-app-workflows")
+@cli.command("get-app-workflows")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -59,13 +68,13 @@ async def destroy(job_id: str, job_number: int):
     prompt="The workflow id",
     help="The range key (composite key) of the workflow run",
 )
-def get_app_workflows(project_id: str, run_id: str):
+def get_app_workflows_cmd(project_id: str, run_id: str):
     logger.info(f"Getting workflows for {project_id}/{run_id}")
     workflow_run = WorkflowRun.get(project_id, run_id)
     return get_app_workflows(workflow_run)
 
 
-@click.command("send-email")
+@cli.command("send-email")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -80,7 +89,7 @@ def send_email(project_id: str, run_id: str):
     send_email_util(run)
 
 
-@click.command("abort-workflow")
+@cli.command("abort-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -96,7 +105,7 @@ def abort_workflow(project_id: str, run_id: str):
     return {"status": "success", "message": "Workflow run aborted"}
 
 
-@click.command("start-workflow")
+@cli.command("start-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -112,7 +121,7 @@ def start_workflow(project_id: str, run_id: str):
     return {"status": "success", "message": "Workflow run started"}
 
 
-@click.command("complete-workflow")
+@cli.command("complete-workflow")
 @click.option(
     "--project-id", prompt="The project id", help="The id of the stacksnap project"
 )
@@ -128,12 +137,30 @@ def complete_workflow(project_id: str, run_id: str):
     return {"status": "success", "message": "Workflow run completed"}
 
 
+@cli.command("build-app")
+@click.argument("app")
+@click.option(
+    "--out-dir", "-o", help="The directory to write the output to", default="."
+)
+async def build_app(app: str, out_dir: str):
+    sps = get_stack_packs()
+    if app not in sps:
+        raise Exception(f"App {app} not found in stack packs")
+    sp = sps[app]
+    constraints = sp.to_constraints({}, "us-east-1")
+    common = CommonStack([sp], [])
+    constraints.extend(common.to_constraints({}, "us-east-1"))
+    result = await run_engine(
+        RunEngineRequest(tag="cli", constraints=constraints, tmp_dir=out_dir)
+    )
+    await export_iac(
+        ExportIacRequest(
+            input_graph=result.resources_yaml,
+            name=app,
+            tmp_dir=out_dir,
+        )
+    )
+
+
 if __name__ == "__main__":
-    cli.add_command(deploy_workflow)
-    cli.add_command(destroy_workflow)
-    cli.add_command(abort_workflow)
-    cli.add_command(get_app_workflows)
-    cli.add_command(send_email)
-    cli.add_command(start_workflow)
-    cli.add_command(complete_workflow)
-    cli.main()
+    cli(_anyio_backend="asyncio")

@@ -1,4 +1,6 @@
 import asyncio
+import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -37,6 +39,15 @@ from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project
 from src.util.logging import MetricNames, MetricsLogger, logger
 from src.util.tmp import TempDir
+
+
+@dataclass
+class WorkflowResult:
+    status: WorkflowJobStatus
+    message: str
+
+    def __str__(self):
+        return json.dumps(self.__dict__)
 
 
 async def deploy_workflow(job_id: str, job_number: int):
@@ -88,7 +99,7 @@ async def deploy_workflow(job_id: str, job_number: int):
                 MetricNames.DEPLOYMENT_WORKFLOW_FAILURE,
                 0,
             )
-            return {"status": deploy_status.value, "message": deploy_message}
+            return WorkflowResult(deploy_status, deploy_message)
     except Exception as e:
         metrics_logger.log_metric(
             MetricNames.DEPLOYMENT_WORKFLOW_FAILURE,
@@ -103,7 +114,7 @@ async def deploy_workflow(job_id: str, job_number: int):
                 WorkflowJob.status_reason.set(str(e)),
             ]
         )
-        return {"status": WorkflowJobStatus.FAILED.value, "message": "Internal Error"}
+        return WorkflowResult(WorkflowJobStatus.FAILED, "Internal Error")
 
 
 def run_pre_deploy_hooks(deployment_job: WorkflowJob, live_state: LiveState):
@@ -173,19 +184,14 @@ def create_deploy_workflow_jobs(
     apps: List[str],
 ) -> WorkflowJob:
     project_id = run.project_id
-    app_id = run.app_id()
     project = Project.get(project_id)
 
     if project.destroy_in_progress:
         raise ValueError("Pack is currently being torn down")
 
+    job_id = run.job_id()
     deploy_common_job = WorkflowJob.create_job(
-        WorkflowJob.compose_partition_key(
-            project_id=run.project_id,
-            workflow_type=run.workflow_type(),
-            owning_app_id=run.app_id(),
-            run_number=run.run_number(),
-        ),
+        partition_key=job_id,
         job_type=WorkflowJobType.DEPLOY,
         modified_app_id=CommonStack.COMMON_APP_NAME,
         initiated_by=run.initiated_by,
@@ -196,19 +202,14 @@ def create_deploy_workflow_jobs(
             continue
         deploy_app_jobs.append(
             WorkflowJob.create_job(
-                WorkflowJob.compose_partition_key(
-                    project_id=run.project_id,
-                    workflow_type=run.workflow_type(),
-                    owning_app_id=run.app_id(),
-                    run_number=run.run_number(),
-                ),
+                partition_key=job_id,
                 job_type=WorkflowJobType.DEPLOY,
                 modified_app_id=app_name,
                 initiated_by=run.initiated_by,
                 dependencies=[deploy_common_job.composite_key()],
             )
         )
-    return deploy_common_job
+    return deploy_common_job, deploy_app_jobs
 
 
 async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
@@ -216,7 +217,7 @@ async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
     try:
         start_workflow_run(run)
         async with Pool() as pool:
-            tasks = []
+            tasks: list[WorkflowResult] = []
             task = pool.apply(
                 deploy_workflow,
                 kwds=dict(
@@ -225,20 +226,21 @@ async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
                 ),
             )
             tasks.append(task)
-            results = await asyncio.gather(*tasks)
+            results: list[WorkflowResult] = await asyncio.gather(*tasks)
             logger.info(f"Tasks: {tasks}")
 
-        if results[0]["status"] != "SUCCEEDED":
+        if results[0].status != WorkflowJobStatus.SUCCEEDED:
             abort_workflow_run(run)
             return
     except Exception as e:
         logger.error(f"Error deploying {run.composite_key()}: {e}")
         abort_workflow_run(run)
         return
+
     try:
         app_flows = get_app_workflows(run)
         async with Pool() as pool:
-            tasks = []
+            tasks: list[WorkflowResult] = []
             for app_flow in app_flows:
                 task = pool.apply(
                     deploy_workflow,
@@ -249,10 +251,10 @@ async def run_full_deploy_workflow(run: WorkflowRun, common_job: WorkflowJob):
                 )
                 tasks.append(task)
 
-            results = await asyncio.gather(*tasks)
+            results: list[WorkflowResult] = await asyncio.gather(*tasks)
             logger.info(f"Tasks: {tasks}")
 
-        if all(result["status"] == "SUCCEEDED" for result in results):
+        if all(result.status == WorkflowJobStatus.SUCCEEDED for result in results):
             send_email(run)
 
         complete_workflow_run(run)

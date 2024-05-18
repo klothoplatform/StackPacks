@@ -17,4 +17,5 @@
   "eslint.workingDirectories": [
     "./frontend"
   ],
+  "prettier.requireConfig": false,
 }
