@@ -239,7 +239,7 @@ class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
             model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
         common_job = MagicMock()
-        mock_create_destroy_workflow_jobs.return_value = common_job
+        mock_create_destroy_workflow_jobs.return_value = common_job, []
 
         # Act
         response = await uninstall_all_apps(MagicMock(), mock_bg)
@@ -296,7 +296,7 @@ class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
             model_dump=MagicMock(return_value={"id": "deployment_id"})
         )
         common_job = MagicMock()
-        mock_create_destroy_workflow_jobs.return_value = common_job
+        mock_create_destroy_workflow_jobs.return_value = common_job, []
 
         # Act
         response = await uninstall_app(
