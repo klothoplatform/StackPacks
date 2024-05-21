@@ -15,7 +15,6 @@ export const CostBreakdown: FC<{ project: Project; costs: CostItem[] }> = ({
   project,
   costs,
 }) => {
-  const computeCosts = [];
   const networkCosts = [];
   const otherCommonCosts = [];
   const remainingCosts = [];
@@ -25,9 +24,6 @@ export const CostBreakdown: FC<{ project: Project; costs: CostItem[] }> = ({
       app_name: project.stack_packs[cost.app_id]?.display_name || cost.app_id,
     };
     switch (cost.category) {
-      case "compute":
-        computeCosts.push(cost);
-        break;
       case "network":
         networkCosts.push(cost);
         break;
@@ -39,7 +35,7 @@ export const CostBreakdown: FC<{ project: Project; costs: CostItem[] }> = ({
         }
     }
   });
-  const commonCosts = [...computeCosts, ...networkCosts, ...otherCommonCosts];
+  const commonCosts = [...networkCosts, ...otherCommonCosts];
 
   const tables = [
     {
