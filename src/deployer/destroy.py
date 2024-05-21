@@ -175,7 +175,7 @@ def create_destroy_workflow_jobs(
         initiated_by=run.initiated_by,
         dependencies=[job.composite_key() for job in destroy_app_jobs],
     )
-    return destroy_common_job
+    return destroy_common_job, destroy_app_jobs
 
 
 async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):

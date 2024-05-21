@@ -57,7 +57,7 @@ async def deploy_workflow(job_id: str, job_number: int):
     )
     project, app = get_project_and_app(workflow_job)
     logger.info(
-        f"Deploying {project.id}/{app.app_id} for deployment job {job_id}/{job_number}"
+        f"Deploying {project.id}/{app.app_id()} for deployment job {job_id}/{job_number}"
     )
     try:
         workflow_job.update(

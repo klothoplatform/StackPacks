@@ -10,7 +10,7 @@ from src.api.models.workflow_models import WorkflowRunSummary, WorkflowRunView
 from src.auth.token import get_email, get_user_id
 from src.deployer.deploy import create_deploy_workflow_jobs
 from src.deployer.deployer import DeployerInput, get_deployer
-from src.deployer.destroy import create_destroy_workflow_jobs, run_full_destroy_workflow
+from src.deployer.destroy import create_destroy_workflow_jobs
 from src.deployer.models.workflow_job import WorkflowJob
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowType
 from src.deployer.pulumi.deploy_logs import DeploymentDir
@@ -131,12 +131,12 @@ async def uninstall_all_apps(
     )
     logger.info(f"Uninstalling all apps for project {user_id}")
     project = Project.get(user_id)
-    common_job = create_destroy_workflow_jobs(
+    common_job, app_jobs = create_destroy_workflow_jobs(
         run,
         list(project.apps.keys()),
     )
     project.update(actions=[Project.destroy_in_progress.set(True)])
-    background_tasks.add_task(run_full_destroy_workflow, run, common_job)
+    get_deployer(background_tasks).uninstall(DeployerInput(run, common_job, app_jobs))
 
     return Response(
         media_type="application/json",
@@ -163,13 +163,13 @@ async def uninstall_app(
         notification_email=users_email,
     )
     logger.info(f"Uninstalling app {app_id} for project {project.id}")
-    common_job = create_destroy_workflow_jobs(
+    common_job, app_jobs = create_destroy_workflow_jobs(
         run,
         [app_id],
         keep_common,
     )
     logger.info(f"Common job: {common_job}")
-    background_tasks.add_task(run_full_destroy_workflow, run, common_job)
+    get_deployer(background_tasks).uninstall(DeployerInput(run, common_job, app_jobs))
 
     return Response(
         media_type="application/json",

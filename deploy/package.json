@@ -5,6 +5,7 @@
         "@pulumi/command": "^0.7.2",
         "@pulumi/docker": "^4.1.2",
         "@pulumi/pulumi": "^3.69.0",
+        "@pulumiverse/time": "^0.0.17",
         "mime-types": "^2.1.35",
         "which": "^4.0.0"
     },
