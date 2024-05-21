@@ -11,14 +11,21 @@ from src.util.aws.ses import AppData, send_deployment_success_email
 from src.util.logging import logger
 
 
-def get_project_and_app(job: WorkflowJob) -> tuple[Project, AppDeployment]:
+def get_project_and_app(
+    job: WorkflowJob, latest_deployed=False
+) -> tuple[Project, AppDeployment]:
     project = Project.get(job.project_id())
-    app = AppDeployment.get(
-        job.project_id(),
-        AppDeployment.compose_range_key(
-            app_id=job.modified_app_id, version=project.apps[job.modified_app_id]
-        ),
+    app = (
+        AppDeployment.get_latest_deployed_version(job.project_id(), job.modified_app_id)
+        if latest_deployed
+        else AppDeployment.get(
+            job.project_id(),
+            AppDeployment.compose_range_key(
+                app_id=job.modified_app_id, version=project.apps[job.modified_app_id]
+            ),
+        )
     )
+
     return project, app
 
 

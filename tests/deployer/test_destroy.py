@@ -39,6 +39,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             range_key="metabase#00000001",
             created_by="google-oauth2",
             created_at=t,
+            deployments=["user#DEPLOY##00000001#2"],
         )
         self.common_app = AppDeployment(
             configuration={},
