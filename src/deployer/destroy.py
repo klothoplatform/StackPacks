@@ -35,7 +35,7 @@ async def destroy_workflow(job_id: str, job_number: int):
     metrics_logger = MetricsLogger(
         workflow_job.project_id(), workflow_job.modified_app_id
     )
-    project, app = get_project_and_app(workflow_job)
+    project, app = get_project_and_app(workflow_job, latest_deployed=True)
     logger.info(
         f"Destroying {project.id}/{app.app_id()} for deployment job {job_id}/{job_number}"
     )
@@ -99,14 +99,12 @@ def destroy(
     project_id = deployment_job.project_id()
     app_id = deployment_job.modified_app_id
     run_id = deployment_job.run_composite_key()
-    project, app = get_project_and_app(deployment_job)
+    project, app = get_project_and_app(deployment_job, latest_deployed=True)
 
     logger.info(
         f"Destroying {app_id} in project {project_id} with job id {deployment_job.composite_key()}"
     )
     iac_storage = get_iac_storage()
-    project = Project.get(project_id)
-    app = AppDeployment.get_latest_deployed_version(project_id, app_id)
 
     iac = iac_storage.get_iac(project_id, app_id, app.version())
     builder = AppBuilder(tmp_dir, get_pulumi_state_bucket_name())
