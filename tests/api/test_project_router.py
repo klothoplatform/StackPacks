@@ -71,7 +71,7 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
             region=None,
             assumed_role_arn=None,
             assumed_role_external_id=None,
-            features=["health_monitor"],
+            features=[],
         )
         mock_get_stack_packs.assert_called_once()
         mock_tmp_dir.assert_called_once()
@@ -79,6 +79,7 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         mock_project_instance.run_common_pack.assert_called_once_with(
             stack_packs=[sps["app1"]],
             config={},
+            features=["health_monitor"],
             binary_storage=binary_storage,
             tmp_dir="/tmp",
         )
@@ -186,6 +187,7 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         mock_project_instance.run_common_pack.assert_called_once_with(
             stack_packs=[sps["app1"]],
             config={},
+            features=None,
             binary_storage=binary_storage,
             tmp_dir="/tmp",
         )
@@ -257,7 +259,8 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         )
         project.run_common_pack.assert_called_once_with(
             stack_packs=list(mock_get_stack_packs.return_value.values()),
-            config={},
+            config=None,
+            features=None,
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",
         )
@@ -313,7 +316,8 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         )
         project.run_common_pack.assert_called_once_with(
             stack_packs=[mock_get_stack_packs.return_value["app1"]],
-            config={},
+            config=None,
+            features=None,
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",
         )
@@ -338,7 +342,10 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
-        mock_get_stack_packs.return_value = {"app1": MagicMock(), "app2": MagicMock()}
+        mock_get_stack_packs.return_value = {
+            "app1": MagicMock(id="app1"),
+            "app2": MagicMock(id="app2"),
+        }
 
         user_pack = MagicMock(
             spec=Project,
@@ -384,7 +391,8 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         )
         user_pack.run_common_pack.assert_called_once_with(
             stack_packs=list(mock_get_stack_packs.return_value.values()),
-            config={},
+            config=None,
+            features=None,
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",
         )
@@ -406,7 +414,10 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
     ):
         # Setup mock objects
         mock_get_user_id.return_value = "user_id"
-        mock_get_stack_packs.return_value = {"app1": MagicMock(), "app2": MagicMock()}
+        mock_get_stack_packs.return_value = {
+            "app1": MagicMock(id="app1"),
+            "app2": MagicMock(id="app2"),
+        }
 
         project = MagicMock(
             spec=Project,
@@ -438,8 +449,15 @@ class TestProjectRoutes(PynamoTest, aiounittest.AsyncTestCase):
         mock_tmp_dir.assert_called_once()
         mock_tmp_dir.return_value.__enter__.assert_called_once()
         project.run_packs.assert_called_once_with(
-            stack_packs={"app2": mock_get_stack_packs.return_value["app2"]},
+            stack_packs=mock_get_stack_packs.return_value,
             config={"app2": {"config": "value"}},
+            binary_storage=mock_get_binary_storage.return_value,
+            tmp_dir="/tmp",
+        )
+        project.run_common_pack.assert_called_once_with(
+            stack_packs=[mock_get_stack_packs.return_value["app2"]],
+            config=None,
+            features=None,
             binary_storage=mock_get_binary_storage.return_value,
             tmp_dir="/tmp",
         )

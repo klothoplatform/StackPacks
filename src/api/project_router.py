@@ -90,7 +90,7 @@ class UpdateStackRequest(BaseModel):
     configuration: dict[str, ConfigValues] = None
     assumed_role_arn: str = None
     assumed_role_external_id: str = None
-    health_monitor_enabled: bool = None
+    health_monitor_enabled: bool | None = None
     region: str = None
 
 
@@ -129,10 +129,12 @@ async def update_stack(
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
     if body.configuration or body.health_monitor_enabled:
         configuration: dict[str, ConfigValues] = body.configuration or {}
-        features = []
+        features = None
         if body.health_monitor_enabled:
             logger.info("Enabling health monitor")
             features = [Feature.HEALTH_MONITOR.value]
+        elif body.health_monitor_enabled is False:
+            features = []
 
         stack_packs = get_stack_packs()
         for app_deployment in project.get_app_deployments():
