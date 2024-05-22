@@ -35,10 +35,12 @@ export interface WorkflowStoreBase extends WorkflowStoreState {
   installProject: () => Promise<WorkflowRunSummary>;
   uninstallApp: (appId: string) => Promise<WorkflowRunSummary>;
   uninstallProject: () => Promise<WorkflowRunSummary>;
+  resetWorkflowState: () => void;
 }
 
 const initialState: () => WorkflowStoreState = () => ({
   workflowRuns: [],
+  workflowRun: undefined,
 });
 
 export type WorkflowStore = WorkflowStoreBase & ProjectStore;
