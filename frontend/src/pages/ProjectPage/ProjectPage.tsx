@@ -119,6 +119,7 @@ export const ProjectPage: FC = () => {
           <div className="flex size-full flex-col gap-4">
             {Object.values(project.stack_packs)
               .filter((appDeployment) => appDeployment.app_id !== "common")
+              .sort((a, b) => a.display_name.localeCompare(b.display_name))
               .map((appDeployment, index) => {
                 const status =
                   appDeployment.status ?? AppLifecycleStatus.Uninstalled;
