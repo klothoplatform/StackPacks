@@ -55,7 +55,7 @@ class WorkflowJob(Model):
     completed_at: datetime = UTCDateTimeAttribute(null=True)
     # List of composite keys of jobs that this job depends on (project_id#workflow_type#app_id#run_number#job_number)
     dependencies: list[str] = ListAttribute(of=UnicodeAttribute, default=list)
-    modified_app_id: str = UnicodeAttribute()
+    modified_app: str = UnicodeAttribute()
     outputs: dict[str, str] = JSONAttribute(null=True)
 
     def project_id(self) -> str:
@@ -71,6 +71,12 @@ class WorkflowJob(Model):
     def run_number(self) -> int:
         return int(self.partition_key.split("#")[3])
 
+    def modified_app_id(self) -> str:
+        return self.modified_app.split("#")[0]
+
+    def modified_app_version(self) -> int:
+        return int(self.modified_app.split("#")[1])
+
     @staticmethod
     def get_latest_job(partition_key: str):
         for job in WorkflowJob.query(partition_key, scan_index_forward=False, limit=1):
@@ -81,6 +87,10 @@ class WorkflowJob(Model):
         project_id: str, workflow_type: str, owning_app_id: str | None, run_number: int
     ) -> str:
         return f"{project_id}#{workflow_type}#{owning_app_id if owning_app_id else ''}#{run_number:08}"
+
+    @staticmethod
+    def compose_modified_app(modified_app_id: str, modified_app_version: int) -> str:
+        return f"{modified_app_id}#{modified_app_version:08}"
 
     def composite_key(self) -> str:
         return f"{self.partition_key}#{self.job_number}"
@@ -106,7 +116,7 @@ class WorkflowJob(Model):
             and self.initiated_at == __value.initiated_at
             and self.created_at == __value.created_at
             and self.completed_at == __value.completed_at
-            and self.modified_app_id == __value.modified_app_id
+            and self.modified_app == __value.modified_app
             and self.dependencies == __value.dependencies
             and self.outputs == __value.outputs
             and self.title == __value.title
@@ -127,6 +137,7 @@ class WorkflowJob(Model):
         partition_key: str,
         job_type: WorkflowJobType,
         modified_app_id: str,
+        modified_app_version: int,
         initiated_by: str,
         dependencies: Optional[list[str]] = None,
         title: Optional[str] = None,
@@ -139,7 +150,9 @@ class WorkflowJob(Model):
         job = cls(
             partition_key=partition_key,
             job_type=job_type.value,
-            modified_app_id=modified_app_id,
+            modified_app=cls.compose_modified_app(
+                modified_app_id, modified_app_version
+            ),
             status=WorkflowJobStatus.NEW.value,
             status_reason="",
             initiated_by=initiated_by,

@@ -11,19 +11,11 @@ from src.util.aws.ses import AppData, send_deployment_success_email
 from src.util.logging import logger
 
 
-def get_project_and_app(
-    job: WorkflowJob, latest_deployed=False
-) -> tuple[Project, AppDeployment]:
+def get_project_and_app(job: WorkflowJob) -> tuple[Project, AppDeployment]:
     project = Project.get(job.project_id())
-    app = (
-        AppDeployment.get_latest_deployed_version(job.project_id(), job.modified_app_id)
-        if latest_deployed
-        else AppDeployment.get(
-            job.project_id(),
-            AppDeployment.compose_range_key(
-                app_id=job.modified_app_id, version=project.apps[job.modified_app_id]
-            ),
-        )
+    app = AppDeployment.get(
+        job.project_id(),
+        job.modified_app,
     )
 
     return project, app
@@ -31,7 +23,7 @@ def get_project_and_app(
 
 def get_stack_pack_by_job(job: WorkflowJob) -> StackPack:
     project = Project.get(job.project_id())
-    app_id = job.modified_app_id
+    app_id = job.modified_app_id()
     stack_packs = get_stack_packs()
     if app_id in stack_packs:
         stack_pack = stack_packs[app_id]
@@ -59,7 +51,7 @@ def get_app_workflows(workflow_run: WorkflowRun) -> list[JobKeys]:
     return [
         JobKeys(id=job.partition_key, job_number=job.job_number).model_dump()
         for job in jobs
-        if job.modified_app_id != CommonStack.COMMON_APP_NAME
+        if job.modified_app_id() != CommonStack.COMMON_APP_NAME
     ]
 
 
@@ -68,7 +60,7 @@ def send_email(run: WorkflowRun):
     if run.notification_email is not None:
         app_data = []
         for job in run.get_jobs():
-            if job.modified_app_id == CommonStack.COMMON_APP_NAME:
+            if job.modified_app_id() == CommonStack.COMMON_APP_NAME:
                 continue
             _, app = get_project_and_app(job)
             app_data.append(

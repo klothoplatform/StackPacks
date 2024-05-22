@@ -72,7 +72,7 @@ class TestDeploy(PynamoTest, aiounittest.AsyncTestCase):
             initiated_by="google-oauth2",
             job_type="DESTROY",
             partition_key="project_id#DEPLOY#metabase#00000001",
-            modified_app_id="metabase",
+            modified_app="metabase#00000001",
             job_number=1,
             status_reason="Stack removed successfully.",
             title="DEPLOY Metabase",

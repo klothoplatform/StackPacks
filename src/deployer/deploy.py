@@ -53,7 +53,7 @@ class WorkflowResult:
 async def deploy_workflow(job_id: str, job_number: int):
     workflow_job = WorkflowJob.get(job_id, job_number)
     metrics_logger = MetricsLogger(
-        workflow_job.project_id(), workflow_job.modified_app_id
+        workflow_job.project_id(), workflow_job.modified_app_id()
     )
     project, app = get_project_and_app(workflow_job)
     logger.info(
@@ -64,12 +64,12 @@ async def deploy_workflow(job_id: str, job_number: int):
             actions=[WorkflowJob.status.set(WorkflowJobStatus.IN_PROGRESS.value)]
         )
         live_state = None
-        if workflow_job.modified_app_id != CommonStack.COMMON_APP_NAME:
+        if workflow_job.modified_app_id() != CommonStack.COMMON_APP_NAME:
             live_state = await read_live_state(
                 workflow_job.project_id(), CommonStack.COMMON_APP_NAME
             )
         with TempDir() as tmp_dir:
-            if workflow_job.modified_app_id != CommonStack.COMMON_APP_NAME:
+            if workflow_job.modified_app_id() != CommonStack.COMMON_APP_NAME:
                 # We need to run the pre deploy hooks before building the app in case the outputs are used as config
                 success = run_pre_deploy_hooks(workflow_job, live_state)
                 if not success:
@@ -148,7 +148,7 @@ def deploy(
 ) -> tuple[AppManager, WorkflowJobStatus, str]:
     logger.info(f"Deploying app for deployment job {deployment_job.composite_key()}")
     project_id = deployment_job.project_id()
-    app_id = deployment_job.modified_app_id
+    app_id = deployment_job.modified_app_id()
     project, app = get_project_and_app(deployment_job)
     run_id = deployment_job.partition_key
     logger.info(
@@ -194,6 +194,7 @@ def create_deploy_workflow_jobs(
         partition_key=job_id,
         job_type=WorkflowJobType.DEPLOY,
         modified_app_id=CommonStack.COMMON_APP_NAME,
+        modified_app_version=project.apps[CommonStack.COMMON_APP_NAME],
         initiated_by=run.initiated_by,
     )
     deploy_app_jobs = []
@@ -205,6 +206,7 @@ def create_deploy_workflow_jobs(
                 partition_key=job_id,
                 job_type=WorkflowJobType.DEPLOY,
                 modified_app_id=app_name,
+                modified_app_version=project.apps[app_name],
                 initiated_by=run.initiated_by,
                 dependencies=[deploy_common_job.composite_key()],
             )

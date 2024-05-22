@@ -77,13 +77,13 @@ async def build_app(
     deployment_job: WorkflowJob, tmp_dir: Path, live_state: LiveState = None
 ) -> RunEngineResult:
     metrics_logger = MetricsLogger(
-        deployment_job.project_id(), deployment_job.modified_app_id
+        deployment_job.project_id(), deployment_job.modified_app_id()
     )
     logger.info(f"Building app for deployment job {deployment_job.composite_key()}")
     try:
         job_composite_key = deployment_job.composite_key()
         project_id = deployment_job.project_id()
-        app_id = deployment_job.modified_app_id
+        app_id = deployment_job.modified_app_id()
         binary_storage = get_binary_storage()
         project, app = get_project_and_app(deployment_job)
         stack_pack = get_stack_pack_by_job(deployment_job)
@@ -109,12 +109,12 @@ async def generate_iac(
     run_result: RunEngineResult, deployment_job: WorkflowJob, tmp_dir: Path
 ):
     metrics_logger = MetricsLogger(
-        deployment_job.project_id(), deployment_job.modified_app_id
+        deployment_job.project_id(), deployment_job.modified_app_id()
     )
     logger.info(f"Generating IAC for deployment job {deployment_job.composite_key()}")
     try:
         project_id = deployment_job.project_id()
-        app_id = deployment_job.modified_app_id
+        app_id = deployment_job.modified_app_id()
         project, app = get_project_and_app(deployment_job)
         binary_storage = get_binary_storage()
         iac_storage = get_iac_storage()

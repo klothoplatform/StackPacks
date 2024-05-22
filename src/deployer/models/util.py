@@ -173,8 +173,8 @@ def start_workflow_run(run: WorkflowRun):
             app = AppDeployment.get(
                 project.id,
                 AppDeployment.compose_range_key(
-                    app_id=job.modified_app_id,
-                    version=project.apps[job.modified_app_id],
+                    app_id=job.modified_app_id(),
+                    version=job.modified_app_version(),
                 ),
             )
             app.update(

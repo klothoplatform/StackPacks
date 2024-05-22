@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from aiomultiprocess import Pool
 
@@ -17,7 +17,7 @@ from src.deployer.models.workflow_job import (
     WorkflowJobStatus,
     WorkflowJobType,
 )
-from src.deployer.models.workflow_run import WorkflowRun
+from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.deployer.pulumi.builder import AppBuilder
 from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.deployer.pulumi.deployer import AppDeployer
@@ -33,9 +33,9 @@ async def destroy_workflow(job_id: str, job_number: int):
     logger.info(f"Received destroy request for {job_id}/{job_number}")
     workflow_job = WorkflowJob.get(job_id, job_number)
     metrics_logger = MetricsLogger(
-        workflow_job.project_id(), workflow_job.modified_app_id
+        workflow_job.project_id(), workflow_job.modified_app_id()
     )
-    project, app = get_project_and_app(workflow_job, latest_deployed=True)
+    project, app = get_project_and_app(workflow_job)
     logger.info(
         f"Destroying {project.id}/{app.app_id()} for deployment job {job_id}/{job_number}"
     )
@@ -97,15 +97,16 @@ def destroy(
     deployment_job: WorkflowJob, tmp_dir: Path
 ) -> tuple[WorkflowJobStatus, str]:
     project_id = deployment_job.project_id()
-    app_id = deployment_job.modified_app_id
+    app_id = deployment_job.modified_app_id()
     run_id = deployment_job.run_composite_key()
-    project, app = get_project_and_app(deployment_job, latest_deployed=True)
+    project, app = get_project_and_app(deployment_job)
 
     logger.info(
         f"Destroying {app_id} in project {project_id} with job id {deployment_job.composite_key()}"
     )
     iac_storage = get_iac_storage()
 
+    # todo: handle IaCDoesNotExistError
     iac = iac_storage.get_iac(project_id, app_id, app.version())
     builder = AppBuilder(tmp_dir, get_pulumi_state_bucket_name())
     builder.write_iac_to_disk(iac)
@@ -127,25 +128,32 @@ def create_destroy_workflow_jobs(
     run: WorkflowRun,
     apps: List[str],
     keep_common: bool = False,
-) -> WorkflowJob:
+) -> Tuple[WorkflowJob | None, List[WorkflowJob]]:
     project_id = run.project_id
     project = Project.get(project_id)
 
-    destroy_app_jobs = [
-        WorkflowJob.create_job(
-            partition_key=WorkflowJob.compose_partition_key(
-                project_id=run.project_id,
-                workflow_type=run.workflow_type(),
-                owning_app_id=run.app_id(),
-                run_number=run.run_number(),
-            ),
-            job_type=WorkflowJobType.DESTROY,
-            modified_app_id=app_id,
-            initiated_by=run.initiated_by,
+    destroy_app_jobs = []
+    for app_id in apps:
+        if app_id == CommonStack.COMMON_APP_NAME:
+            continue
+        deployed_app = AppDeployment.get_latest_deployed_version(project_id, app_id)
+        if deployed_app is None:
+            continue
+        destroy_app_jobs.append(
+            WorkflowJob.create_job(
+                partition_key=WorkflowJob.compose_partition_key(
+                    project_id=project_id,
+                    workflow_type=run.workflow_type(),
+                    owning_app_id=run.app_id(),
+                    run_number=run.run_number(),
+                ),
+                job_type=WorkflowJobType.DESTROY,
+                modified_app_id=app_id,
+                modified_app_version=deployed_app.version(),
+                initiated_by=run.initiated_by,
+            )
         )
-        for app_id in apps
-        if app_id != CommonStack.COMMON_APP_NAME
-    ]
+
     destroy_common = False
     if not keep_common:
         installed_apps = set()
@@ -160,19 +168,27 @@ def create_destroy_workflow_jobs(
             destroy_common = True
 
     if not destroy_common:
-        return None
-    destroy_common_job = WorkflowJob.create_job(
-        partition_key=WorkflowJob.compose_partition_key(
-            project_id=run.project_id,
-            workflow_type=run.workflow_type(),
-            owning_app_id=run.app_id(),
-            run_number=run.run_number(),
-        ),
-        job_type=WorkflowJobType.DESTROY,
-        modified_app_id=CommonStack.COMMON_APP_NAME,
-        initiated_by=run.initiated_by,
-        dependencies=[job.composite_key() for job in destroy_app_jobs],
+        return None, destroy_app_jobs
+
+    deployed_common_app = AppDeployment.get_latest_deployed_version(
+        project_id, CommonStack.COMMON_APP_NAME
     )
+
+    destroy_common_job = None
+    if deployed_common_app is not None:
+        destroy_common_job = WorkflowJob.create_job(
+            partition_key=WorkflowJob.compose_partition_key(
+                project_id=run.project_id,
+                workflow_type=run.workflow_type(),
+                owning_app_id=run.app_id(),
+                run_number=run.run_number(),
+            ),
+            job_type=WorkflowJobType.DESTROY,
+            modified_app_id=deployed_common_app.app_id(),
+            modified_app_version=deployed_common_app.version(),
+            initiated_by=run.initiated_by,
+            dependencies=[job.composite_key() for job in destroy_app_jobs],
+        )
     return destroy_common_job, destroy_app_jobs
 
 
@@ -205,7 +221,7 @@ async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):
 
     try:
         logger.info(results)
-        if all(result["status"] == "SUCCEEDED" for result in results):
+        if len(tasks) > 0 and all(result.status == "SUCCEEDED" for result in results):
             logger.info(f"aborting destroy workflow for {run.composite_key()}")
             abort_workflow_run(run)
 
@@ -228,4 +244,4 @@ async def run_full_destroy_workflow(run: WorkflowRun, common_job: WorkflowJob):
         complete_workflow_run(run)
     except Exception as e:
         logger.error(f"Error destroying {run.composite_key()}: {e}", exc_info=True)
-        complete_workflow_run(run)
+        abort_workflow_run(run, default_run_status=WorkflowRunStatus.FAILED)
