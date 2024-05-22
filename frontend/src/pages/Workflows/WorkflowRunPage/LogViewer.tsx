@@ -483,9 +483,9 @@ const SearchInput: React.FC<{
       />
       {resultCount > 0 && (
         <div
-          className={"absolute right-[6.5rem] flex w-fit items-center gap-2"}
+          className={"absolute right-[4.5rem] flex w-fit items-center gap-2"}
         >
-          <span className={"text-xs font-light text-gray-400"}>
+          <span className={"fonzt-light text-xs text-gray-400"}>
             {currentResult + 1}/{resultCount}
           </span>
           <div className={"flex gap-0.5"}>
