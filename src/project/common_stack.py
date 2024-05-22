@@ -3,24 +3,32 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, ClassVar, List, Optional, Set
 
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as
 
 from src.project import (
     BaseRequirements,
     ConfigValues,
+    DockerImage,
     Edges,
     Resources,
     StackConfig,
     StackPack,
     StackParts,
-    DockerImage,
 )
 
 
 class Feature(Enum):
     HEALTH_MONITOR = "health_monitor"
+
+    @classmethod
+    def default_features(cls):
+        """Default features to include in the project / common stack.
+        This must be kept in sync with the fields in StackRequest and any other places
+        which influence the features in a project.
+        """
+        return [cls.HEALTH_MONITOR.value]
 
 
 class CommonPart(BaseModel):

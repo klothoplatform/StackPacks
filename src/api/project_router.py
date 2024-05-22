@@ -58,7 +58,7 @@ async def create_stack(
         region=body.region,
         assumed_role_arn=body.assumed_role_arn,
         assumed_role_external_id=body.assumed_role_external_id,
-        features=[Feature.HEALTH_MONITOR.value] if body.health_monitor_enabled else [],
+        features=[],
     )
     stack_packs = get_stack_packs()
     with TempDir() as tmp_dir:
@@ -68,6 +68,9 @@ async def create_stack(
         await project.run_common_pack(
             stack_packs=[*project_stack_packs.values()],
             config=body.configuration.get("common", {}),
+            features=(
+                [Feature.HEALTH_MONITOR.value] if body.health_monitor_enabled else []
+            ),
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -126,14 +129,12 @@ async def update_stack(
     # right now we arent tracking which resources are imported outside of which are explicitly defined in the template
     if body.configuration or body.health_monitor_enabled:
         configuration: dict[str, ConfigValues] = body.configuration or {}
+        features = []
         if body.health_monitor_enabled:
             logger.info("Enabling health monitor")
-            project.features = [Feature.HEALTH_MONITOR.value]
-        elif body.health_monitor_enabled is False:
-            project.features = []
+            features = [Feature.HEALTH_MONITOR.value]
 
         stack_packs = get_stack_packs()
-        initial_apps = {**project.apps}
         for app_deployment in project.get_app_deployments():
             app_id = app_deployment.app_id()
             configuration[app_id] = ConfigValues(
@@ -158,6 +159,7 @@ async def update_stack(
             await project.run_common_pack(
                 stack_packs=sps_in_project,
                 config=configuration.get("base", {}),
+                features=features,
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,
             )
@@ -239,7 +241,8 @@ async def add_app(
         sps_in_project.sort(key=lambda x: x.id)
         await project.run_common_pack(
             stack_packs=sps_in_project,
-            config=ConfigValues(),
+            config=None,
+            features=None,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -273,15 +276,23 @@ async def update_app(
             configuration[app] = user_app.get_configurations()
 
     with TempDir() as tmp_dir:
+        stack_packs = get_stack_packs()
         await project.run_packs(
-            stack_packs=get_stack_packs(),
+            stack_packs=stack_packs,
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
+        sps_in_project = [
+            stack_packs[a]
+            for a in set(configuration.keys()) | set(project.apps.keys())
+            if a in stack_packs
+        ]
+        sps_in_project.sort(key=lambda x: x.id)
         await project.run_common_pack(
-            stack_packs=list(get_stack_packs().values()),
-            config=ConfigValues(),
+            stack_packs=sps_in_project,
+            config=None,
+            features=None,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
@@ -299,13 +310,11 @@ async def remove_app(
     project = Project.get(user_id)
     project.apps.pop(app_name)
     configuration: dict[str, ConfigValues] = {}
-    common_app_config: ConfigValues = {}
     sps = get_stack_packs()
     project_stack_packs = {}
     for app in project.get_app_deployments():
         app_id = app.app_id()
         if app_id == CommonStack.COMMON_APP_NAME:
-            common_app_config = app.get_configurations()
             continue
         configuration[app_id] = app.get_configurations()
         if app_id in sps and app_id != app_name:
@@ -321,22 +330,16 @@ async def remove_app(
 
     with TempDir() as tmp_dir:
         await project.run_packs(
-            stack_packs=project_stack_packs,
+            stack_packs=sps,
             config=configuration,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )
 
-        common_config_fields = {*project.common_stackpack().configuration.keys()}
         await project.run_common_pack(
-            stack_packs=list(get_stack_packs().values()),
-            config=ConfigValues(
-                {
-                    k: v
-                    for k, v in common_app_config.items()
-                    if k in common_config_fields
-                }
-            ),
+            stack_packs=list(project_stack_packs.values()),
+            config=None,
+            features=None,
             binary_storage=get_binary_storage(),
             tmp_dir=tmp_dir,
         )

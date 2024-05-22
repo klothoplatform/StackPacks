@@ -6,7 +6,7 @@ import asyncclick as click
 
 from src.engine_service.engine_commands.run import RunEngineRequest, run_engine
 from src.project import StackPack, get_stack_packs
-from src.project.common_stack import CommonStack
+from src.project.common_stack import CommonStack, Feature
 from src.util.aws.iam import Policy
 from src.util.tmp import TempDir
 
@@ -15,7 +15,7 @@ from src.util.tmp import TempDir
 async def policy_gen():
     with TempDir() as tmp_dir:
         sps = get_stack_packs()
-        common = CommonStack(list(sps.values()), [])
+        common = CommonStack(list(sps.values()), Feature.default_features())
         imports = common.to_constraints({}, "us-east-1")
         await asyncio.gather(
             gen_policy(common, tmp_dir, []),
