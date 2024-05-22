@@ -62,7 +62,7 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
             initiated_by="google-oauth2",
             job_type="DESTROY",
             partition_key="project_id#DEPLOY#metabase#00000001",
-            modified_app_id="metabase",
+            modified_app="metabase#00000001",
             job_number=1,
             status_reason="Stack removed successfully.",
             title="DEPLOY Metabase",
@@ -128,10 +128,8 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
     @patch("src.deployer.destroy.AppDeployer")
     @patch("src.deployer.destroy.AppBuilder")
     @patch("src.deployer.destroy.get_iac_storage")
-    @patch.object(AppDeployment, "get_latest_deployed_version")
     async def test_destroy(
         self,
-        mock_get_latest_deployed_version,
         mock_get_iac_storage,
         mock_app_builder,
         mock_app_deployer,
@@ -155,13 +153,9 @@ class TestDestroy(PynamoTest, aiounittest.AsyncTestCase):
         mock_app_builder.return_value = app_builder
         mock_app_deployer.return_value = app_deployer
         mock_get_iac_storage.return_value = iac_storage
-        mock_get_latest_deployed_version.return_value = self.app
         result = destroy(self.job, Path("/tmp"))
 
         self.assertEqual(result, (WorkflowJobStatus.SUCCEEDED, "Destroyed"))
-        mock_get_latest_deployed_version.assert_called_once_with(
-            self.project.id, self.app.app_id()
-        )
         app_builder.prepare_stack.assert_called_once_with(self.job)
         app_builder.configure_aws.assert_called_once_with(
             mock_stack,

@@ -274,7 +274,7 @@ async def stream_deployment_logs(
         raise HTTPException(status_code=404, detail="Job not found")
 
     deploy_dir = DeploymentDir(user_id, run_composite_id)
-    deployment_log = deploy_dir.get_log(job.modified_app_id)
+    deployment_log = deploy_dir.get_log(job.modified_app_id())
 
     if request.headers.get("accept") == "text/event-stream":
 

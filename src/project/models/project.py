@@ -339,6 +339,7 @@ class Project(Model):
 
     def get_app_deployments(self) -> Iterator[AppDeployment]:
         """Get the app deployments associated with the project using a batch get operation"""
+
         keys = [
             (
                 self.id,

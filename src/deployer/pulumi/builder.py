@@ -35,11 +35,11 @@ class AppBuilder:
             zip_file.extractall(self.output_dir)
 
     def create_pulumi_stack(self, job: WorkflowJob) -> auto.Stack:
-        log.info(f"Creating stack for {job.project_id()} {job.modified_app_id}")
+        log.info(f"Creating stack for {job.project_id()} {job.modified_app_id()}")
         s3_opts = auto.LocalWorkspaceOptions(
             project_settings=auto.ProjectSettings(
                 name=AppBuilder.sanitize_stack_name(
-                    f"{job.project_id()}/{job.modified_app_id}"
+                    f"{job.project_id()}/{job.modified_app_id()}"
                 ),
                 runtime="nodejs",
                 backend=auto.ProjectBackend(f"s3://{self.state_bucket_name}"),
@@ -53,13 +53,13 @@ class AppBuilder:
         os.environ["PULUMI_CONFIG_PASSPHRASE_FILE"] = ""
         os.environ["PULUMI_DEBUG"] = "true"
         stack = auto.create_or_select_stack(
-            stack_name=AppBuilder.sanitize_stack_name(job.modified_app_id),
+            stack_name=AppBuilder.sanitize_stack_name(job.modified_app_id()),
             project_name=job.project_id(),
             work_dir=str(self.output_dir),
             opts=s3_opts if self.state_bucket_name else None,
         )
         log.info(
-            f"Successfully created stack for {job.project_id()} {job.modified_app_id}"
+            f"Successfully created stack for {job.project_id()} {job.modified_app_id()}"
         )
         return stack
 

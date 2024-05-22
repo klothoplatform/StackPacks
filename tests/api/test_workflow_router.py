@@ -335,7 +335,9 @@ class TestWorkflowRouter(PynamoTest, aiounittest.AsyncTestCase):
         mock_deploy_log = MagicMock()
         mock_deploy_dir.get_log.return_value = mock_deploy_log
         mock_deploy_log.tail.return_value = MagicMock()
-        mock_job.get.return_value = MagicMock(modified_app_id="app_id")
+        mock_job.get.return_value = MagicMock(
+            modified_app_id=MagicMock(return_value="app_id")
+        )
 
         response: EventSourceResponse = await stream_deployment_logs(
             MagicMock(),
