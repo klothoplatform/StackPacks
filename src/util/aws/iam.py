@@ -17,15 +17,18 @@ class Policy:
         items = set(
             (stmt["Effect"], stmt["Resource"], a)
             for stmt in self.policy["Statement"]
+            if not stmt.get("Condition", {})
             for a in stmt["Action"]
         )
         groups = groupby(items, key=lambda e: (e[0], e[1]))
         statements = []
         for (effect, resource), actions in groups:
             actions = sorted(a for _, _, a in actions)
-            statements.append(
-                {"Effect": effect, "Action": actions, "Resource": resource}
-            )
+            stmt = {"Effect": effect, "Action": actions, "Resource": resource}
+            statements.append(stmt)
+        for stmt in self.policy["Statement"]:
+            if "Condition" in stmt:
+                statements.append(stmt)
         self.policy["Statement"] = statements
 
     def __str__(self):

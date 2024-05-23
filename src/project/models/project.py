@@ -70,16 +70,18 @@ class Project(Model):
     async def run_common_pack(
         self,
         stack_packs: List[StackPack],
-        config: ConfigValues,
+        config: ConfigValues | None,
+        features: list[str] | None,
         binary_storage: BinaryStorage,
         tmp_dir: Path,
         dry_run: bool = False,
     ):
-        common_stack = CommonStack(stack_packs, self.features)
+        if features is None:
+            features = self.features
+        common_stack = CommonStack(stack_packs, features)
         common_version = self.apps.get(CommonStack.COMMON_APP_NAME, None)
         app: AppDeployment | None = None
         old_config: ConfigValues | None = None
-        config = config if config is not None else ConfigValues({})
         if common_version is not None:
             try:
                 app = AppDeployment.get(
@@ -89,7 +91,10 @@ class Project(Model):
                     ),
                 )
                 old_config = app.get_configurations()
-                app.configuration = config
+                if config is not None:
+                    app.configuration = config
+                else:
+                    config = old_config
 
                 # Only increment version if there has been an attempted deploy on the current version
                 latest_version = AppDeployment.get_latest_deployed_version(
@@ -109,6 +114,8 @@ class Project(Model):
                     f"App {CommonStack.COMMON_APP_NAME} does not exist for pack id {self.id}. Creating a new one."
                 )
         if app is None:
+            if config is None:
+                config = ConfigValues()
             try:
                 latest = AppDeployment.get_latest_version(
                     project_id=self.id, app_id=CommonStack.COMMON_APP_NAME
@@ -169,6 +176,7 @@ class Project(Model):
 
         if not dry_run:
             app.save()
+            self.features = features
             self.apps[CommonStack.COMMON_APP_NAME] = app.version()
             self.save()
 

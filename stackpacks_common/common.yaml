@@ -1,5 +1,5 @@
 id: common
-version: '1.0.0'
+version: "1.0.0"
 docker_images:
   postgres_manager:
     Dockerfile: Dockerfile
@@ -115,7 +115,7 @@ base:
     resources:
       aws:rds_instance:stacksnap-mysql:
         Engine: mysql
-        EngineVersion: '8.0.36'
+        EngineVersion: "8.0.36"
         AllocatedStorage: 100
       aws:lambda_function:mysql_manager:
         Image: ${docker_image:mysql_manager}

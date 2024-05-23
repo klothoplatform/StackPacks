@@ -94,10 +94,11 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         # Act
         await self.project.run_common_pack(
-            [*self.mock_stack_packs.values()],
-            ConfigValues(self.config.get("common")),
-            self.mock_binary_storage,
-            self.temp_dir,
+            stack_packs=[*self.mock_stack_packs.values()],
+            config=ConfigValues(self.config.get("common")),
+            features=None,
+            binary_storage=self.mock_binary_storage,
+            tmp_dir=self.temp_dir,
         )
 
         # Assert
@@ -115,10 +116,11 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         # Act
         await self.project.run_common_pack(
-            [*self.mock_stack_packs.values()],
-            ConfigValues(self.config.get("common")),
-            self.mock_binary_storage,
-            self.temp_dir,
+            stack_packs=[*self.mock_stack_packs.values()],
+            config=ConfigValues(self.config.get("common")),
+            features=None,
+            binary_storage=self.mock_binary_storage,
+            tmp_dir=self.temp_dir,
         )
 
         # Assert
@@ -138,10 +140,11 @@ class TestProject(PynamoTest, aiounittest.AsyncTestCase):
 
         # Act
         await self.project.run_common_pack(
-            [*self.mock_stack_packs.values()],
-            ConfigValues(self.config.get("common")),
-            self.mock_binary_storage,
-            self.temp_dir,
+            stack_packs=[*self.mock_stack_packs.values()],
+            config=ConfigValues(self.config.get("common")),
+            features=None,
+            binary_storage=self.mock_binary_storage,
+            tmp_dir=self.temp_dir,
         )
 
         # Assert
