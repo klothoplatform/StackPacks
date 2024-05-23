@@ -67,7 +67,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack.return_value = mock_stack
         mock_job = MagicMock(
             spec=WorkflowJob,
-            modified_app_id="app_id",
+            modified_app_id=MagicMock(return_value="app_id"),
         )
         # Call the method
         with TempDir() as tmp_dir:
@@ -93,7 +93,7 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
         mock_create_or_select_stack.return_value = mock_stack
         mock_job = MagicMock(
             spec=WorkflowJob,
-            modified_app_id="app_id",
+            modified_app_id=MagicMock(return_value="app_id"),
         )
         # Call the method
         with TempDir() as tmp_dir:

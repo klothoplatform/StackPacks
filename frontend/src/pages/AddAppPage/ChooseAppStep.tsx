@@ -54,9 +54,13 @@ export const ChooseAppStep: FC<StepperNavigatorProps & {}> = ({ ...props }) => {
     (async () => {
       const stackPacks = await getStackPacks(true);
       setApps(
-        [...stackPacks.values()].filter(
-          (sp) => sp.id !== "common" && !currentProjectApps.includes(sp.id),
-        ),
+        [...stackPacks.values()]
+          .filter(
+            (sp) => sp.id !== "common" && !currentProjectApps.includes(sp.id),
+          )
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
+          ),
       );
     })();
 

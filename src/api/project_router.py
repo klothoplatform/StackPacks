@@ -160,7 +160,7 @@ async def update_stack(
             sps_in_project.sort(key=lambda x: x.id)
             await project.run_common_pack(
                 stack_packs=sps_in_project,
-                config=configuration.get("base", {}),
+                config=configuration.get("common", {}),
                 features=features,
                 binary_storage=get_binary_storage(),
                 tmp_dir=tmp_dir,

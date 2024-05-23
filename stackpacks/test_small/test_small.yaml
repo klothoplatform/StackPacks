@@ -3,8 +3,10 @@ name: Small Testing SP
 description: A small testing stackpack
 version: '1.0.0'
 
-requires:
-  - postgres
+# Uncomment if you want to test postgres
+#requires:
+#  - network
+#  - postgres
 
 base:
   resources:

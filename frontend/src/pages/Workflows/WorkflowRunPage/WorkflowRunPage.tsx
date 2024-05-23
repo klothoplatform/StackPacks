@@ -25,6 +25,7 @@ import { statusIcons } from "../../../shared/StatusIcons.tsx";
 import { titleCase } from "title-case";
 import { FaArrowLeft } from "react-icons/fa6";
 import { useInterval } from "usehooks-ts";
+import { useEffectOnMount } from "../../../hooks/useEffectOnMount.ts";
 
 interface SidebarGroup {
   title?: string;
@@ -43,6 +44,7 @@ function WorkflowRunPage() {
     getProject,
     getStackPacks,
     getWorkflowRun,
+    resetWorkflowState,
     workflowRun,
   } = useApplicationStore();
   const [isLoaded, setIsLoaded] = useState(false);
@@ -91,6 +93,10 @@ function WorkflowRunPage() {
   const activeItem = sidebarConfig
     .flatMap((group) => group.items ?? [])
     .find((item) => location.pathname.endsWith(item.path))?.id;
+
+  useEffectOnMount(() => {
+    resetWorkflowState();
+  });
 
   useEffect(() => {
     if (!isAuthenticated || isLoaded) {
