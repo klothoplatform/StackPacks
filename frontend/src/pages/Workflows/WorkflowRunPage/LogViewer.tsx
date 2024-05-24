@@ -132,14 +132,14 @@ export const LogViewer: FC<{
   useScrollToAnchor({ mode: "auto", behavior: "smooth" });
 
   useEffect(() => {
-    setLog([]);
-    setDone(false);
     if (!workflowType || !jobNumber || !runNumber) {
       return;
     }
     const controller = new AbortController();
     (async () => {
       try {
+        setLog([]);
+        setDone(false);
         await subscribeToLogStream({
           targetedAppId: appId,
           workflowType: workflowType,
