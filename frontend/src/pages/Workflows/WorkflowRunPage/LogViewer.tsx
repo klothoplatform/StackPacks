@@ -138,13 +138,15 @@ export const LogViewer: FC<{
     const controller = new AbortController();
     (async () => {
       try {
-        setLog([]);
-        setDone(false);
         await subscribeToLogStream({
           targetedAppId: appId,
           workflowType: workflowType,
           jobNumber: jobNumber,
           runNumber: runNumber,
+          onopen: () => {
+            setLog([]);
+            setDone(false);
+          },
           listener: (message: EventSourceMessage) => {
             const { event, data } = message;
             if (event === DeployLogEventType.LogLine) {

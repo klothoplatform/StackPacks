@@ -20,6 +20,7 @@ export interface LogSubscriptionRequest {
   targetedAppId?: string;
   runNumber: number;
   jobNumber: number;
+  onopen?: () => void;
   listener: LogStreamListener;
   controller?: AbortController;
 }
@@ -30,6 +31,7 @@ export async function subscribeToLogStream({
   targetedAppId,
   jobNumber,
   idToken,
+  onopen,
   listener,
   controller,
 }: LogSubscriptionRequest) {
@@ -42,9 +44,11 @@ export async function subscribeToLogStream({
     headers: {
       ...(idToken && { Authorization: `Bearer ${idToken}` }),
     },
+    openWhenHidden: true,
     signal: controller.signal,
     async onopen(response) {
       if (response.ok) {
+        onopen?.();
         return; // everything's good
       } else if (
         response.status >= 400 &&
