@@ -14,7 +14,7 @@ export function CreateStateMachineRole(
   cluster: aws.ecs.Cluster,
   deployApp: aws.ecs.TaskDefinition,
   succeedRun: aws.ecs.TaskDefinition,
-  failRun: aws.ecs.TaskDefinition
+  failRun: aws.ecs.TaskDefinition,
 ): RoleAndPolicies {
   const smRole = new aws.iam.Role("stateMachineRole", {
     namePrefix,
@@ -42,9 +42,13 @@ export function CreateStateMachineRole(
           {
             Action: ["ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks"],
             Effect: "Allow",
-            Resource: [
-              ...new Set([deployApp.arn, succeedRun.arn, failRun.arn]),
-            ],
+            Resource: pulumi
+              .all([deployApp.arn, succeedRun.arn, failRun.arn])
+              .apply((arns) => [
+                ...new Set(
+                  arns.map((arn) => arn.substring(0, arn.lastIndexOf(":"))),
+                ),
+              ]),
           },
           {
             Action: ["iam:PassRole"],
@@ -89,7 +93,7 @@ export function CreateStateMachineRole(
         ],
       }),
     },
-    { parent: smRole }
+    { parent: smRole },
   );
   const xrayPolicy = new aws.iam.RolePolicy(
     "stateMachineXRayPolicy",
@@ -112,7 +116,7 @@ export function CreateStateMachineRole(
         ],
       }),
     },
-    { parent: smRole }
+    { parent: smRole },
   );
 
   // Policies in AWS are eventually consistent, so we need to wait for them to settle before using them
@@ -121,7 +125,7 @@ export function CreateStateMachineRole(
   const waitForPolicy = new time.Sleep(
     "waitForPolicy",
     { createDuration: "1m" },
-    { dependsOn: [ecsTaskPolicy, xrayPolicy] }
+    { dependsOn: [ecsTaskPolicy, xrayPolicy] },
   );
 
   return {
@@ -138,7 +142,7 @@ export function CreateDeploymentStateMachine(
   succeedRun: aws.ecs.TaskDefinition,
   failRun: aws.ecs.TaskDefinition,
   subnets: aws.ec2.Subnet[],
-  securityGroups: aws.ec2.SecurityGroup[]
+  securityGroups: aws.ec2.SecurityGroup[],
 ): aws.sfn.StateMachine {
   const networkConfig = {
     AwsvpcConfiguration: {
@@ -294,7 +298,7 @@ export function CreateDeploymentStateMachine(
         ...roleAndPolicies.policies,
         roleAndPolicies.policies_settled,
       ],
-    }
+    },
   );
 
   const redrivePolicy = new aws.iam.RolePolicy(
@@ -315,7 +319,7 @@ export function CreateDeploymentStateMachine(
                 resource:
                   stateMachineArnParts.resource.replace(
                     /stateMachine/,
-                    "execution"
+                    "execution",
                   ) + "*",
               });
             }),
@@ -323,7 +327,7 @@ export function CreateDeploymentStateMachine(
         ],
       }),
     },
-    { parent: roleAndPolicies.role }
+    { parent: roleAndPolicies.role },
   );
   const startExecPolicy = new aws.iam.RolePolicy(
     "deployStartExecPolicy",
@@ -348,7 +352,7 @@ export function CreateDeploymentStateMachine(
                 resource:
                   stateMachineArnParts.resource.replace(
                     /stateMachine/,
-                    "execution"
+                    "execution",
                   ) + ":*",
               });
             }),
@@ -356,7 +360,7 @@ export function CreateDeploymentStateMachine(
         ],
       }),
     },
-    { parent: roleAndPolicies.role }
+    { parent: roleAndPolicies.role },
   );
 
   return stateMachine;
@@ -369,7 +373,7 @@ export function CreateDestroyStateMachine(
   succeedRun: aws.ecs.TaskDefinition,
   failRun: aws.ecs.TaskDefinition,
   subnets: aws.ec2.Subnet[],
-  securityGroups: aws.ec2.SecurityGroup[]
+  securityGroups: aws.ec2.SecurityGroup[],
 ): aws.sfn.StateMachine {
   const networkConfig = {
     AwsvpcConfiguration: {
@@ -525,7 +529,7 @@ export function CreateDestroyStateMachine(
         ...roleAndPolicies.policies,
         roleAndPolicies.policies_settled,
       ],
-    }
+    },
   );
 
   const redrivePolicy = new aws.iam.RolePolicy(
@@ -546,7 +550,7 @@ export function CreateDestroyStateMachine(
                 resource:
                   stateMachineArnParts.resource.replace(
                     /stateMachine/,
-                    "execution"
+                    "execution",
                   ) + "*",
               });
             }),
@@ -554,7 +558,7 @@ export function CreateDestroyStateMachine(
         ],
       }),
     },
-    { parent: roleAndPolicies.role }
+    { parent: roleAndPolicies.role },
   );
   const startExecPolicy = new aws.iam.RolePolicy(
     "destroyStartExecPolicy",
@@ -579,7 +583,7 @@ export function CreateDestroyStateMachine(
                 resource:
                   stateMachineArnParts.resource.replace(
                     /stateMachine/,
-                    "execution"
+                    "execution",
                   ) + ":*",
               });
             }),
@@ -587,7 +591,7 @@ export function CreateDestroyStateMachine(
         ],
       }),
     },
-    { parent: roleAndPolicies.role }
+    { parent: roleAndPolicies.role },
   );
 
   return stateMachine;
