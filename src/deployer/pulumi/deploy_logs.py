@@ -68,16 +68,20 @@ class DeployLog:
 
         self.dir.update_latest()
 
-        with open(self.path, "a") as writer:
-
-            def on_output(s: str):
-                if PRINT_LOGS:
-                    print(s)
+        def on_output(s: str):
+            if PRINT_LOGS:
+                print(s)
+            # Note: this is deliberately being opened and closed on each line
+            # because FSEvents on macOS doesn't detect just pure writes (fsync) to the file
+            # for some reason.
+            # https://github.com/gorakhargosh/watchdog/issues/126#issuecomment-39026219
+            with open(self.path, "a") as writer:
                 writer.write(s + "\n")
 
-            try:
-                yield on_output
-            finally:
+        try:
+            yield on_output
+        finally:
+            with open(self.path, "a") as writer:
                 writer.write(DeployLog.END_MESSAGE)
 
     def tail(self):

@@ -132,8 +132,6 @@ export const LogViewer: FC<{
   useScrollToAnchor({ mode: "auto", behavior: "smooth" });
 
   useEffect(() => {
-    setLog([]);
-    setDone(false);
     if (!workflowType || !jobNumber || !runNumber) {
       return;
     }
@@ -145,6 +143,10 @@ export const LogViewer: FC<{
           workflowType: workflowType,
           jobNumber: jobNumber,
           runNumber: runNumber,
+          onopen: () => {
+            setLog([]);
+            setDone(false);
+          },
           listener: (message: EventSourceMessage) => {
             const { event, data } = message;
             if (event === DeployLogEventType.LogLine) {
