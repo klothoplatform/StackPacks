@@ -9,6 +9,7 @@ from typing import Optional
 from pulumi import automation as auto
 
 from src.deployer.models.workflow_job import WorkflowJob
+from src.deployer.pulumi.deploy_logs import DeploymentDir
 from src.util.compress import zip_directory_recurse
 from src.util.logging import logger as log
 
@@ -23,7 +24,7 @@ class AppBuilder:
         return re.sub(r"[^a-zA-Z0-9\-_.]", "_", name)
 
     def prepare_stack(self, job: WorkflowJob) -> auto.Stack:
-        self.install_npm_deps()
+        self.install_npm_deps(job)
         return self.create_pulumi_stack(job)
 
     def read_iac_from_disk(self):
@@ -79,10 +80,21 @@ class AppBuilder:
                 "aws:assumeRole.externalId", auto.ConfigValue(external_id), path=True
             )
 
-    def install_npm_deps(self):
+    def install_npm_deps(self, job: WorkflowJob):
+        deploy_dir = DeploymentDir(
+            user_id=job.project_id(), deploy_id=job.partition_key
+        )
+        deploy_log = deploy_dir.log_path(
+            AppBuilder.sanitize_stack_name(job.modified_app_id())
+        )
+        deploy_log.parent.mkdir(parents=True, exist_ok=True)
+        with open(deploy_log, "a") as writer:
+            writer.write("Installing pulumi dependencies\n")
+
         result: subprocess.CompletedProcess[bytes] = subprocess.run(
             ["npm", "install", "--prefix", self.output_dir],
             stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         result.check_returncode()
 
