@@ -111,14 +111,19 @@ class TestAppBuilder(aiounittest.AsyncTestCase):
     def test_install_npm_deps(self, mock_run):
         mock_result = MagicMock()
         mock_run.return_value = mock_result
+        mock_job = MagicMock(
+            spec=WorkflowJob,
+            modified_app_id=MagicMock(return_value="app_id"),
+        )
         # Call the method
         with TempDir() as tmp_dir:
             builder = AppBuilder(tmp_dir, None)
-            builder.install_npm_deps()
+            builder.install_npm_deps(mock_job)
 
         # Assert call
         mock_run.assert_called_once_with(
             ["npm", "install", "--prefix", builder.output_dir],
             stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         mock_result.check_returncode.assert_called_once()

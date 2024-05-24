@@ -111,6 +111,9 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
 
         with self.subTest("File exists with 2 lines"):
             file.readlines.return_value = ["line1\n", "line2\n"]
+            handler._read_lines()
+            file.readlines.assert_called_once()
+            file.readlines.return_value = []
 
             self.assertEqual("line1\n", await handler.__anext__())
             self.assertEqual("line2\n", await handler.__anext__())
@@ -120,6 +123,9 @@ class TestDeployLogs(aiounittest.AsyncTestCase):
 
             with self.assertRaises(TimeoutError):
                 await handler.__anext__()
+            handler.interrupted = (
+                False  # reset interrupted status which was flagged on the TimeoutError
+            )
 
         with self.subTest("Message queue appended after open"):
             handler.messages.put_nowait("line3\n")
