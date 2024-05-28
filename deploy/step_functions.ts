@@ -46,7 +46,9 @@ export function CreateStateMachineRole(
               .all([deployApp.arn, succeedRun.arn, failRun.arn])
               .apply((arns) => [
                 ...new Set(
-                  arns.map((arn) => arn.substring(0, arn.lastIndexOf(":"))),
+                  arns.map(
+                    (arn) => `${arn.substring(0, arn.lastIndexOf(":"))}:*`,
+                  ),
                 ),
               ]),
           },
