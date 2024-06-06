@@ -14,10 +14,7 @@ type typedMetaEnv = {
 const viteEnv: typedMetaEnv = import.meta.env as typedMetaEnv;
 
 export const env: Environment = {
-  environment:
-    viteEnv.VITE_ENVIRONMENT ?? import.meta.env.PROD
-      ? "production"
-      : "development",
+  environment: viteEnv.VITE_ENVIRONMENT || "production",
   debug: new Set(
     (viteEnv.VITE_DEBUG ?? "")
       .split(",")
