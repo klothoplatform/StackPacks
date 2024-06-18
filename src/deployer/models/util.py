@@ -4,6 +4,7 @@ from src.deployer.models.workflow_job import WorkflowJob, WorkflowJobStatus
 from src.deployer.models.workflow_run import WorkflowRun, WorkflowRunStatus
 from src.project.models.app_deployment import AppDeployment
 from src.project.models.project import Project
+from src.util import analytics
 from src.util.logging import logger
 
 
@@ -149,6 +150,16 @@ def complete_workflow_run(run: WorkflowRun) -> WorkflowRunStatus | None:
                 Project.destroy_in_progress.set(False),
             ],
         )
+        analytics.track(
+            event="WorkflowRunCompleted",
+            user_id=run.initiated_by,
+            properties={
+                "project_id": run.project_id,
+                "run_id": run.composite_key(),
+                "status": run.status,
+                "type": run.type,
+            },
+        )
 
 
 def start_workflow_run(run: WorkflowRun):
@@ -188,6 +199,16 @@ def start_workflow_run(run: WorkflowRun):
                     ),
                 ]
             )
+        analytics.track(
+            event="WorkflowRunStarted",
+            user_id=run.initiated_by,
+            properties={
+                "project_id": run.project_id,
+                "run_id": run.composite_key(),
+                "status": run.status,
+                "type": run.type,
+            },
+        )
     except Exception as e:
         logger.error(f"Error starting workflow run {run.composite_key()}: {e}")
         abort_workflow_run(run, cancel_in_progress_jobs=True)
