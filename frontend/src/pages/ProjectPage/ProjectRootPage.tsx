@@ -75,7 +75,9 @@ function ProjectRootPage() {
   }, [getStackPacks, getProject, isAuthenticated, isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && isAuthenticated && !project?.id) {
+    const ready = isLoaded && isAuthenticated;
+    const configured = project?.id && project?.assumed_role_arn;
+    if (ready && !configured) {
       navigate("/onboarding");
     }
   }, [isAuthenticated, isLoaded, navigate, project]);
