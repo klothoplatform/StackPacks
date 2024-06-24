@@ -78,7 +78,11 @@ function ProjectRootPage() {
     const ready = isLoaded && isAuthenticated;
     const configured = project?.id && project?.assumed_role_arn;
     if (ready && !configured) {
-      navigate("/onboarding");
+      if (!project?.assumed_role_arn) {
+        navigate("/onboarding/connect-account");
+      } else {
+        navigate("/onboarding");
+      }
     }
   }, [isAuthenticated, isLoaded, navigate, project]);
 
